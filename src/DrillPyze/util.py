@@ -202,7 +202,7 @@ def plot_estimates_multiple(fig, axes, sims, bha, M, data):
         ax4.set_title('RPM vs depth')
 
         ax5.plot(data[:,0], data[:,6], 'c--')
-        ax5.plot(data[:,0], sim.bit_estimates[:,1], 'b')
+        ax5.plot(sim.bit_estimates[:,0], sim.bit_estimates[:,1], 'b.')
         ax5.set_title('Bit Estimate vs time')
 
         ax6.plot(data[:,0], data[:,4]/np.pi*30, 'c--')

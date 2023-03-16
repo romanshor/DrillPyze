@@ -5,7 +5,7 @@ import time
 
 
 # Set up parameters
-simulation_length = 120             # seconds
+simulation_length = 600             # seconds
 bit_depth = 7000                    # ft
 casing_depth = 1000                 # ft
 bit_size = 5                        # in
@@ -43,7 +43,7 @@ plot_frequency = 10
 print(f"Iterating at {plot_frequency:0.1f} fps...")
 
 
-data = np.genfromtxt('../data/data.csv', delimiter=',')
+data = np.genfromtxt('../data/data_long.csv', delimiter=',')
 sim.initialize_estimator(len(data), intensity=250000)
 
 
@@ -64,8 +64,8 @@ for i in range (0,simulation_length*plot_frequency):
 
     sim.update_estimate(data[i,3])
 
-    # update the plots
-    util.plot_estimates(fig, axes, sim, bha1, M, data)
+# update the plots
+util.plot_estimates(fig, axes, sim, bha1, M, data)
 
 
 

@@ -5,20 +5,21 @@ import matplotlib.pyplot as plt
 from numba import jit
 
 # Set up parameters
-simulation_length = 120             # seconds
+simulation_length = 1200             # seconds
 bit_depth = 7000                    # ft
 casing_depth = 1000                 # ft
 bit_size = 5                        # in
 
 SAVE_DATA = True
+PLOT_LIVE = False
 
 # Topdrive RPM setpoint commands as an matrix in the format (time (s), RPM)
-TD_Setpoints = [[0,0], [1,30], [20,45], [30, 60]]
+TD_Setpoints = [[0,0], [1,30], [20,45], [50, 60], [360, 75]]
 setpoint_idx = 0                    # helper variable - current index in setpoint matrix
 TD_Setpoint = 0                     # helper variable - current rpm setpoint
 
 # bitconstant changes in the format (time (s), constant)
-rock_constants = [[0,2000], [15, 2500], [40, 3000], [60, 2000], [90, 3000]]
+rock_constants = [[0,0], [20, 1000], [50, 2500], [200, 3000], [250, 1000], [350, 1250], [400, 3500], [800, 2500]]
 rock_idx = 0
 rock_constant = 0
 
@@ -65,12 +66,14 @@ for i in range (0,simulation_length*plot_frequency):
     sim.step(1/plot_frequency, TD_RPM_SP=TD_Setpoint, bit_constant=rock_constant)
 
     # update the plots
-    util.plot(fig, axes, sim, bha1, M)
+    if PLOT_LIVE:
+        util.plot(fig, axes, sim, bha1, M)
 
     # save a line of data
     if SAVE_DATA:
         data[i,:] = [sim.time[sim.idx-1], TD_Setpoint, sim.omega_td[sim.idx-1], sim.tau_td[sim.idx-1], sim.omega_bit[sim.idx-1], sim.tau_bit[sim.idx-1], rock_constant]
 
+util.plot(fig, axes, sim, bha1, M)
 # write the data to data.csv
 if SAVE_DATA:
-    np.savetxt('data.csv', data, delimiter=',')
+    np.savetxt('data_long.csv', data, delimiter=',')
