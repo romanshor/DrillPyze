@@ -1,74 +1,80 @@
-from DrillPyze import well, drillstring, statics, dynamics
+from DrillPyze import well, drillstring, statics, dynamics, util
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 
 
+# Set up parameters
+simulation_length = 120             # seconds
+bit_depth = 7000                    # ft
+casing_depth = 1000                 # ft
+bit_size = 5                        # in
 
-well1 = well.wellbore({'xlsx':'../data/survey.xlsx'}, 1000, 5)
+
+# Topdrive RPM setpoint commands as an matrix in the format (time (s), RPM)
+TD_Setpoints = [[0,0], [1,30], [20,45], [30, 60]]
+setpoint_idx = 0                    # helper variable - current index in setpoint matrix
+TD_Setpoint = 0                     # helper variable - current rpm setpoint
+
+# bitconstant changes in the format (time (s), constant)
+rock_constants = [[0,2000], [15, 2500], [40, 3000], [60, 2000], [90, 3000]]
+rock_idx = 0
+rock_constant = 0
+
+# Import the wellbore and BHA
+well1 = well.wellbore({'xlsx':'../data/survey.xlsx'}, casing_depth, bit_size)
 bha1 = drillstring.BHA('BHA 1', '../data/bha.xlsx')
 
-
+# Set up the simulation
 sim = dynamics.Simulation('Test Simulation', well1, bha1)
-sim.initialize_simulation(7000, 60)
+sim.initialize_simulation(bit_depth, simulation_length, bit_constant=1750)
 
+print(f"Initializing Simulation with a simulation length of {simulation_length:0.1f} seconds.")
+
+# Do the steadystate calculations
 (Ft, Ft_pu, Ft_so, Fn, M) = statics.normal_forces(well1, bha1)
 
+# Set up the figure
+(fig, axes) = util.setup_plotting_estimates(live=True)
 
-
+# define the number of frames per second
 plot_frequency = 10
 
-data = np.genfromtxt('data.csv', delimiter=',')
-sim.initialize_estimator(len(data))
+print(f"Iterating at {plot_frequency:0.1f} fps...")
+
+
+data = np.genfromtxt('../data/data.csv', delimiter=',')
+sim.initialize_estimator(len(data), intensity=250000)
+
 
 tic = time.perf_counter()
-for i in range (0,60*plot_frequency):
-    if i > 30*plot_frequency:
-        sim.step_vectorized(1/plot_frequency, 60)
-    elif i > 1:
-        sim.step_vectorized(1/plot_frequency, 30)
-    else:
-        sim.step_vectorized(1/plot_frequency)
 
-    sim.update_estimate(data[i,2])
+# Loop the simulation
+for i in range (0,simulation_length*plot_frequency):
+    
+    # check for the next TD Setpoint change
+    if setpoint_idx < len(TD_Setpoints) and i == TD_Setpoints[setpoint_idx][0]*plot_frequency:
+        TD_Setpoint = TD_Setpoints[setpoint_idx][1]
+        setpoint_idx +=1
+
+
+    # step the simulation forward by 1/plot_frequency
+    sim.step(1/plot_frequency, TD_RPM_SP=TD_Setpoint)
+    #sim = dynamics.Simulation.speedhelper(sim,1/plot_frequency, TD_RPM_SP=TD_Setpoint)
+
+    sim.update_estimate(data[i,3])
+
+    # update the plots
+    util.plot_estimates(fig, axes, sim, bha1, M, data)
+
+
 
 toc = time.perf_counter()
 print(f"Estimation completed in {toc - tic:0.4f} seconds") 
 
 
-plt.ion()
-fig = plt.figure()
-ax1 = fig.add_subplot(3,4,(3,4))
-ax2 = fig.add_subplot(3,4,(7,8))
-ax3 = fig.add_subplot(3,4,(1,5))
-ax4 = fig.add_subplot(3,4,(2,6))
-ax5 = fig.add_subplot(3,4,(11,12))
 
-ax1.clear()
-ax1.plot(sim.time, sim.omega_bit)
-ax1.plot(sim.time, sim.omega_td, 'b')
-ax1.plot(sim.time, sim.omega_td_sp, 'k')
 
-ax2.clear()
-ax2.plot(sim.time, sim.tau_td, 'b')
-ax2.plot(sim.time, sim.tau_bit, 'r')
-ax2.plot(data[:,0],data[:,2], 'k')
 
-ax3.clear()
-ax3.plot(sim.tau_v[1:-1,2],bha1.x,'b')
-ax3.plot(M+sim.tau_v[-1,1],bha1.x, 'k')
-
-ax4.clear()
-#ax4.plot(sim.omega[:,2]/(np.pi)*60,bha1.x, 'b')
-ax4.plot(sim.omega_v[1:-1,1],bha1.x,'b')
-
-ax5.clear()
-ax5.plot(sim.bit_estimates[:,0], sim.bit_estimates[:,1])
-
-fig.canvas.draw()
-fig.show()
-plt.pause(0.01)
-
-fig.show()
 
 

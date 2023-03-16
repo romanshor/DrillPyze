@@ -6,6 +6,8 @@ from drawnow import drawnow
 from pathos.multiprocessing import ThreadingPool as Pool
 from scipy.special import expit
 
+from numba import jit
+
 
 class Simulation:
     """
@@ -115,152 +117,10 @@ class Simulation:
         self.gain = 25                                  # observer gain
         self.update_period = update_period                  # update frequency for ensemble updating
 
-    
-    def step(self, dt, TD_RPM_SP=None, WOB_SP=None):
-        """
-        Step the simulation forward by dt seconds
-        
-        Parameters
-        ==========
-        dt : int
-            Number of seconds to advance the simulation
-        TD_RPM_SP : float
-            A change in the top drive set point. Default is None, meaning no change in top drive set point
-        WOB_SP : float
-            Current WOB setpoint
-        """
-
-        # Check if maximum simulation length has been exceeded.
-        # TODO: allow simulation to extend time.
-        if self.idx >= self.maxsteps:
-            print('Simulation Complete.  Maximum simulation length reached.')
-            return
-                
-
-        # Number of steps to advance the simulation
-        nsteps = int(dt/self.dt)
 
 
 
-
-
-        for i in range(0,nsteps):
-            self.tau[:,0] = self.tau[:,1]
-            self.tau[:,1] = self.tau[:,2]
-
-            self.omega[:,0] = self.omega[:,1]
-            self.omega[:,1] = self.omega[:,2]
-
-            if TD_RPM_SP != None:
-                if self.idx > 0:
-                    last = self.omega_td_sp[self.idx-1]
-
-                else:
-                    last = 0
-
-                if abs(TD_RPM_SP/60*2*np.pi - last) > self.ramp*self.dt:
-                    if last > TD_RPM_SP/60*2*np.pi:
-                        self.omega_td_sp[self.idx] = self.omega_td_sp[self.idx-1] - self.ramp*self.dt
-                    else:
-                        self.omega_td_sp[self.idx] = self.omega_td_sp[self.idx-1] + self.ramp*self.dt
-                else:
-                    self.omega_td_sp[self.idx] = TD_RPM_SP/60*2*np.pi
-
-            else:
-                if self.idx > 0:
-                    self.omega_td_sp[self.idx] = self.omega_td_sp[self.idx-1]
-                else:
-                    self.omega_td_sp[self.idx] = 0
-
-            for j in range(-1,len(self.bha.x)+1):
-
-                # Top Drive
-                if j == -1:
-                    if self.idx > 0:
-                        omega_td = self.omega_td[self.idx-1]
-                        tau_td = self.tau_td[self.idx-1]
-                    else:
-                        omega_td = 0
-                        tau_td = 0
-                    self.td_speed_error = self.omega_td_sp[self.idx] - omega_td
-                    self.td_integrated_speed_error += self.td_speed_error*self.dt
-
-                    self.tau_td[self.idx] = tau_td + (self.kp * self.td_speed_error + self.ki * self.td_integrated_speed_error) * self.dt
-                    self.omega_td[self.idx] = omega_td + (self.tau_td[self.idx] - self.tau[0,1])/self.bha.J[0]*self.dt
-
-                # first stand of drillpipe.  No friction
-                elif j == 0:
-
-                    self.tau[j,2] = self.tau[j,1] - self.bha.J[j]*self.G*self.dt/self.bha.l[j]*(0.5*(self.omega[j+1,1] - self.omega[j,1]) + 0.5*(self.omega[j,1] - self.omega_td[self.idx]))
-                    self.omega[j,2] = self.omega[j,1] - 2*self.dt/(self.bha.J[j]*self.rho)*((0.5*(self.tau[j+1,1] - self.tau[j,1]) + 0.5*(self.tau[j,1] - self.tau_td[self.idx]))/(2*self.bha.l[j]))
-
-
-                # Bit
-                elif j == len(self.bha.x):
-                    self.tau_bit[self.idx] =  2500 * self.omega[-1,2]
-                    self.omega_bit[self.idx] = self.omega[-1,2]
-
-                
-                # Drillstring
-                else:
-
-                    # compute the source term
-
-                    # friction component
-                    friction = self.Fn[j]*self.bha.OD[j]/12/2
-
-                    # inertial damping component
-                    inertia = self.kt * self.rho*self.bha.J[j]*(self.omega[j,1]-self.omega[j,0])/self.dt
-
-                    # viscous damping component
-                    viscous = self.ks * self.omega[j,1]
-
-                    # source term
-
-                    
-
-                    # account for the last component of the BHA
-                    if(j >= len(self.bha.x)-1):
-                        if self.idx > 0:
-                            tau_below = self.tau_bit[self.idx-1]
-                            omega_below = self.omega_bit[self.idx-1]
-                        else:
-                            tau_below = 0
-                            omega_below = 0
-                    else:
-
-                        tau_below = self.tau[j+1,1]
-                        omega_below = self.omega[j+1,1]
-
-                    self.tau[j,2] = self.tau[j,1] - self.bha.J[j]*self.G*self.dt/self.bha.l[j]*(0.5*(omega_below - self.omega[j,1]) + 0.5*(self.omega[j,1] - self.omega[j-1,1]))
-                    if abs(self.omega[j,1]) > self.omega_c:
-                        source = (friction * self.mu_k + inertia + viscous) / self.dx
-                        if self.omega[j,1] <= 0:
-                            source = -1 * source
-                        self.source[j] = source
-                        self.omega[j,2] = self.omega[j,1] - 2*self.dt/(self.bha.J[j]*self.rho)*((0.5*(tau_below - self.tau[j,1]) + 0.5*(self.tau[j,1] - self.tau[j-1,1]))/(2*self.bha.l[j]) + source)
-
-                    elif abs(self.tau[j,2]) > friction * self.mu_s:
-                        source = (friction * self.mu_k + inertia + viscous) / self.dx
-                        if self.omega[j,1] <= 0:
-                            source = -1 * source
-                        self.source[j] = source
-                        self.omega[j,2] = self.omega[j,1] - 2*self.dt/(self.bha.J[j]*self.rho)*((0.5*(tau_below - self.tau[j,1]) + 0.5*(self.tau[j,1] - self.tau[j-1,1]))/(2*self.bha.l[j]) + source)
-
-                    else:
-                        self.source[j] = 0
-                        self.omega[j,2] = 0
-
-            
-
-            self.idx += 1
-            if self.idx >= self.maxsteps:
-                print('Simulation Complete.  Maximum simulation length reached.')
-                return
-
-
-
-    def step_vectorized(self, dt=0.1, TD_RPM_SP=None, WOB_SP=None):
+    def step(self, dt=0.1, TD_RPM_SP=None, WOB_SP=None, bit_constant=None):
         """
         Step the simulation forward by dt seconds.  Computations are vectorized in x
         
@@ -320,6 +180,9 @@ class Simulation:
                 else:
                     self.omega_td_sp[self.idx] = 0
 
+            # update the bit constant if provided
+            if bit_constant != None:
+                self.bit_constant = bit_constant
 
             #
             # TOP DRIVE
@@ -410,6 +273,162 @@ class Simulation:
         self.tau_v[:,2] = np.convolve(self.tau_v[:,2], kernel, mode='same')
 
 
+    #@jit(nopython=True)
+    def speedhelper(sim, dt=0.1, TD_RPM_SP=None, WOB_SP=None, bit_constant=None):
+        """
+        Step the simulation forward by dt seconds.  Computations are vectorized in x
+        
+        Parameters
+        ==========
+        dt : int
+            Number of seconds to advance the simulation
+        TD_RPM_SP : float
+            A change in the top drive set point. Default is None, meaning no change in top drive set point
+        WOB_SP : float
+            Current WOB setpoint
+        """
+
+
+        # Check if maximum simulation length has been exceeded.
+        # TODO: allow simulation to extend time.
+        if sim.idx >= sim.maxsteps:
+            print('Simulation Complete.  Maximum simulation length reached.')
+            return 
+
+        # Number of steps to advance the simulation
+        nsteps = int(dt/sim.dt)
+
+        # To remove high frequency noise from the simulation (to allow for a longer dt and larger dx), 
+        # omega nd tau are convolved with the kernel below to remove 40% of energy
+        kernel = np.array([0.2, 0.6, 0.2])
+
+        # Loop through time
+        for i in range(0,nsteps):
+
+            # advance tau and omega
+            sim.tau_v[:,:2] = sim.tau_v[:,1:]
+            sim.omega_v[:,:2] = sim.omega_v[:,1:]
+
+            # Compute the new setpoint rpm
+            if TD_RPM_SP != None:
+
+                # if first iteration of simulation, last rpm setpoint is 0
+                if sim.idx > 0:
+                    last = sim.omega_td_sp[sim.idx-1]
+                else:
+                    last = 0
+
+                # increase or decrease the set point at the maximum 'ramp'
+                if abs(TD_RPM_SP/60*2*np.pi - last) > sim.ramp*sim.dt:
+                    if last > TD_RPM_SP/60*2*np.pi:
+                        sim.omega_td_sp[sim.idx] = sim.omega_td_sp[sim.idx-1] - sim.ramp*sim.dt
+                    else:
+                        sim.omega_td_sp[sim.idx] = sim.omega_td_sp[sim.idx-1] + sim.ramp*sim.dt
+                else:
+                    sim.omega_td_sp[sim.idx] = TD_RPM_SP/60*2*np.pi
+           
+            # keep the last set point
+            else:
+                if sim.idx > 0:
+                    sim.omega_td_sp[sim.idx] = sim.omega_td_sp[sim.idx-1]
+                else:
+                    sim.omega_td_sp[sim.idx] = 0
+
+            # update the bit constant if provided
+            if bit_constant != None:
+                sim.bit_constant = bit_constant
+
+            #
+            # TOP DRIVE
+            #
+
+            if self.idx > 0:
+                omega_td = sim.omega_td[sim.idx-1]
+                tau_td = sim.tau_td[sim.idx-1]
+            else:
+                omega_td = 0
+                tau_td = 0
+
+            # Calculate speed error and integrated speed error
+            sim.td_speed_error = sim.omega_td_sp[sim.idx] - omega_td
+            sim.td_integrated_speed_error += sim.td_speed_error*sim.dt
+
+
+            # Calculate the new omega and tau of the top drive, assuming a simple PI controller and a motor inertia
+            sim.tau_td[sim.idx] = tau_td + (sim.kp * sim.td_speed_error + sim.ki * sim.td_integrated_speed_error) * sim.dt
+            sim.omega_td[sim.idx] = omega_td + (sim.tau_td[sim.idx] - sim.tau_v[1,1])/sim.TD_INERTIA*sim.dt
+
+
+
+            # 
+            # BIT
+            #
+            sim.tau_bit[sim.idx] =  sim.bit_constant * sim.omega_v[-2,1]
+            sim.omega_bit[sim.idx] = sim.omega_v[-2,1]
+
+
+            # set up the first and last elements of the drillstring arrays for vectorized computation
+            sim.tau_v[0,1] = sim.tau_td[sim.idx] - sim.TD_INERTIA*(sim.omega_td[sim.idx] - omega_td) / sim.dt
+            sim.tau_v[-1,1] = sim.tau_bit[sim.idx]
+            sim.omega_v[0,1] = sim.omega_td[sim.idx]
+            sim.omega_v[-1,1] = sim.omega_bit[sim.idx]
+            
+
+                
+            #
+            # DRILLSTRING
+            #
+
+            # compute the source term for each drillstring element.  The source term consists of:
+            #   Inertial damping
+            #   Viscous damping
+            #   Coulomb friction
+
+            # friction component
+            friction = sim.Fn*sim.bha.OD/12/2
+
+            # inertial damping component
+            inertia = sim.kt * sim.rho*sim.bha.J*(sim.omega_v[1:-1,1]-sim.omega_v[1:-1,0])/sim.dt
+
+            # viscous damping component
+            viscous = sim.ks * sim.omega_v[1:-1,1]
+
+            # total source term
+            sim.source = (friction * sim.mu_k + inertia + viscous) / sim.dx
+            sim.source[sim.source<0] = -1*sim.source[sim.source<0]
+
+            # torque at each drillstring element
+            sim.tau_v[1:-1,2] = sim.tau_v[1:-1,1] - sim.bha.J*sim.G*sim.dt/sim.bha.l*(sim.omega_v[2:,1] - sim.omega_v[:-2,1])
+
+            # rpm at each drillstring element
+            sim.omega_v[1:-1,2] = sim.omega_v[1:-1,1] - 2*sim.dt/(sim.bha.J*sim.rho)*((sim.tau_v[2:,1] - sim.tau_v[:-2,1])/(2*sim.bha.l) + sim.source)
+
+            # rpm is zero if frictional torque is not exceeded            
+            sim.omega_v[1:-1,2] = sim.omega_v[1:-1,2] * ((np.abs(sim.tau_v[1:-1,2]) > friction*sim.mu_k) + (np.abs(sim.omega_v[1:-1,2]) > sim.omega_c)).astype(int)
+
+            sim.idx += 1
+
+            # end the simulation at max time
+            # TODO: allow extension of simulation time
+            if sim.idx >= sim.maxsteps:
+                print('Simulation Complete.  Maximum simulation length reached.')
+                return
+
+        # save variables
+        sim.tau_v[0,2] = sim.tau_td[sim.idx-1]
+        sim.tau_v[-1,2] = sim.tau_bit[sim.idx-1]
+        sim.omega_v[0,2] = sim.omega_td[sim.idx-1]
+        sim.omega_v[-1,2] = sim.omega_bit[sim.idx-1]
+
+        # Remove 40% of the energy in the system
+        sim.omega_v[:,1] = np.convolve(sim.omega_v[:,1], kernel, mode='same')
+        sim.omega_v[:,2] = np.convolve(sim.omega_v[:,2], kernel, mode='same')
+        sim.tau_v[:,1] = np.convolve(sim.tau_v[:,1], kernel, mode='same')
+        sim.tau_v[:,2] = np.convolve(sim.tau_v[:,2], kernel, mode='same')
+
+        return sim
+
+
     def initialize_estimator(self, array_size, intensity):
         """
         Initialize the estimator.  
@@ -444,11 +463,12 @@ class Simulation:
         if self.estimator_idx >= len(self.bit_estimates):
             return
         err = tau_act - self.tau_td[self.idx-1]
-        #self.bit_constant += self.gain * err * self.dt * np.random.random_sample()
+        self.bit_constant += self.gain * err * self.dt # * (np.random.random_sample())
 
-        self.bit_estimates[self.estimator_idx,:] = [self.time[self.idx-1], self.bit_constant]
-        self.bit_constant = self.bit_constant0 + self.intensity * expit((self.time[self.idx-1] - self.t0 - 6)/ 12)
+        
+        #self.bit_constant = self.bit_constant0 + self.intensity * expit((self.time[self.idx-1] - self.t0 - 6)/ 12)
         self.bit_constant = max(0, self.bit_constant)
+        self.bit_estimates[self.estimator_idx,:] = [self.time[self.idx-1], self.bit_constant]
         self.estimator_idx += 1
         self.error += np.sqrt(tau_act ** 2 - self.tau_td[self.idx-1] ** 2)
 

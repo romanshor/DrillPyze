@@ -18,7 +18,14 @@ src
 |   Run_Estimator.py - example usage to run the estimator as a single thread
 |   Run_Sim.py - example useage to run the simulator without estimation
 
+```
+
 
 ## Dependencies
 Requires:
 1) well_profile 
+
+
+## Output
+
+![Sample Output](example.png?raw=true "An example output of multiple estimation")
