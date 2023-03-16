@@ -1,5 +1,14 @@
 from setuptools import setup
 
+#
+# to use this file, run:
+# To check the setup file
+#       python setup.py check
+#
+# To create the distributable
+#       python setup.py sdist
+#
+
 setup(
     name='DrillPyze',
     version='0.0.1',
