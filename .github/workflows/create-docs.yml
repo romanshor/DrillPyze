@@ -1,11 +1,12 @@
 name: Update-Docs
 
 on:
-  push:
-    branches:    
-      - master
+  [push, workflow-dispatch]
 
-jobs:
+permissions:
+  contents: write
+  
+docs:
   build:
 
     runs-on: ubuntu-latest
