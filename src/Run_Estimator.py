@@ -5,19 +5,19 @@ import time
 
 
 # Set up parameters
-simulation_length = 600             # seconds
+simulation_length = 1200             # seconds
 bit_depth = 7000                    # ft
 casing_depth = 1000                 # ft
 bit_size = 5                        # in
 
 
 # Topdrive RPM setpoint commands as an matrix in the format (time (s), RPM)
-TD_Setpoints = [[0,0], [1,30], [20,45], [30, 60]]
+TD_Setpoints = [[0,0], [1,30], [20,45], [50, 60], [360, 75]]
 setpoint_idx = 0                    # helper variable - current index in setpoint matrix
 TD_Setpoint = 0                     # helper variable - current rpm setpoint
 
 # bitconstant changes in the format (time (s), constant)
-rock_constants = [[0,2000], [15, 2500], [40, 3000], [60, 2000], [90, 3000]]
+rock_constants = [[0,0], [20, 1000], [50, 2500], [200, 3000], [250, 1000], [350, 1250], [400, 3500], [800, 2500]]
 rock_idx = 0
 rock_constant = 0
 
