@@ -1,11 +1,10 @@
 name: Update-Docs
 
-on:
-  [push, workflow-dispatch]
+on: [push, pull_request, workflow_dispatch]
 
 permissions:
   contents: write
-  
+
 docs:
   build:
 
