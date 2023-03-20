@@ -22,7 +22,7 @@ copyright = '2023, Roman J. Shor'
 author = 'Roman J. Shor'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1 alpha'
+release = '0.1.1 alpha'
 
 
 # -- General configuration ---------------------------------------------------
