@@ -134,3 +134,6 @@ dmypy.json
 
 # Specific files
 saved_data*
+
+# Sphinx documentation
+docs/_build/
