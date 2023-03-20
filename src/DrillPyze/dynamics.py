@@ -3,7 +3,7 @@ import numpy as np
 from DrillPyze import *
 import matplotlib.pyplot as plt
 from drawnow import drawnow
-from pathos.multiprocessing import ThreadingPool as Pool
+from pathos.multiprocessing import ThreadingPool as Pool  #@TODO: get ProcessingPool to work (10x speedup possible)
 from scipy.special import expit
 
 from numba import jit
@@ -342,7 +342,7 @@ class Simulation:
             # TOP DRIVE
             #
 
-            if self.idx > 0:
+            if sim.idx > 0:
                 omega_td = sim.omega_td[sim.idx-1]
                 tau_td = sim.tau_td[sim.idx-1]
             else:
@@ -521,7 +521,7 @@ class Simulation:
         """
         Helper function for multiprocessing
         """
-        args[0].step_vectorized(args[1][0], args[1][1])
+        Simulation.speedhelper(args[0], args[1][0], args[1][1])
     
 
 
