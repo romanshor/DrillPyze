@@ -1,3 +1,7 @@
+"""
+This module contains functions for calculating static forces and torques along the drillstring.
+"""
+
 import pandas as pd
 import numpy as np
 from DrillPyze import *

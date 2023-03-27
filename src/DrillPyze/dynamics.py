@@ -1,3 +1,11 @@
+"""
+A module that contains the simulation class and associated functions to enable
+simulation of a coupled axial-torsional drillstring model with a choice of bit-rock
+interaction models.
+
+The estimation class is used to estimate the bit-rock interaction model parameters.
+"""
+
 import pandas as pd
 import numpy as np
 from DrillPyze import *

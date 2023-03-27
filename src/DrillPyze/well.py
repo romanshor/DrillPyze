@@ -1,3 +1,10 @@
+"""
+A class for a wellbore, which includes a well path, a casing setting depth and
+a hole size.
+
+The `well_profile` library is used to interpolate along a wellbore survey.
+"""
+
 import well_profile as wp
 import numpy as np
 

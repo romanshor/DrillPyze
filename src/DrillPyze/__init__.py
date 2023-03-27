@@ -1,7 +1,6 @@
 """
-DrillPyze
-
-An accelerated drillstring dynamics simulator and estimator
+An accelerated drillstring dynamics simulator and estimator for a fully coupled
+axial-torsional drillstring with bit-rock interaction.
 """
 
 import well_profile as wp

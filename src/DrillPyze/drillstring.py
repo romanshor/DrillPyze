@@ -1,3 +1,10 @@
+"""
+A class describing a bottom hole assembly (BHA) and a drillstring for a 
+typical rotary deep drilling system.
+
+The BHA description may be loaded from a file in either xls or csv format.
+"""
+
 import pandas as pd
 import numpy as np
 

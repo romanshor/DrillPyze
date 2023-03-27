@@ -1,5 +1,6 @@
 """
-Some helper functions
+A module containing functions for plotting the results of the simulation and other
+useful functions.
 """
 
 
