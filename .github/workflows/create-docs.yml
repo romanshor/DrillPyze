@@ -13,6 +13,8 @@ env:
 jobs:  
   doc-gen:  
     runs-on: ubuntu-latest  
+    permissions:
+      contents: write
     steps:  
       - name: Checkout  
         uses: actions/checkout@v3
@@ -29,7 +31,6 @@ jobs:
       - name: Commit changes  
         uses: stefanzweifel/git-auto-commit-action@v4  
         with:  
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           file_pattern: docs/build  
           commit_message "docs: generation of documentation"
       - name: Publish to GitHub Pages
