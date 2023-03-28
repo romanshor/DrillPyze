@@ -6,3 +6,4 @@ numpy
 matplotlib
 pathos
 sphinx
+sphinx-rtd-theme
