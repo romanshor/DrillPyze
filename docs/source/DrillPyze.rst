@@ -1,25 +1,8 @@
 DrillPyze package
 =================
 
-Module contents
----------------
-
-.. automodule:: DrillPyze
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
 Submodules
 ----------
-
-DrillPyze.hydraulics module
-----------------------------
-
-.. automodule:: DrillPyze.hydraulics
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 DrillPyze.drillstring module
 ----------------------------
@@ -37,10 +20,26 @@ DrillPyze.dynamics module
    :undoc-members:
    :show-inheritance:
 
+DrillPyze.hydraulics module
+---------------------------
+
+.. automodule:: DrillPyze.hydraulics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 DrillPyze.statics module
 ------------------------
 
 .. automodule:: DrillPyze.statics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.util module
+---------------------
+
+.. automodule:: DrillPyze.util
    :members:
    :undoc-members:
    :show-inheritance:
@@ -53,3 +52,10 @@ DrillPyze.well module
    :undoc-members:
    :show-inheritance:
 
+Module contents
+---------------
+
+.. automodule:: DrillPyze
+   :members:
+   :undoc-members:
+   :show-inheritance:
