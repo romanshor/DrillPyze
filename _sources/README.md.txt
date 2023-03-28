@@ -46,10 +46,16 @@ Requires:
 ### Documentation
 The source files are set up so that *sphinx* can be used to automatically create user documentation.  To create the documentation, run
 ```
-make html
+./docs_generator.sh
 ```
-in the `docs` directory.  This will create documentation in html format which can be found in `docs/_build/html/`.  Open `index.html` in your browser to view.
+in the main directory.  This will create documentation in html format which can be found in `docs/build/`.  Open `index.html` in your browser to view.
 
+This package also uses `github actions` to autogenerate updated documentation on any `push` to the main branch of this repository.
+
+The workflow was adapted from the write-up [here](https://betterprogramming.pub/quickly-generate-documentation-with-sphinx-cli-tools-99db0cb5994c) and [here](https://betterprogramming.pub/three-ways-to-publish-sphinx-documentation-c276ffb22e5b)
+
+### Github actions
+Documentation is automatically recompiled and updated on the [DrillPyze](https://romanshor.github.io/DrillPyze) page using the github action found in `.github/workflows`.
 
 ### Distributable Library
 To create a distributable library, first run
@@ -62,4 +68,4 @@ python setup.py sdist
 ```
 To create a distributable package (`DrillPyze-<VERSION>.tar.gz`) in the `dist/` directory.
 
-Further informatin on how to deploy the package to pypi can be found [here](https://betterscientificsoftware.github.io/python-for-hpc/tutorials/python-pypi-packaging/)
+Further information on how to deploy the package to pypi can be found [here](https://betterscientificsoftware.github.io/python-for-hpc/tutorials/python-pypi-packaging/)
