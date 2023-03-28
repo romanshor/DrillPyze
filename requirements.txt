@@ -4,3 +4,5 @@ well_profile
 pandas
 numpy
 matplotlib
+pathos
+numba
