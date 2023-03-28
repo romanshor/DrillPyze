@@ -1,0 +1,6 @@
+##### Required dependencies #####
+
+well_profile
+pandas
+numpy
+matplotlib
