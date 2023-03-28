@@ -24,8 +24,6 @@ jobs:
           python-version: 3.11.1 
           architecture: x64  
           cache: 'pip'  
-      - name: Install dependencies  
-        run: pip install -r requirements.txt  
       - name: Generate documentation  
         run: ./docs_generator.sh ${{ env.MODULE_PATHS }}  
       - name: Commit changes  
