@@ -1,6 +1,14 @@
 DrillPyze package
 =================
 
+Module contents
+---------------
+
+.. automodule:: DrillPyze
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   
 Submodules
 ----------
 
@@ -52,10 +60,4 @@ DrillPyze.well module
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
 
-.. automodule:: DrillPyze
-   :members:
-   :undoc-members:
-   :show-inheritance:
