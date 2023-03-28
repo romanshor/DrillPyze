@@ -11,7 +11,7 @@ from setuptools import setup
 
 setup(
     name='DrillPyze',
-    version='0.0.1',
+    version='0.0.2',
     description='An accelerated drillstring dynamics simulator and estimator',
     url='https://ucalgary.ca/labs/geothermal-energy/',
     author='Roman J. Shor',
