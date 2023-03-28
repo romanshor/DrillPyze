@@ -83,6 +83,8 @@ class Simulation:
         self.M = M
 
         # Initialize storage for simulation variables
+
+        # torsional model
         self.tau = np.zeros((len(self.bha.x),3))        # Torque along the string for t=t, t=t-dt and t=t-2dt
         self.omega = np.zeros((len(self.bha.x),3))      # RPM along the string for t=t, t=t-dt and t=t-2dt
         self.source = np.zeros((len(self.bha.x),1))     # source term along the drillstring
@@ -96,11 +98,29 @@ class Simulation:
         self.omega_bit = np.zeros(int(simulation_length/self.dt))           # Bit RPM
         self.tau_td = np.zeros(int(simulation_length/self.dt))              # Top Drive Torque
         self.tau_bit = np.zeros(int(simulation_length/self.dt))             # Bit Torque
+        
+
+        # axial model
+        self.F = np.zeros((len(self.bha.x),3))          # Force along the string for t=t, t=t-dt and t=t-2dt
+        self.v = np.zeros((len(self.bha.x),3))          # Velocity along the string for t=t, t=t-dt and t=t-2dt
+
+        self.F_v = np.zeros((len(self.bha.x)+2,3))      # Force along the string for t=t, t=t-dt and t=t-2dt.  Vectorized format
+        self.v_v = np.zeros((len(self.bha.x)+2,3))      # Velocity along the string for t=t, t=t-dt and t=t-2dt.  Vectorized format
+
+        self.HS = np.zeros(int(simulation_length/self.dt))              # Hook speed
+        self.HS_sp = np.zeros(int(simulation_length/self.dt))           # Hook speed Setpoint
+        self.ROP = np.zeros(int(simulation_length/self.dt))             # Rate of Pe
+        self.HL = np.zeros(int(simulation_length/self.dt))              # Hook load
+        self.WOB = np.zeros(int(simulation_length/self.dt))             # Weight on bit
+        
+        
+        
         self.time = np.arange(0,simulation_length,simulation_length / int(simulation_length/self.dt))
 
         # Simulation constants
         self.rho = 490.6                            # lb/ft^3
         self.G = 1.671e9                            # lbf/ft^2
+        self.E = 2.282e9                            # lbf/ft^2  
 
 
         # TD Control System Parameters
