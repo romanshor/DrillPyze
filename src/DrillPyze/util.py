@@ -105,6 +105,7 @@ def plot_estimates(fig, axes, sim, bha, M, data):
     fig : matplotlib.pyplot.figure
         Figure to plot in
     axes : tuple of axes objects
+        Axes to plot in
     sim : DrillPyze.dynamics.simulation
         Simulation object
     bha : DrillPyze.drillstring.BHA
@@ -167,6 +168,7 @@ def plot_estimates_multiple(fig, axes, sims, bha, M, data):
     fig : matplotlib.pyplot.figure
         Figure to plot in
     axes : tuple of axes objects
+        Axes to plot in
     sim : DrillPyze.dynamics.simulation
         Simulation object
     bha : DrillPyze.drillstring.BHA
