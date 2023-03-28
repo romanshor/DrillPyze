@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze &mdash; DrillPyze 0.0.2a documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">DrillPyze</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">DrillPyze</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/README.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="drillpyze">
+<h1>DrillPyze<a class="headerlink" href="#drillpyze" title="Permalink to this heading"></a></h1>
+<p>Drillstring Dynamics Library (<strong>DrillPyze</strong>)</p>
+<p>This is an object oriented library that is able to simulation coupled dynamics of a drillstring in real-time and provides basic estimation capabilities for a specified parameter.</p>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Permalink to this heading"></a></h2>
+<p>Torsional drillstring dynamics is based on the model proposed by Aarsnes and Shor:</p>
+<ul class="simple">
+<li><p>Aarsnes, U.J.F. and Shor, R.J., 2018. Torsional vibrations with bit off bottom: Modeling, characterization and field data validation. Journal of Petroleum Science and Engineering, 163, pp.712-721. <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0920410517309075">link</a></p></li>
+</ul>
+<p>Estimation is based on the technique proposed by Aarsnes et al.:</p>
+<ul class="simple">
+<li><p>Aarsnes, U.J.F., Auriol, J., Di Meglio, F. and Shor, R.J., 2019. Estimating friction factors while drilling. Journal of Petroleum Science and Engineering, 179, pp.80-91. <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S092041051930350X">link</a></p></li>
+</ul>
+</section>
+<section id="directory-structure">
+<h2>Directory Structure<a class="headerlink" href="#directory-structure" title="Permalink to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+data
+|   bha.xlsx - example bottom hole assembly
+|   survey.xlsx - example wellbore survey
+docs
+├───_build/html/index.html - documentation
+src
+├───DrillPyze - the DrillPyze library
+|   Run_Estimator_Parallel.py - example usage to run the estimator with a ThreadingPool
+|   Run_Estimator.py - example usage to run the estimator as a single thread
+|   Run_Sim.py - example useage to run the simulator without estimation
+</pre></div>
+</div>
+</section>
+<section id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this heading"></a></h2>
+<p>Requires:</p>
+<ol class="simple">
+<li><p><a class="reference external" href="https://github.com/pro-well-plan/well_profile">well_profile</a> - an open source library from Pro Well Plan for well path calculations</p></li>
+<li><p><a class="reference external" href="https://numba.pydata.org/">numba</a> - an open source JIT compiler for Python</p></li>
+</ol>
+</section>
+<section id="output">
+<h2>Output<a class="headerlink" href="#output" title="Permalink to this heading"></a></h2>
+<p><img alt="Sample Output" src="example.png?raw=true" /></p>
+</section>
+<section id="useful-commands">
+<h2>Useful commands<a class="headerlink" href="#useful-commands" title="Permalink to this heading"></a></h2>
+<section id="documentation">
+<h3>Documentation<a class="headerlink" href="#documentation" title="Permalink to this heading"></a></h3>
+<p>The source files are set up so that <em>sphinx</em> can be used to automatically create user documentation.  To create the documentation, run</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">html</span>
+</pre></div>
+</div>
+<p>in the <code class="docutils literal notranslate"><span class="pre">docs</span></code> directory.  This will create documentation in html format which can be found in <code class="docutils literal notranslate"><span class="pre">docs/_build/html/</span></code>.  Open <code class="docutils literal notranslate"><span class="pre">index.html</span></code> in your browser to view.</p>
+</section>
+<section id="distributable-library">
+<h3>Distributable Library<a class="headerlink" href="#distributable-library" title="Permalink to this heading"></a></h3>
+<p>To create a distributable library, first run</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">setup</span><span class="o">.</span><span class="n">py</span> <span class="n">check</span>
+</pre></div>
+</div>
+<p>To check if there are any issues.  Then run</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">setup</span><span class="o">.</span><span class="n">py</span> <span class="n">sdist</span>
+</pre></div>
+</div>
+<p>To create a distributable package (<code class="docutils literal notranslate"><span class="pre">DrillPyze-&lt;VERSION&gt;.tar.gz</span></code>) in the <code class="docutils literal notranslate"><span class="pre">dist/</span></code> directory.</p>
+<p>Further informatin on how to deploy the package to pypi can be found <a class="reference external" href="https://betterscientificsoftware.github.io/python-for-hpc/tutorials/python-pypi-packaging/">here</a></p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
