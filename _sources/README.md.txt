@@ -1,5 +1,4 @@
-# DrillPyze
-Drillstring Dynamics Library (**DrillPyze**)
+# DrillPyze - The Drillstring Dynamics Library
 
 This is an object oriented library that is able to simulation coupled dynamics of a drillstring in real-time and provides basic estimation capabilities for a specified parameter.
 
