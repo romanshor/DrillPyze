@@ -81,6 +81,14 @@
 <ul class="simple">
 <li><p>Aarsnes, U.J.F., Auriol, J., Di Meglio, F. and Shor, R.J., 2019. Estimating friction factors while drilling. Journal of Petroleum Science and Engineering, 179, pp.80-91. <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S092041051930350X">link</a></p></li>
 </ul>
+<p>An initial bit-rock interaction model can be found in Auriol et al.:</p>
+<ul class="simple">
+<li><p>Auriol, J., Aarsnes, U.J.F., and Shor, R.J., “Self-Tuning Torsional Drilling Model for Real-Time Applications,” 2020 American Control Conference (ACC), Denver, CO, USA, 2020, pp. 3091-3096.  <a class="reference external" href="https://ieeexplore.ieee.org/abstract/document/9147242">link</a></p></li>
+</ul>
+<p>A summary of surface control systems may be found in Aarsnes et al.:</p>
+<ul class="simple">
+<li><p>Aarsnes, U.J.F., di Meglio, F., and Shor, R.J. Benchmarking of Industrial Stick-Slip Mitigation Controllers, IFAC-PapersOnLine, Volume 51, Issue 8, 2018, Pages 233-238.  <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2405896318307122">link</a></p></li>
+</ul>
 </section>
 <section id="directory-structure">
 <h2>Directory Structure<a class="headerlink" href="#directory-structure" title="Permalink to this heading"></a></h2>
@@ -88,10 +96,14 @@
 data
 |   bha.xlsx - example bottom hole assembly
 |   survey.xlsx - example wellbore survey
+|   data.csv - 30 seconds of example data based on the included BHA and survey
+|   data_long.csv - 240 seconds of example data
 docs
-├───_build/html/index.html - documentation
+├───build/html/ - on running ./docs_generator.sh, local copy of documentation
+├───src/ - source files for sphinx to generate documentation
 src
 ├───DrillPyze - the DrillPyze library
+|   Create_Data.py - create an example dataset for use with the estimator
 |   Run_Estimator_Parallel.py - example usage to run the estimator with a ThreadingPool
 |   Run_Estimator.py - example usage to run the estimator as a single thread
 |   Run_Sim.py - example useage to run the simulator without estimation
@@ -101,7 +113,7 @@ src
 </section>
 <section id="dependencies">
 <h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this heading"></a></h2>
-<p>Requires:</p>
+<p>This package requires the following libraries:</p>
 <ol class="arabic simple">
 <li><p><a class="reference external" href="https://github.com/pro-well-plan/well_profile">well_profile</a> - an open source library from Pro Well Plan for well path calculations</p></li>
 <li><p><a class="reference external" href="https://numba.pydata.org/">numba</a> - an open source JIT compiler for Python</p></li>
@@ -109,10 +121,16 @@ src
 </section>
 <section id="output">
 <h2>Output<a class="headerlink" href="#output" title="Permalink to this heading"></a></h2>
-<p><img alt="Sample Output" src="example.png?raw=true" /></p>
+<p>Utilizng the provided plotting utilities, this package can create an animation of drillstring dynamics behavior in the following visual.<br />
+<img alt="Sample Output" src="example.png?raw=true" /></p>
+</section>
+<section id="function-documentation">
+<h2>Function Documentation<a class="headerlink" href="#function-documentation" title="Permalink to this heading"></a></h2>
+<p>The documentation of the <code class="docutils literal notranslate"><span class="pre">DrillPyze</span></code> package can be found on <a class="reference external" href="https://romanshor.github.io/DrillPyze">github pages</a>.  Example usage is available as <code class="docutils literal notranslate"><span class="pre">Run_Sim.py</span></code> and <code class="docutils literal notranslate"><span class="pre">Run_Estimator.py</span></code>.  A python notebook with example usage is coming soon.</p>
 </section>
 <section id="useful-commands">
 <h2>Useful commands<a class="headerlink" href="#useful-commands" title="Permalink to this heading"></a></h2>
+<p>The following are notes about useful commands for generating and posting documentation and for creating a distributable package.</p>
 <section id="documentation">
 <h3>Documentation<a class="headerlink" href="#documentation" title="Permalink to this heading"></a></h3>
 <p>The source files are set up so that <em>sphinx</em> can be used to automatically create user documentation.  To create the documentation, run</p>
@@ -125,7 +143,7 @@ src
 </section>
 <section id="github-actions">
 <h3>Github actions<a class="headerlink" href="#github-actions" title="Permalink to this heading"></a></h3>
-<p>Documentation is automatically recompiled and updated on the <a class="reference external" href="https://romanshor.github.io/DrillPyze">DrillPyze</a> page using the github action found in <code class="docutils literal notranslate"><span class="pre">.github/workflows</span></code>.</p>
+<p>Documentation is automatically recompiled and updated on the <a class="reference external" href="https://romanshor.github.io/DrillPyze">DrillPyze</a> page using the github action found in <code class="docutils literal notranslate"><span class="pre">.github/workflows</span></code>.  This workflow will generate the documentation, push the <code class="docutils literal notranslate"><span class="pre">docs/build</span></code> director to the <code class="docutils literal notranslate"><span class="pre">gh-pages</span></code> branch and will then publish the sphinx documentation.</p>
 </section>
 <section id="distributable-library">
 <h3>Distributable Library<a class="headerlink" href="#distributable-library" title="Permalink to this heading"></a></h3>
