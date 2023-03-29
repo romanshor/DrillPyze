@@ -10,10 +10,9 @@ Documentation for the DrillPyze Package
    :maxdepth: 2
    :caption: Contents:
 
-   modules
+   readme
 
-.. include:: README.md
-   :parser: myst_parser.sphinx_
+   modules
 
    
 Indices and tables
