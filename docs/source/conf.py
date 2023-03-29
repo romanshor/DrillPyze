@@ -22,7 +22,7 @@ copyright = '2023, Roman J. Shor'
 author = 'Roman J. Shor'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.2 a'
+release = '0.0.2a'
 
 import os
 import sys
