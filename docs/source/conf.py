@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.abspath('../../src/'))
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
-    "recommonmark",
+    "myst_parser",
     "sphinx.ext.githubpages",
 ]
 

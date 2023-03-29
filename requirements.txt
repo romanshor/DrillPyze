@@ -8,3 +8,4 @@ pathos
 sphinx>=1.8.3
 sphinx-rtd-theme
 recommonmark>=0.5.0
+myst_parser
