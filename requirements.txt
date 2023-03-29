@@ -1,0 +1,10 @@
+##### Required dependencies #####
+
+well_profile
+pandas
+numpy
+matplotlib
+pathos
+sphinx>=1.8.3
+sphinx-rtd-theme
+recommonmark>=0.5.0
