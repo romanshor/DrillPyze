@@ -1,4 +1,4 @@
-DrillPyze
+Function documentation
 =========
 
 .. toctree::

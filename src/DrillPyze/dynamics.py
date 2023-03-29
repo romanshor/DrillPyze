@@ -108,10 +108,10 @@ class Simulation:
         self.v_v = np.zeros((len(self.bha.x)+2,3))      # Velocity along the string for t=t, t=t-dt and t=t-2dt.  Vectorized format
 
         self.HS = np.zeros(int(simulation_length/self.dt))              # Hook speed
-        self.HS_sp = np.zeros(int(simulation_length/self.dt))           # Hook speed Setpoint
         self.ROP = np.zeros(int(simulation_length/self.dt))             # Rate of Pe
         self.HL = np.zeros(int(simulation_length/self.dt))              # Hook load
         self.WOB = np.zeros(int(simulation_length/self.dt))             # Weight on bit
+        self.WOB_sp = np.zeros(int(simulation_length/self.dt))          # WOB Setpoint
         
         
         
@@ -182,6 +182,14 @@ class Simulation:
             self.tau_v[:,:2] = self.tau_v[:,1:]
             self.omega_v[:,:2] = self.omega_v[:,1:]
 
+            # advance F and v
+            self.F_v[:,:2] = self.F_v[:,1:]
+            self.v_v[:,:2] = self.v_v[:,1:]
+
+            #
+            # COMPUTE RPM AND WOB SETPOINTS
+            #
+
             # Compute the new setpoint rpm
             if TD_RPM_SP != None:
 
@@ -199,13 +207,37 @@ class Simulation:
                         self.omega_td_sp[self.idx] = self.omega_td_sp[self.idx-1] + self.ramp*self.dt
                 else:
                     self.omega_td_sp[self.idx] = TD_RPM_SP/60*2*np.pi
-           
+
             # keep the last set point
             else:
                 if self.idx > 0:
                     self.omega_td_sp[self.idx] = self.omega_td_sp[self.idx-1]
                 else:
                     self.omega_td_sp[self.idx] = 0
+
+            # Compute the new setpoint WOB
+            if WOB_SP != None:
+                
+                # if first iteration of simulation, the WOB setpoint is 0
+                if self.idx > 0:
+                    last = self.WOB_sp[self.idx-1]
+                else:
+                    last = 0
+                
+                # increase or decrease the set point at the maximum 'ramp'
+                if abs(WOB_SP - last) > self.ramp*self.dt:
+                    if last > WOB_SP:
+                        self.WOB_sp[self.idx] = self.WOB_sp[self.idx-1] - self.ramp*self.dt
+                    else:
+                        self.WOB_sp[self.idx] = self.WOB_sp[self.idx-1] + self.ramp*self.dt
+                else:
+                    self.WOB_sp[self.idx] = WOB_SP
+            else:
+                if self.idx > 0:
+                    self.WOB_sp[self.idx] = self.WOB_sp[self.idx-1]
+                else:
+                    self.WOB_sp[self.idx] = 0
+
 
             # update the bit constant if provided
             if bit_constant != None:
@@ -231,6 +263,19 @@ class Simulation:
             self.tau_td[self.idx] = tau_td + (self.kp * self.td_speed_error + self.ki * self.td_integrated_speed_error) * self.dt
             self.omega_td[self.idx] = omega_td + (self.tau_td[self.idx] - self.tau_v[1,1])/self.TD_INERTIA*self.dt
 
+
+            #
+            # DRAWWORKS
+            #
+
+            if self.idx > 0:
+                v_td = self.HS[self.idx-1]
+                F_td = self.HL[self.idx-1]
+            else:
+                v_td = 0
+                F_td = 0
+            
+            # Calculate the hookspeed error based on WOB setpoint
 
 
             # 
