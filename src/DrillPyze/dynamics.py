@@ -124,10 +124,13 @@ class Simulation:
 
 
         # TD Control System Parameters
-        self.kp = 6500                             # p-gain, top drive PI controller
+        self.kp = 6500                              # p-gain, top drive PI controller
         self.ki = 2500                              # i-gain, top drive PI controller
         self.TD_INERTIA = 750                       # Top drive inertia
         self.ramp = 60/60*2*np.pi                   # maximum set point ramp speed (rpm / second)
+
+        # Drawworks Control System Parameters
+        self.HS_GAIN = 0.001                        # Hook speed gain (lbf -> ft/s)
 
         # Initialize controller variables
         self.td_speed_error = 0
@@ -276,12 +279,23 @@ class Simulation:
                 F_td = 0
             
             # Calculate the hookspeed error based on WOB setpoint
+            # Step 1: Calculate the WOB error
+            #    Assumption: WOB is known at the end of the previous time step
+            self.wob_error = self.WOB_sp[self.idx] - self.WOB[self.idx-1]
+
+            self.HS[self.idx] = v_td + self.wob_error*self.dt*self.HS_GAIN
+            self.HL[self.idx] = F_td  # Assuming no interial effects or friction in the drawworks
 
 
+        
             # 
             # BIT
             #
-            self.tau_bit[self.idx] =  self.bit_constant * self.omega_v[-2,1]
+            # self.tau_bit[self.idx] =  self.bit_constant * self.omega_v[-2,1]
+
+            # MSE Based Bit Model
+            self.tau_bit[self.idx] = (self.bit_constant - self.WOB[self.idx-1]/self.wellbore.hole_size) * \
+                ((self.wellbore.hole_size * self.ROP[self.idx-1]) / (120 * np.pi * self.omega_bit[self.idx-1] / np.pi / 30))
             self.omega_bit[self.idx] = self.omega_v[-2,1]
 
 
@@ -292,6 +306,10 @@ class Simulation:
             self.omega_v[-1,1] = self.omega_bit[self.idx]
             
 
+            self.F_v[0,1] = self.HL[self.idx]
+            self.F_v[-1,1] = self.WOB[self.idx]
+            self.v_v[0,1] = self.HS[self.idx]
+            self.v_v[-1,1] = self.ROP[self.idx]
                 
             #
             # DRILLSTRING
