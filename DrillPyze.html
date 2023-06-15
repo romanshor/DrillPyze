@@ -68,6 +68,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#DrillPyze.util.plot"><code class="docutils literal notranslate"><span class="pre">plot()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#DrillPyze.util.plot_estimates"><code class="docutils literal notranslate"><span class="pre">plot_estimates()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#DrillPyze.util.plot_estimates_multiple"><code class="docutils literal notranslate"><span class="pre">plot_estimates_multiple()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#DrillPyze.util.plot_map"><code class="docutils literal notranslate"><span class="pre">plot_map()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#DrillPyze.util.setup_plotting"><code class="docutils literal notranslate"><span class="pre">setup_plotting()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#DrillPyze.util.setup_plotting_estimates"><code class="docutils literal notranslate"><span class="pre">setup_plotting_estimates()</span></code></a></li>
 </ul>
@@ -237,7 +238,7 @@ If Di is None, then the function will calculate the Reynolds number for a pipe.<
 <p>This module contains functions for calculating static forces and torques along the drillstring.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="DrillPyze.statics.normal_forces">
-<span class="sig-prename descclassname"><span class="pre">DrillPyze.statics.</span></span><span class="sig-name descname"><span class="pre">normal_forces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">well</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">WOB</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TOB</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#DrillPyze.statics.normal_forces" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">DrillPyze.statics.</span></span><span class="sig-name descname"><span class="pre">normal_forces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">well</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">WOB</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TOB</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#DrillPyze.statics.normal_forces" title="Permalink to this definition"></a></dt>
 <dd><p>Calculate the normal forces along the drillstring.</p>
 <p>Reference:
 Johancsik, Friesen and Dawson. Torque and Drag in Directional Wells – Prediction and Measurement.  Journal of Petroleum Technology.  1984</p>
@@ -248,9 +249,11 @@ Johancsik, Friesen and Dawson. Torque and Drag in Directional Wells – Predicti
 </dd>
 <dt>bha<span class="classifier">DrillPyze.drillstring.BHA</span></dt><dd><p>A BHA object initialized with a drillstring configuration.  The BHA must already be discretized.</p>
 </dd>
-<dt>WOB<span class="classifier">float</span></dt><dd><p>axial force at the bit (weight on bit).  Default value is 0</p>
+<dt>WOB<span class="classifier">float</span></dt><dd><p>axial force at the bit (weight on bit).  Default value = 0</p>
 </dd>
 <dt>TOB<span class="classifier">float</span></dt><dd><p>torque at the bit.  Default value = 0</p>
+</dd>
+<dt>mu<span class="classifier">float</span></dt><dd><p>friction coefficient.  Default value = 0.3</p>
 </dd>
 </dl>
 </section>
@@ -326,6 +329,11 @@ sim : DrillPyze.dynamics.simulation</p>
 </dl>
 </section>
 </dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="DrillPyze.util.plot_map">
+<span class="sig-prename descclassname"><span class="pre">DrillPyze.util.</span></span><span class="sig-name descname"><span class="pre">plot_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depths</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rpm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">torque</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#DrillPyze.util.plot_map" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="DrillPyze.util.setup_plotting">
