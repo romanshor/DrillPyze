@@ -92,3 +92,4 @@ class BHA:
         self.l = l
         self.w = l * 2.67 * (np.power(self.OD, 2) - np.power(self.ID, 2))
         self.x = x
+        self.n_elem = elem

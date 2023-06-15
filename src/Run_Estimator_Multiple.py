@@ -5,7 +5,7 @@ import time
 
 
 # Set up parameters
-simulation_length = 600             # seconds
+simulation_length = 60             # seconds
 bit_depth = 7000                    # ft
 casing_depth = 1000                 # ft
 bit_size = 5                        # in
@@ -26,7 +26,7 @@ sim2.initialize_simulation(bit_depth, simulation_length, bit_constant=2000)
 sim3 = dynamics.Simulation('Test Simulation', well1, bha1)
 sim3.initialize_simulation(bit_depth, simulation_length, bit_constant=3000)
 
-sims = (sim1, sim2)
+sims = (sim1, sim2, sim3)
 print(f"Initializing Simulation with a simulation length of {simulation_length:0.1f} seconds.")
 
 # Do the steadystate calculations

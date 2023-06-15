@@ -7,7 +7,7 @@ import numpy as np
 from DrillPyze import *
 
 
-def normal_forces(well, bha, WOB=0, TOB=0):
+def normal_forces(well, bha, WOB=0, TOB=0, mu=0.3):
     """
     Calculate the normal forces along the drillstring.
 
@@ -22,13 +22,14 @@ def normal_forces(well, bha, WOB=0, TOB=0):
     bha : DrillPyze.drillstring.BHA
         A BHA object initialized with a drillstring configuration.  The BHA must already be discretized.
     WOB : float
-        axial force at the bit (weight on bit).  Default value is 0
+        axial force at the bit (weight on bit).  Default value = 0
     TOB : float
         torque at the bit.  Default value = 0
+    mu : float
+        friction coefficient.  Default value = 0.3
     """
 
     n_elem = len(bha.x)
-    mu = 0.3
 
     Ft = np.zeros(n_elem)       # Tension
     Ft_pu = np.zeros(n_elem)    # Tension, pulling up

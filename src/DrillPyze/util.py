@@ -20,10 +20,10 @@ def setup_plotting(live=False):
     """
     plt.ion()
     fig = plt.figure()
-    ax1 = fig.add_subplot(3,4,(3,4))
-    ax2 = fig.add_subplot(3,4,(7,8))
-    ax3 = fig.add_subplot(3,4,(1,5))
-    ax4 = fig.add_subplot(3,4,(2,6))
+    ax1 = fig.add_subplot(2,4,(3,4))
+    ax2 = fig.add_subplot(2,4,(7,8))
+    ax3 = fig.add_subplot(2,4,(1,5))
+    ax4 = fig.add_subplot(2,4,(2,6))
 
 
     return fig, (ax1, ax2, ax3, ax4)
@@ -73,23 +73,27 @@ def plot(fig, axes, sim, bha, M):
     ax1.plot(sim.time, sim.omega_td/np.pi*30, 'b')
     ax1.plot(sim.time, sim.omega_td_sp/np.pi*30, 'k')
     ax1.set_ylim(-30,120)
+    ax1.set_xlabel('RPM')
 
     ax2.clear()
     ax2.plot(sim.time, sim.tau_td, 'b')
     ax2.plot(sim.time, sim.tau_bit, 'r')
+    ax2.set_xlabel('Torque')
 
     ax3.clear()
     ax3.plot(sim.tau_v[1:-1,2],bha.x,'b')
     ax3.plot(M+sim.tau_v[-1,1],bha.x, 'k')
+    ax3.set_ylabel('Torque')
 
     ax4.clear()
     #ax4.plot(sim.omega[:,2]/(np.pi)*60,bha1.x, 'b')
     ax4.plot(sim.omega_v[1:-1,1]/np.pi*30,bha.x,'b')
     ax4.set_xlim(-30,120)
+    ax4.set_ylabel('RPM')
 
     fig.canvas.draw()
     fig.show()
-    plt.pause(0.01)
+    plt.pause(0.0001)
 
     fig.show()
 
@@ -220,4 +224,31 @@ def plot_estimates_multiple(fig, axes, sims, bha, M, data):
     fig.show()
 
 
+def plot_map(time, depths, rpm, torque):
+
+    rpm = (rpm + rpm.min()) / (rpm.max() - rpm.min())
+    torque = (torque + torque.min()) / (torque.max() - torque.min())
+
+    X, Y = np.meshgrid(time, depths)
+
+    plt.ion()
+    fig = plt.figure()
+
+    ax1 = fig.add_subplot(211)
+    cp = ax1.contourf(X,Y, np.transpose(rpm))
+    #ax1.imshow(np.transpose(rpm), extent=[time[0], time[-1], depths[0], depths[-1]], aspect='auto')
+    ax1.set_xlabel('Time (s)')
+    ax1.set_ylabel('Depth (m)')
+    ax1.invert_yaxis()
+    fig.colorbar(cp)
+
+    ax2 = fig.add_subplot(212)
+    cp = ax2.contourf(X,Y,np.transpose(torque))
+    #ax2.imshow(torque, extent=[time[0], time[-1], depths[0], depths[-1]], aspect='auto')
+    ax2.set_xlabel('Time (s)')
+    ax2.set_ylabel('Depth (m)')
+    ax2.invert_yaxis()
+    fig.colorbar(cp)
+
+    fig.show()
             

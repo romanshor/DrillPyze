@@ -291,12 +291,13 @@ class Simulation:
             # 
             # BIT
             #
-            # self.tau_bit[self.idx] =  self.bit_constant * self.omega_v[-2,1]
+            self.tau_bit[self.idx] =  self.bit_constant * self.omega_v[-2,1]
+            self.omega_bit[self.idx] = self.omega_v[-2,1]
 
             # MSE Based Bit Model
-            self.tau_bit[self.idx] = (self.bit_constant - self.WOB[self.idx-1]/self.wellbore.hole_size) * \
-                ((self.wellbore.hole_size * self.ROP[self.idx-1]) / (120 * np.pi * self.omega_bit[self.idx-1] / np.pi / 30))
-            self.omega_bit[self.idx] = self.omega_v[-2,1]
+            # self.tau_bit[self.idx] = (self.bit_constant - self.WOB[self.idx-1]/self.wellbore.hole_size) * \
+            #     ((self.wellbore.hole_size * self.ROP[self.idx-1]) / (120 * np.pi * self.omega_bit[self.idx-1] / np.pi / 30))
+            # self.omega_bit[self.idx] = self.omega_v[-2,1]
 
 
             # set up the first and last elements of the drillstring arrays for vectorized computation
