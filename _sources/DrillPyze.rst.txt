@@ -28,6 +28,16 @@ DrillPyze.dynamics module
    :undoc-members:
    :show-inheritance:
 
+.. autoclass:: DrillPyze.dynamics.Simulation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: DrillPyze.dynamics.Estimator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 DrillPyze.hydraulics module
 ---------------------------
 
