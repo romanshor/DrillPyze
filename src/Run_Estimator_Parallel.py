@@ -1,3 +1,9 @@
+## An older main file for running the estimator in parallel.
+#  Missing the ability to change the bit-rock constant and topdrive setpoints via an
+#  easy to use array.
+
+#  Pathos does not significantly improve performance.
+
 if __name__ == '__main__':
 
     from DrillPyze import well, drillstring, statics, dynamics
