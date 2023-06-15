@@ -10,10 +10,7 @@ import pandas as pd
 import numpy as np
 from DrillPyze import *
 import matplotlib.pyplot as plt
-from drawnow import drawnow
 from pathos.multiprocessing import ThreadingPool as Pool  #@TODO: get ProcessingPool to work (10x speedup possible)
-from scipy.special import expit
-from numba import jit
 
 
 class Simulation:
