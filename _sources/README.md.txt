@@ -50,6 +50,68 @@ Utilizng the provided plotting utilities, this package can create an animation o
 ## Function Documentation
 The documentation of the `DrillPyze` package can be found on [github pages](https://romanshor.github.io/DrillPyze).  Example usage is available as `Run_Sim.py` and `Run_Estimator.py`.  A python notebook with example usage is coming soon.
 
+## Using the library
+The library has the following components:
+1) Steady-state / Static Torque and Drag
+2) Steady-state Hydraulics
+3) Rotational Dynamics
+
+### Using the Torque and Drag Module
+First, the BHA and wellpath need to initialized.  An example BHA and wellbore survey are available in the data directory.
+```python
+well1 = well.wellbore({'xlsx':'../data/survey.xlsx'}, casing_depth, bit_size)
+bha1 = drillstring.BHA('BHA 1', '../data/bha.xlsx')
+```
+Next, the BHA must be discretized within the wellpath and then the wellpath must be interpolated so that each drillstring component has an inclinationa and azimuth.  The bit depth should be less than the maximum depth of the wellpath.
+
+```python
+bha1.discretize(10, bit_depth)
+well1.get_interpolated(bha1.x)
+```
+Finally, static torque and drag calcualtion can be carried out.
+```python
+(Ft, Ft_pu, Ft_so, Fn, M) = statics.normal_forces(well1, bha1, mu=mu_f)
+```
+
+Torque and Drag calculations are based on:
+- Johancsik, C.A., Friesen, D.B., and Rapier Dawson. "Torque and Drag in Directional Wells-Prediction and Measurement." J Pet Technol 36 (1984): 987–992
+- Sheppard, M. C., Wick, C., and T. Burgess. "Designing Well Paths to Reduce Drag and Torque." SPE Drill Eng 2 (1987): 344–350.
+
+
+### Using the Hydraulics Module
+Steady state hydraulic calcuations for *Newtonian Fluids* may be performed using the hydraulics module.  Frictional pressure drop may be calculated via:
+```python
+hydraulics.frictional_pressure_drop(rho, Q, mu, L, Do, Di)
+```
+Utilities are also included to compute flow velocity and Reynolds Number.
+
+Other fluid rheologies may be implemented in a future release.
+
+### Using the Rotational D?ynamics Module
+The rotational dynamics module allows for transient simulation of drillstring rotation.  Similar to the torque & drag module, first, the BHA and wellpath need to be imported:
+```python
+well1 = well.wellbore({'xlsx':'../data/survey.xlsx'}, casing_depth, bit_size)
+bha1 = drillstring.BHA('BHA 1', '../data/bha.xlsx')
+```
+
+Next, the simulation needs to be set up and initialized.
+```python
+sim = dynamics.Simulation('Test Simulation', well1, bha1)
+sim.initialize_simulation(bit_depth, simulation_length)
+```
+
+If plotting is required, set up the figure
+```python
+(fig, axes) = util.setup_plotting(live=PLOT_LIVE)
+```
+
+Next, a loop should be set up to step the simulaton forward.  The simulation may be stepped forward by an arbitrary deltaT (milliseconds to seconds).  During the step, no inputs or setpoints may be changed, however, the simulation does include a top drive control system (operating in stiff configuration by default; Soft Torque and Ztorque will be added in the future).  Inside the lop, the step function should be called, and if plotting is desired, a call to the plot funciton.
+```python
+sim.step(1/plot_frequency, TD_RPM_SP=TD_Setpoint, bit_constant=rock_constant)
+util.plot(fig, axes, sim, bha1, M)
+```
+
+
 ## Useful commands
 The following are notes about useful commands for generating and posting documentation and for creating a distributable package.
 
