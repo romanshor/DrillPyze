@@ -85,5 +85,6 @@ util.plot(fig, axes, sim, bha1, M)
 if SAVE_DATA:
     np.savetxt('data_long.csv', data, delimiter=',')
 
+# print the simulation time
 toc = time.perf_counter()
 print(f"Simulation completed in {toc - tic:0.4f} seconds") 
