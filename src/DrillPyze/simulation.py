@@ -99,7 +99,6 @@ class Simulation:
         self._qs_c = None
         self.refresh_distance = refresh_distance
         self._refresh_geometry()
-        self.fn0 = self._normal_force_now()
         self.sc[K.S_HKLD] = -self._qs_top
 
         # parameters
@@ -142,17 +141,17 @@ class Simulation:
         pf[K.P_TEN] = c.t_en
         pf[K.P_TAUMAX] = td.max_torque
         pf[K.P_RAMP] = td.setpoint_ramp
-        pf[K.P_RBIT] = b.radius if b.radius is not None else self.wellbore.hole_diameter / 2
+        pf[K.P_RBIT] = b.radius if b.radius is not None else self.wellbore.hole_diameter / 3
         pf[K.P_MUBS] = b.mu_static
         pf[K.P_MUBK] = b.mu_kinetic
-        pf[K.P_WB] = b.omega_b
+        pf[K.P_TSTICK] = b.stick_torque
         pf[K.P_KROP] = b.k_rop
         pf[K.P_W0] = b.wob_threshold
         pf[K.P_QS_TOP] = self._qs_top
         pf[K.P_AD_KP] = p.autodriller.kp
         pf[K.P_AD_KI] = p.autodriller.ki
         pf[K.P_AD_VMAX] = p.autodriller.v_max
-        self.pi[K.I_FN] = 0 if f.dynamic_normal_force else 1
+        self.pi[K.I_COUPLE] = 1 if f.along_string_coupling else 0
 
     def update_parameters(self, params=None, **_):
         """
@@ -198,6 +197,9 @@ class Simulation:
             self.qd += self._qs_c - qs_c_new      # keep total q continuous
         self._qs_c = qs_c_new
         self._qs_top = qs_edge[0]
+        # normal force of the static hanging string (used by the decoupled model)
+        Ts = -self._qs_c
+        self.fn0 = np.linalg.norm(Ts[:, None] * kappa + self.w_b[:, None] * zperp, axis=1)
         if hasattr(self, 'pf'):
             self.pf[K.P_QS_TOP] = self._qs_top
         self._geom_bitd = bitd
@@ -299,7 +301,8 @@ class Simulation:
         """Current along-string state as a DataFrame (one row per cell)."""
         return pd.DataFrame(dict(
             md=self.cell_md, omega=self.w.copy(), torque=self.tau.copy(), v=self.v.copy(),
-            tension=-(self._qs_c + self.qd), normal_force=self._normal_force_now(),
+            tension=-(self._qs_c + self.qd),
+            normal_force=self._normal_force_now() if self.params.friction.along_string_coupling else self.fn0,
             od=self.grid.od, inc=np.arccos(np.clip(self.t_z, -1, 1))))
 
     def clear_results(self):

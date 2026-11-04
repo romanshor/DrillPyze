@@ -110,14 +110,18 @@ def test_pickup_and_slackoff_match_torque_and_drag(direction):
     sim.step(25.0, v_block=direction * 0.1)
     df = sim.results()
     hk = df.hookload[df.time > 20].mean()
-    td = statics.torque_drag(sim.wellbore, sim.grid, 1200.0, mu_c, mu_o, v=direction)
+    # decoupled model: normal force of the static hanging string
+    td = statics.torque_drag(sim.wellbore, sim.grid, 1200.0, mu_c, mu_o, v=direction,
+                             normal_force=sim.fn0)
     assert hk == pytest.approx(td.hookload, rel=0.02)
 
 
-def test_rotation_while_picking_up_matches_velocity_split():
+def test_along_string_coupling_option_matches_velocity_split():
+    """Opt-in 2-D friction: rotation reduces drag as in velocity-split T&D."""
     mu = 0.25
     v, rpm = -0.05, 100.0
-    sim = Simulation(well_a(), standard_string(), Fluid(1200.0), friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0))
+    sim = Simulation(well_a(), standard_string(), Fluid(1200.0),
+                     friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0, along_string_coupling=True))
     sim.initialize(2500.0, hole_depth=2600.0, dx=5.0, refresh_distance=1e9)
     for k in range(40):
         sim.step(0.25, omega_td=rpm * units.RPM * (k + 1) / 40)
@@ -127,6 +131,21 @@ def test_rotation_while_picking_up_matches_velocity_split():
     td = statics.torque_drag(sim.wellbore, sim.grid, 1200.0, mu, v=v, omega=rpm * units.RPM)
     assert df.hookload[late].mean() == pytest.approx(td.hookload, rel=0.02)
     assert df.pipe_torque[late].mean() == pytest.approx(td.surface_torque, rel=0.03)
+
+
+def test_default_model_is_decoupled_along_string():
+    """Without along-string coupling, rotating does not change pick-up drag."""
+    mu = 0.25
+    hk = {}
+    for rpm in (0.0, 100.0):
+        sim = Simulation(well_a(), standard_string(), Fluid(1200.0), friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0))
+        sim.initialize(2500.0, hole_depth=2600.0, dx=5.0, refresh_distance=1e9)
+        for k in range(40):
+            sim.step(0.25, omega_td=rpm * units.RPM * (k + 1) / 40)
+        sim.step(30.0, v_block=-0.05)
+        df = sim.results()
+        hk[rpm] = df.hookload[df.time > df.time.max() - 8].mean()
+    assert hk[100.0] == pytest.approx(hk[0.0], rel=0.002)
 
 
 # ------------------------------------------------------------- stick-slip
@@ -154,7 +173,7 @@ def test_off_bottom_stick_slip_needs_static_kinetic_difference():
 def test_on_bottom_drilling_steady_state():
     p = frictionless()
     p.damping = DampingParameters(0.5, 0.5)
-    p.bit = BitParameters(radius=0.1, mu_static=0.4, mu_kinetic=0.4, omega_b=0.0, k_rop=1e-7)
+    p.bit = BitParameters(radius=0.1, mu_static=0.4, mu_kinetic=0.4, k_rop=1e-7)
     sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
     sim.initialize(2000.0, hole_depth=2000.0, dx=10.0)
     w = 100 * units.RPM
@@ -244,3 +263,52 @@ def test_ztorque_suppresses_off_bottom_stick_slip():
         swing[name] = bit_rpm_swing(sim)[0]
     assert swing['stiff'] > 100.0
     assert swing['z_torque'] < 5.0
+
+
+# ------------------------------------------------------------ bit coupling
+def loaded_bit_sim(stick_torque=500.0, mus=0.6, muk=0.4, r=0.08, k_rop=1e-8):
+    """Vertical, frictionless string standing on bottom with WOB applied, not rotating."""
+    p = frictionless()
+    p.damping = DampingParameters(0.5, 0.5)
+    p.bit = BitParameters(radius=r, mu_static=mus, mu_kinetic=muk, stick_torque=stick_torque, k_rop=k_rop)
+    sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
+    sim.initialize(2000.0, hole_depth=2000.0, dx=10.0, record_rate=1000)
+    sim.step(4.0, v_block=0.02, omega_td=0.0)       # set down ~80 mm: WOB builds, bit cannot drill
+    sim.step(6.0, v_block=0.0)                      # hold the block, let axial waves damp out
+    return sim
+
+
+def test_bit_sticks_until_breakout_torque():
+    ts0, mus, r = 500.0, 0.6, 0.08
+    sim = loaded_bit_sim(stick_torque=ts0, mus=mus, r=r)
+    wob = sim.latest()['wob']
+    assert wob > 20e3                                # ~80 mm set-down x EA/L ~ 28 kN
+    n0 = len(sim.results())
+    sim.step(20.0, omega_td=10 * units.RPM)         # twist the string from surface
+    df = sim.results().iloc[n0:]
+    moving = np.abs(df.omega_bit.values) > 1e-6
+    i = np.argmax(moving)
+    assert i > 0                                    # bit was stuck at first
+    breakout = np.abs(df.tob.values[:i]).max()
+    assert breakout == pytest.approx(ts0 + mus * r * wob, rel=0.01)
+
+
+def test_sliding_bit_torque_is_linear_in_wob():
+    muk, r = 0.4, 0.08
+    sim = loaded_bit_sim(stick_torque=0.0, mus=muk, muk=muk, r=r, k_rop=1e-9)
+    n0 = len(sim.results())
+    sim.step(30.0, omega_td=60 * units.RPM)
+    df = sim.results().iloc[n0:]
+    sliding = (df.omega_bit > 1.0) & (df.wob > 1e3)
+    ratio = df.tob[sliding] / df.wob[sliding]
+    np.testing.assert_allclose(ratio, muk * r, rtol=1e-9)
+
+
+def test_bit_is_the_coupling_point():
+    """Rotation changes WOB only through the bit: drilling off at constant block position."""
+    sim = loaded_bit_sim(stick_torque=0.0, mus=0.4, muk=0.4, k_rop=1e-8)
+    wob0 = sim.latest()['wob']
+    sim.step(20.0, omega_td=100 * units.RPM)        # block held: rotating drills off the WOB
+    s = sim.latest()
+    assert s['wob'] < 0.7 * wob0
+    assert s['hole_depth'] > 2000.0

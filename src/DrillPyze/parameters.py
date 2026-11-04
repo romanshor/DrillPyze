@@ -15,7 +15,12 @@ class FrictionParameters:
     mu_kinetic_open: float = 0.25
     omega_c: float = 1.0        # rad/s, torsional static->kinetic threshold
     v_c: float = 0.01           # m/s, axial static->kinetic threshold
-    dynamic_normal_force: bool = True   # update F_N with live tension
+    # False (default): axial and torsional friction are independent 1-D Coulomb
+    #   inclusions with the normal force of the static hanging string, so the
+    #   only axial-torsional coupling is at the bit.
+    # True: 2-D Coulomb inclusion on the combined sliding velocity with the
+    #   normal force from the live tension (along-string coupling).
+    along_string_coupling: bool = False
 
 
 @dataclass
@@ -27,15 +32,20 @@ class DampingParameters:
 @dataclass
 class BitParameters:
     """
-    Bit-rock surrogate.  ``radius=None`` uses half the hole diameter.
-    ROP = k_rop * max(WOB - wob_threshold, 0) * |omega_bit|
-    TOB = mu(omega) * WOB * radius, mu(omega) = mu_k + (mu_s - mu_k) exp(-|omega|/omega_b)
-    The torque is often written TOB = mu * WOB * D/3; ``radius`` absorbs the factor.
+    Coulomb-type bit-rock interaction (the axial-torsional coupling point).
+
+    stuck   (|omega_b| <= omega_c):  |TOB| <= stick_torque + mu_static * radius * WOB
+    sliding:                         TOB  =  mu_kinetic * radius * WOB
+
+    ``radius=None`` uses D/3 (hole diameter / 3), so ``mu_kinetic`` is the
+    conventional bit friction coefficient in TOB = mu * WOB * D/3.
+
+    Penetration law: ROP = k_rop * max(WOB - wob_threshold, 0) * |omega_bit|.
     """
     radius: float = None
     mu_static: float = 0.6
     mu_kinetic: float = 0.4
-    omega_b: float = 2.0        # rad/s, velocity-weakening scale (0 disables)
+    stick_torque: float = 0.0   # N m, sticking torque at zero WOB
     k_rop: float = 1e-8         # m / (N rad)
     wob_threshold: float = 0.0  # N
 

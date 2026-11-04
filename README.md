@@ -10,34 +10,72 @@ in a 3-D wellbore, together with steady-state torque and drag. It is built to:
 All quantities are **SI** internally. Conversion helpers in `DrillPyze.units`
 handle oilfield units at input and output.
 
-> **Branch `coupled-model`:** a rewrite of the 2023 prototype. Model equations
-> and numerical choices are documented in [`docs/model.md`](docs/model.md).
+> **Branch `coupled-model`:** a rewrite of the 2023 prototype. The full
+> mathematical derivation is in [`docs/derivation/`](docs/derivation/README.md).
 
-## Model at a glance
+## Mathematical model
 
-* **Torsional and axial wave equations.** Solved with a Godunov (exact Riemann)
-  finite-volume scheme, which is first-order upwind on the Riemann invariants.
-  Impedance changes between pipe, HWDP and collars are handled exactly.
-  Torsion follows Aarsnes & Shor (2018); the same scheme is extended to the
-  axial direction.
-* **Along-string Coulomb friction.** Static and kinetic factors for cased and
-  open hole. Friction acts opposite to the combined axial and tangential
-  sliding velocity, and the normal force follows the live tension (soft
-  string). This is the source of the axial–torsional coupling: rotation reduces
-  drag, and axial loads change torque.
-* **Top drive.** Motor inertia with three ways to drive it:
-  * an internal stiff, SoftTorque or ZTorque controller
-    (Aarsnes, di Meglio & Shor 2018);
-  * an external motor torque, for controllers written in Python;
-  * a prescribed speed, for replaying measured RPM.
-* **Drawworks.** Prescribed block velocity, or an autodriller that holds a WOB
-  set point.
-* **Bit.** Off bottom, or on bottom with unilateral contact. Torque on bit is
-  WOB-dependent and velocity-weakening, with sticking. A ROP law links WOB, RPM
-  and ROP.
-* **Geometry.** Minimum-curvature surveys. Cell geometry follows the string as
-  it moves. Gravity is handled with a well-balanced split, so a hanging string
-  at rest stays exactly at rest.
+The string is a slender elastic rod with $x \in [0, L]$ measured from the top
+drive to the bit. Torsion follows Aarsnes & Shor (2018). The axial direction
+uses the **identical** formulation, with Young's modulus $E$ and area $A$ in
+place of $G$ and $J$:
+
+$$
+\begin{aligned}
+&\partial_t \tau + JG\,\partial_x\omega = 0, &\qquad
+&\rho J\,\partial_t\omega + \partial_x\tau = -k_t\rho J\omega - \mathcal F_t,\\
+&\partial_t q + EA\,\partial_x v = 0, &\qquad
+&\rho A\,\partial_t v + \partial_x q = w_b\cos\theta - k_a\rho A v - \mathcal F_a,
+\end{aligned}
+$$
+
+where:
+* $\omega, \tau$ are angular velocity and torque;
+* $v, q$ are axial velocity and compressive force (tension $T = -q$);
+* $w_b$ is the buoyed weight per length;
+* $\mathcal F_t, \mathcal F_a$ are Coulomb friction inclusions with static and
+  kinetic factors, separately for cased and open hole.
+
+In Riemann invariants $\alpha = \omega + \tau/Z_t$ and
+$\beta = \omega - \tau/Z_t$, with impedance $Z_t = J\sqrt{G\rho}$ (axially
+$Z_a = A\sqrt{E\rho}$), each direction is a pair of transport equations at
+$\pm c$, with $c_t = \sqrt{G/\rho}$ and $c_a = \sqrt{E/\rho}$.
+
+**The two directions are coupled at the drill bit.** The characteristic
+relations there are
+
+$$
+\omega_b = \alpha_t - \text{TOB}/Z_t, \qquad v_b = \alpha_a - \text{WOB}/Z_a,
+$$
+
+and they are closed by a Coulomb-type bit–rock law:
+
+$$
+|\text{TOB}| \le T_{s0} + \mu_{bs}\,r_b\,\text{WOB}\ \ \text{(stuck)},
+\qquad
+\text{TOB} = \mu_{bk}\,r_b\,\text{WOB}\ \ \text{(sliding)},
+\qquad
+\text{ROP} = k_r\,(\text{WOB} - W_0)^+\,|\omega_b| .
+$$
+
+A sticking torque must be overcome first; after that, the reactive torque is
+linear in WOB. TOB therefore depends on the axial state, and penetration on
+the torsional state. Along the string, axial and torsional friction are
+independent, with the normal force of the static soft string. An opt-in 2-D
+friction model (`along_string_coupling=True`) adds along-string coupling for
+later studies.
+
+Other model components:
+* **Top drive:** an inertia driven by a stiff, SoftTorque or ZTorque
+  controller, by an external torque, or by a prescribed speed.
+* **Drawworks:** a prescribed block velocity, or an autodriller.
+* **Gravity:** handled by a well-balanced static/dynamic split.
+* **Numerics:** a Godunov finite-volume scheme (upwind on the invariants,
+  exact at section changes) with a CFL-limited time step and projected
+  friction (Aarsnes & Shor eqs. 20–22).
+
+The derivation, boundary conditions, discrete scheme and analytic limits are
+in [`docs/derivation/README.md`](docs/derivation/README.md).
 
 ## Installation
 
@@ -108,11 +146,14 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * fundamental torsional period c/4L (within 0.2%), with less than 1%
     numerical decay;
   * a string at rest stays exactly at rest;
-  * steady rotation, pick-up, slack-off and combined rotate-and-pick-up all
-    match torque and drag (within 2–3%);
+  * steady rotation, pick-up and slack-off match torque and drag (within 2%);
+  * in the default decoupled model, rotation does not change pick-up drag;
+  * the opt-in along-string coupling matches velocity-split torque and drag;
   * off-bottom stick-slip appears only when μ_s > μ_k;
   * ZTorque suppresses the limit cycle that a stiff controller sustains;
   * on-bottom steady state satisfies the ROP law and the torque balance;
+  * the bit breaks out at the sticking torque, sliding TOB is linear in WOB,
+    and the bit drills off WOB at a fixed block position;
   * the bit lifts off when picked up;
   * pause and resume are exact;
   * an external Python PI reproduces the internal controller.

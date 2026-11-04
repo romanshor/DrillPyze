@@ -1,7 +1,7 @@
 """
 Numba time-stepping kernel for the coupled axial-torsional drillstring model.
 
-See ``docs/model.md`` for the equations.  The kernel is written over plain
+See ``docs/derivation/README.md`` for the equations.  The kernel is written over plain
 arrays so it compiles to tight machine code; :class:`DrillPyze.Simulation`
 owns the arrays and provides the user-facing API.
 """
@@ -53,7 +53,7 @@ P_RAMP = 13
 P_RBIT = 14
 P_MUBS = 15
 P_MUBK = 16
-P_WB = 17
+P_TSTICK = 17     # bit sticking torque at zero WOB (N m)
 P_KROP = 18
 P_W0 = 19
 P_QS_TOP = 20      # static compression at the top face (N)
@@ -66,7 +66,8 @@ N_PF = 25
 # indices into the integer parameter vector ``pi``
 I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed
 I_AXIAL = 1        # 0 prescribed block velocity, 1 autodriller (WOB)
-I_FN = 2           # 0 dynamic normal force, 1 frozen at initial value
+I_COUPLE = 2       # 0: independent axial/torsional friction with static F_N (default)
+                   # 1: 2-D velocity-split friction with live-tension F_N
 N_PI = 3
 
 # recorded channels
@@ -95,7 +96,14 @@ def _sign(x):
 @njit(cache=True)
 def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
     """
-    Solve the coupled bit boundary.  Returns (omega_b, tob, v_b, wob, stuck).
+    Bit boundary: the axial-torsional coupling point.
+
+    Coulomb-type bit-rock interaction:
+      * stuck (|omega_b| <= omega_c):  |TOB| <= T_s0 + mu_bs * r_b * WOB
+      * sliding:                       TOB = mu_bk * r_b * WOB * sign(omega_b)
+    Penetration: ROP = k_r * max(WOB - W_0, 0) * |omega_b|, unilateral contact.
+
+    Returns (omega_b, tob, v_b, wob, stuck).
     """
     if (not on_bottom) or alpha_a <= 0.0:
         # off bottom, or the string is lifting the bit
@@ -104,7 +112,7 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
     r_b = pf[P_RBIT]
     mus = pf[P_MUBS]
     muk = pf[P_MUBK]
-    wb = pf[P_WB]
+    ts0 = pf[P_TSTICK]
     kr = pf[P_KROP]
     w0 = pf[P_W0]
     wc = pf[P_WC]
@@ -114,9 +122,9 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
     v = 0.0
     tob = 0.0
     stuck = 0.0
-    for _ in range(6):
-        # axial: penetration law ROP = kr * (WOB - W0)+ * |w|
-        q_lin = Za * alpha_a                     # WOB if bit does not advance
+    for _ in range(8):
+        # axial: penetration law and characteristic relation v_b = alpha_a - WOB/Za
+        q_lin = Za * alpha_a                     # WOB if the bit does not advance
         aw = abs(w)
         if q_lin <= w0 or kr * aw == 0.0:
             wob = q_lin
@@ -124,20 +132,17 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
         else:
             wob = (alpha_a + kr * w0 * aw) / (1.0 / Za + kr * aw)
             v = kr * (wob - w0) * aw
-        # torsional: bit friction with stick
-        tau_stop = Zt * alpha_t                  # torque needed to stop the bit
-        cap_s = mus * wob * r_b
-        if (abs(w_prev) <= wc or stuck_prev > 0.5) and abs(tau_stop) <= cap_s:
+        # torsional: Coulomb bit friction; omega_b = alpha_t - TOB/Zt
+        tau_stop = Zt * alpha_t                  # TOB that holds the bit at rest
+        if (abs(w_prev) <= wc or stuck_prev > 0.5) and abs(tau_stop) <= ts0 + mus * r_b * wob:
             tob = tau_stop
             w_new = 0.0
             stuck = 1.0
         else:
-            mu = muk + (mus - muk) * np.exp(-abs(w) / wb) if wb > 0.0 else muk
-            cap = mu * wob * r_b
-            tob = _sign(alpha_t) * min(cap, abs(tau_stop))
+            tob = _sign(alpha_t) * min(muk * r_b * wob, abs(tau_stop))
             w_new = alpha_t - tob / Zt
             stuck = 0.0
-        if abs(w_new - w) < 1e-10:
+        if abs(w_new - w) < 1e-12:
             w = w_new
             break
         w = w_new
@@ -171,7 +176,7 @@ def advance(nsteps, sc, pf, pi,
     I = pf[P_ITD]
     ctrl = pi[I_CTRL]
     axial_mode = pi[I_AXIAL]
-    frozen_fn = pi[I_FN] == 1
+    coupled = pi[I_COUPLE] == 1
 
     # filter coefficients (exact discretisation of first-order lags)
     a_en = np.exp(-dt / pf[P_TEN]) if pf[P_TEN] > 0.0 else 0.0
@@ -281,43 +286,66 @@ def advance(nsteps, sc, pf, pi,
             # implicit viscous damping
             ws /= (1.0 + dt * kt)
             vs /= (1.0 + dt * ka)
-            # normal force from live tension
-            if frozen_fn:
-                fn = fn0[j]
-            else:
+            r = rc[j]
+            if coupled:
+                # ---- 2-D Coulomb inclusion on the sliding velocity (v, omega r),
+                #      normal force from the live tension
                 T = -(qs_c[j] + qd[j])
                 fn = normal_force(T, wb_len[j], kx[j], ky[j], kz[j], zx[j], zy[j], zz[j])
-            r = rc[j]
-            # friction needed to stop the cell this step (force per length)
-            fa_stop = ma[j] * vs / dt
-            ft_stop = mt[j] * ws / (dt * r)
-            sn = (v_old / vc) ** 2 + (w_old / wc) ** 2
-            if sn <= 1.0:
-                cap = mus[j] * fn
-                mag = np.sqrt(fa_stop * fa_stop + ft_stop * ft_stop)
-                if mag <= cap or mag == 0.0:
-                    fa = fa_stop
-                    ft = ft_stop
+                fa_stop = ma[j] * vs / dt
+                ft_stop = mt[j] * ws / (dt * r)
+                sn = (v_old / vc) ** 2 + (w_old / wc) ** 2
+                if sn <= 1.0:
+                    cap = mus[j] * fn
+                    mag = np.sqrt(fa_stop * fa_stop + ft_stop * ft_stop)
+                    if mag <= cap or mag == 0.0:
+                        fa = fa_stop
+                        ft = ft_stop
+                    else:
+                        s = cap / mag
+                        fa = fa_stop * s
+                        ft = ft_stop * s
                 else:
-                    s = cap / mag
-                    fa = fa_stop * s
-                    ft = ft_stop * s
+                    vt = ws * r
+                    spd = np.sqrt(vs * vs + vt * vt)
+                    if spd > 0.0:
+                        fk = muk[j] * fn / spd
+                        fa = fk * vs
+                        ft = fk * vt
+                    else:
+                        fa = 0.0
+                        ft = 0.0
+                    if abs(fa) > abs(fa_stop):
+                        fa = fa_stop
+                    if abs(ft) > abs(ft_stop):
+                        ft = ft_stop
+                v[j] = vs - dt * fa / ma[j]
+                w[j] = ws - dt * ft * r / mt[j]
             else:
-                vt = ws * r
-                spd = np.sqrt(vs * vs + vt * vt)
-                if spd > 0.0:
-                    fk = muk[j] * fn / spd
-                    fa = fk * vs
-                    ft = fk * vt
+                # ---- independent 1-D Coulomb inclusions (Aarsnes & Shor eqs. 4, 20-22)
+                fn = fn0[j]
+                # torsion: torque per length needed to stop the cell this step
+                t_stop = mt[j] * ws / dt
+                if abs(w_old) <= wc:
+                    cap = mus[j] * fn * r
                 else:
-                    fa = 0.0
-                    ft = 0.0
-                if abs(fa) > abs(fa_stop):
-                    fa = fa_stop
-                if abs(ft) > abs(ft_stop):
-                    ft = ft_stop
-            v[j] = vs - dt * fa / ma[j]
-            w[j] = ws - dt * ft * r / mt[j]
+                    cap = muk[j] * fn * r
+                if t_stop > cap:
+                    t_stop = cap
+                elif t_stop < -cap:
+                    t_stop = -cap
+                w[j] = ws - dt * t_stop / mt[j]
+                # axial: force per length needed to stop the cell this step
+                f_stop = ma[j] * vs / dt
+                if abs(v_old) <= vc:
+                    cap = mus[j] * fn
+                else:
+                    cap = muk[j] * fn
+                if f_stop > cap:
+                    f_stop = cap
+                elif f_stop < -cap:
+                    f_stop = -cap
+                v[j] = vs - dt * f_stop / ma[j]
 
         # -------------------------------------------------- bookkeeping
         sc[S_T] += dt

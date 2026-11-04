@@ -42,7 +42,7 @@ class TorqueDragResult:
 
 
 @njit(cache=True)
-def _integrate(dx, w_b, t_z, kappa, z_perp, r_c, mu, v, omega, wob, tob):
+def _integrate(dx, w_b, t_z, kappa, z_perp, r_c, mu, v, omega, wob, tob, fn_fixed):
     n = len(dx)
     T = np.empty(n + 1)
     M = np.empty(n + 1)
@@ -50,8 +50,11 @@ def _integrate(dx, w_b, t_z, kappa, z_perp, r_c, mu, v, omega, wob, tob):
     T[n] = -wob
     M[n] = tob
     for j in range(n - 1, -1, -1):
-        fn = normal_force(T[j + 1], w_b[j], kappa[j, 0], kappa[j, 1], kappa[j, 2],
-                          z_perp[j, 0], z_perp[j, 1], z_perp[j, 2])
+        if fn_fixed.shape[0] == n:
+            fn = fn_fixed[j]
+        else:
+            fn = normal_force(T[j + 1], w_b[j], kappa[j, 0], kappa[j, 1], kappa[j, 2],
+                              z_perp[j, 0], z_perp[j, 1], z_perp[j, 2])
         vt = omega * r_c[j]
         speed = np.sqrt(v * v + vt * vt)
         if speed > 0.0:
@@ -74,7 +77,7 @@ def friction_profile(wellbore, grid, mu_cased, mu_open):
 
 
 def torque_drag(wellbore, grid, fluid_density, mu_cased, mu_open=None,
-                v=0.0, omega=0.0, wob=0.0, tob=0.0, geometry=None):
+                v=0.0, omega=0.0, wob=0.0, tob=0.0, geometry=None, normal_force=None):
     """
     Soft-string torque and drag for one operating state.
 
@@ -95,6 +98,9 @@ def torque_drag(wellbore, grid, fluid_density, mu_cased, mu_open=None,
         Rotary speed (rad/s).
     wob, tob : float
         Weight on bit (N) and torque on bit (N m).
+    normal_force : array, optional
+        Fixed normal force per length for each cell (N/m).  By default it is
+        computed from the local tension (soft string).
 
     Common states
     -------------
@@ -107,7 +113,8 @@ def torque_drag(wellbore, grid, fluid_density, mu_cased, mu_open=None,
     w_b = buoyed_weight(grid, fluid_density)
     mu = friction_profile(wellbore, grid, mu_cased, mu_open)
     T, M, FN = _integrate(grid.dx, w_b, geo.t_z, geo.kappa, geo.z_perp, grid.r_contact,
-                          mu, float(v), float(omega), float(wob), float(tob))
+                          mu, float(v), float(omega), float(wob), float(tob),
+                          np.zeros(0) if normal_force is None else np.asarray(normal_force, dtype=float))
     md = np.concatenate([grid.x_top, [grid.x_top[-1] + grid.dx[-1]]])
     return TorqueDragResult(md=md, tension=T, torque=M, normal_force=FN)
 
