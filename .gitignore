@@ -141,3 +141,7 @@ docs/_build/
 # Python Notebooks
 *.ipynb_checkpoints
 *.ipynb
+*.png
+!docs/**/*.png
+.pytest_cache/
+*.egg-info/

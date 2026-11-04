@@ -8,40 +8,22 @@ Module contents
    :members:
    :undoc-members:
    :show-inheritance:
-   
+
 Submodules
 ----------
 
-DrillPyze.drillstring module
-----------------------------
-
-.. automodule:: DrillPyze.drillstring
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-DrillPyze.dynamics module
--------------------------
-
-.. automodule:: DrillPyze.dynamics
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: DrillPyze.dynamics.Simulation
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: DrillPyze.dynamics.Estimator
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-DrillPyze.hydraulics module
+DrillPyze.simulation module
 ---------------------------
 
-.. automodule:: DrillPyze.hydraulics
+.. automodule:: DrillPyze.simulation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.kernel module
+-----------------------
+
+.. automodule:: DrillPyze.kernel
    :members:
    :undoc-members:
    :show-inheritance:
@@ -54,20 +36,66 @@ DrillPyze.statics module
    :undoc-members:
    :show-inheritance:
 
-DrillPyze.util module
----------------------
+DrillPyze.geometry module
+-------------------------
 
-.. automodule:: DrillPyze.util
+.. automodule:: DrillPyze.geometry
    :members:
    :undoc-members:
    :show-inheritance:
 
-DrillPyze.well module
----------------------
+DrillPyze.survey module
+-----------------------
 
-.. automodule:: DrillPyze.well
+.. automodule:: DrillPyze.survey
    :members:
    :undoc-members:
    :show-inheritance:
 
+DrillPyze.drillstring module
+----------------------------
 
+.. automodule:: DrillPyze.drillstring
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.wellbore module
+-------------------------
+
+.. automodule:: DrillPyze.wellbore
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.parameters module
+---------------------------
+
+.. automodule:: DrillPyze.parameters
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.controllers module
+----------------------------
+
+.. automodule:: DrillPyze.controllers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.hydraulics module
+---------------------------
+
+.. automodule:: DrillPyze.hydraulics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.units module
+----------------------
+
+.. automodule:: DrillPyze.units
+   :members:
+   :undoc-members:
+   :show-inheritance:

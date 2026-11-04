@@ -18,11 +18,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'DrillPyze'
-copyright = '2023, Roman J. Shor'
+copyright = '2023-2026, Roman J. Shor'
 author = 'Roman J. Shor'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.2a'
+release = '0.1.0.dev0'
 
 import os
 import sys

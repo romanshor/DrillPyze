@@ -1,129 +1,45 @@
 """
-Hydraulics module for DrillPyze.
+Steady-state Newtonian hydraulics for pipe and annular flow (SI units).
 
-This module contains functions for calculating the flow rate, fluid velocity,
-Reynolds number for a pipe and the frictional pressure for a pipe and an annulus.
+Fanning friction factor: 16/Re (laminar, Re < 2100) and Blasius
+0.0791 Re^-0.25 (turbulent).  Annular flow uses the hydraulic diameter
+(Do - Di).  Non-Newtonian rheologies are planned.
 """
 
+import numpy as np
+
+
+def area(Do, Di=None):
+    """Flow area (m^2) of a pipe (``Di`` is None) or annulus."""
+    return np.pi / 4 * (Do ** 2 - (0.0 if Di is None else Di ** 2))
+
+
 def fluid_velocity(Q, Do, Di=None):
-    """
-    Calculate the fluid velocity in a pipe or an annulus.
-    
-    Parameters
-    ==========
-    Q : float
-        Flow rate in gpm
-    Do : float
-        Outer diameter of the pipe in inches
-    Di : float
-        Inner diameter of the pipe in inches.
-        If Di is None, then the function will calculate the fluid velocity for a pipe.
-    """
+    """Mean velocity (m/s) for flow rate ``Q`` (m^3/s)."""
+    return Q / area(Do, Di)
 
-    # For pipe flow
-    if Di is None:
-        v = Q / (2.448 * Do**2)
-    
-    # For annular flow 
-    else:
-        v = Q / (2.448 * (Do**2 - Di**2))
 
-    # Return the fluid velocity
-    return v
+def hydraulic_diameter(Do, Di=None):
+    return Do if Di is None else Do - Di
 
 
 def reynolds_number(rho, v, mu, Do, Di=None):
-    """
-    Calculate the Reynolds number for a pipe or an annulus.
+    """Reynolds number; ``rho`` kg/m^3, ``v`` m/s, ``mu`` Pa s, diameters m."""
+    return rho * abs(v) * hydraulic_diameter(Do, Di) / mu
 
-    Parameters
-    ==========
-    rho : float
-        Fluid density in lbm/ft^3
-    v : float
-        Fluid velocity in ft/s
-    mu : float
-        Fluid viscosity in cp
-    Do : float
-        Outer diameter of the pipe in inches
-    Di : float
-        Inner diameter of the pipe in inches.
-        If Di is None, then the function will calculate the Reynolds number for a pipe.
-    """
 
-    # For pipe flow
-    if Di is None:
-        NRe = 928 * rho * v * Do / mu
-    
-    # For annular flow
-    else:
-        NRe = 757 * rho * v * (Do - Di) / mu
-
-    # Return the Reynolds number
-    return NRe
-
-def friction_factor(NRe):
-    """
-    Calculate the friction factor for a pipe or an annulus.
-
-    Parameters
-    ==========
-    NRe : float
-        Reynolds number for the pipe
-    """
-
-    # If in laminar flow, use the laminar flow equation
-    if NRe < 2000:
-        f = 16 / NRe
-
-    # If in turbulent flow, use the turbulent flow equation
-    else:
-        f = 0.0791 / (NRe ** (1/4))
-
-    # Return the friction factor
-    return f
+def friction_factor(Re):
+    """Fanning friction factor."""
+    Re = max(Re, 1e-12)
+    return 16.0 / Re if Re < 2100 else 0.0791 / Re ** 0.25
 
 
 def frictional_pressure_drop(rho, Q, mu, L, Do, Di=None):
     """
-    Calculate the frictional pressure drop in a pipe or an annulus.
-
-    Parameters
-    ==========
-    rho : float
-        Fluid density in ppg
-    Q : float
-        Flow rate in gpm
-    mu : float
-        Fluid viscosity in cp
-    L : float
-        Length of the pipe in ft
-    Do : float
-        Outer diameter of the pipe in inches
-    Di : float
-        Inner diameter of the pipe in inches.
-        If Di is None, then the frictional pressure drop is calculated for a pipe.
+    Frictional pressure drop (Pa) over length ``L`` (m) for flow rate ``Q``
+    (m^3/s), density ``rho`` (kg/m^3) and viscosity ``mu`` (Pa s).
     """
-
-    # Calculate fluid velocity
     v = fluid_velocity(Q, Do, Di)
-
-    # Calculate Reynolds number
-    NRe = reynolds_number(rho, v, mu, Do, Di)
-
-    # If in laminar flow, use the laminar flow equation
-    if NRe < 2000:
-        if Di is None:
-            dP = mu * v / (1500 * Do**2) * L
-        else:
-            dP = mu * v / (1000 * (Do**2 - Di**2)) * L
-
-    # If in turbulent flow, use the turbulent flow equation
-    else:
-        if Di is None:
-            dP = rho**0.75*v**1.75*mu**0.25/(1800 * Do**1.25)*L
-        else:
-            dP = rho ** 0.75 * v ** 1.75 * mu ** 0.25 / (1800 * (Do - Di) ** 1.25) * L
-    
-    # Return the pressure drop
-    return dP
+    Dh = hydraulic_diameter(Do, Di)
+    f = friction_factor(reynolds_number(rho, v, mu, Do, Di))
+    return 2.0 * f * rho * v * abs(v) * L / Dh
