@@ -66,8 +66,8 @@ N_PF = 25
 # indices into the integer parameter vector ``pi``
 I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed
 I_AXIAL = 1        # 0 prescribed block velocity, 1 autodriller (WOB)
-I_COUPLE = 2       # 0: independent axial/torsional friction with static F_N (default)
-                   # 1: 2-D velocity-split friction with live-tension F_N
+I_COUPLE = 2       # 1: 2-D Coulomb friction on (v, omega r) with live-tension F_N (default)
+                   # 0: independent axial/torsional friction with static F_N
 N_PI = 3
 
 # recorded channels
@@ -147,6 +147,49 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
             break
         w = w_new
     return w, tob, v, wob, stuck
+
+
+@njit(cache=True)
+def _coulomb_2d(va, vt, m_a, m_t, c):
+    """
+    Implicit (backward-Euler) 2-D Coulomb friction on one cell.
+
+    Given the predicted sliding velocity (va, vt) = (v, omega r), the masses
+    per length in each direction (m_a = rho A, m_t = rho J / r^2) and the
+    friction impulse per length c = dt * mu * F_N, return the new velocity
+
+        V = V* - (dt/M) * mu F_N * V/|V|,
+
+    i.e. friction opposes the *new* sliding direction exactly.  If the
+    momentum |M V*| is within c the cell sticks (V = 0).  Otherwise
+    V_i = m_i V*_i s / (m_i s + c), where the new speed s = |V| solves
+
+        g(s) = sum_i (m_i V*_i / (m_i s + c))^2 - 1 = 0,
+
+    a convex decreasing function solved by Newton's method from s = |V*|.
+    """
+    pa = m_a * va
+    pt = m_t * vt
+    if pa * pa + pt * pt <= c * c:
+        return 0.0, 0.0
+    if c <= 0.0:
+        return va, vt
+    s = np.sqrt(va * va + vt * vt)
+    for _ in range(50):
+        da = m_a * s + c
+        dt_ = m_t * s + c
+        ra = pa / da
+        rt = pt / dt_
+        g = ra * ra + rt * rt - 1.0
+        dg = -2.0 * (ra * ra * m_a / da + rt * rt * m_t / dt_)
+        s_new = s - g / dg
+        if s_new < 0.0:
+            s_new = 0.0
+        if abs(s_new - s) <= 1e-14 * (s + 1e-30):
+            s = s_new
+            break
+        s = s_new
+    return va * m_a * s / (m_a * s + c), vt * m_t * s / (m_t * s + c)
 
 
 @njit(cache=True, fastmath=True)
@@ -288,39 +331,18 @@ def advance(nsteps, sc, pf, pi,
             vs /= (1.0 + dt * ka)
             r = rc[j]
             if coupled:
-                # ---- 2-D Coulomb inclusion on the sliding velocity (v, omega r),
-                #      normal force from the live tension
+                # ---- 2-D Coulomb inclusion on the sliding velocity (v, omega r)
+                #      with the normal force from the live tension: axial load
+                #      changes torque and rotation changes drag
                 T = -(qs_c[j] + qd[j])
                 fn = normal_force(T, wb_len[j], kx[j], ky[j], kz[j], zx[j], zy[j], zz[j])
-                fa_stop = ma[j] * vs / dt
-                ft_stop = mt[j] * ws / (dt * r)
-                sn = (v_old / vc) ** 2 + (w_old / wc) ** 2
-                if sn <= 1.0:
-                    cap = mus[j] * fn
-                    mag = np.sqrt(fa_stop * fa_stop + ft_stop * ft_stop)
-                    if mag <= cap or mag == 0.0:
-                        fa = fa_stop
-                        ft = ft_stop
-                    else:
-                        s = cap / mag
-                        fa = fa_stop * s
-                        ft = ft_stop * s
+                if (v_old / vc) ** 2 + (w_old / wc) ** 2 <= 1.0:
+                    mu = mus[j]
                 else:
-                    vt = ws * r
-                    spd = np.sqrt(vs * vs + vt * vt)
-                    if spd > 0.0:
-                        fk = muk[j] * fn / spd
-                        fa = fk * vs
-                        ft = fk * vt
-                    else:
-                        fa = 0.0
-                        ft = 0.0
-                    if abs(fa) > abs(fa_stop):
-                        fa = fa_stop
-                    if abs(ft) > abs(ft_stop):
-                        ft = ft_stop
-                v[j] = vs - dt * fa / ma[j]
-                w[j] = ws - dt * ft * r / mt[j]
+                    mu = muk[j]
+                va, vt = _coulomb_2d(vs, ws * r, ma[j], mt[j] / (r * r), dt * mu * fn)
+                v[j] = va
+                w[j] = vt / r
             else:
                 # ---- independent 1-D Coulomb inclusions (Aarsnes & Shor eqs. 4, 20-22)
                 fn = fn0[j]

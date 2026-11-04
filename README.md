@@ -41,14 +41,32 @@ $\beta = \omega - \tau/Z_t$, with impedance $Z_t = J\sqrt{G\rho}$ (axially
 $Z_a = A\sqrt{E\rho}$), each direction is a pair of transport equations at
 $\pm c$, with $c_t = \sqrt{G/\rho}$ and $c_a = \sqrt{E/\rho}$.
 
-**The two directions are coupled at the drill bit.** The characteristic
-relations there are
+**The two directions are cross-coupled in two places.**
+
+*Along the string*, friction is a single 2-D Coulomb force on the sliding
+velocity $\mathbf V = (v,\ \omega r_c)$:
+
+$$
+\boldsymbol{\mathcal F} = \mu_k F_N\,\frac{\mathbf V}{\|\mathbf V\|}\ \ \text{(sliding)},
+\qquad
+\|\boldsymbol{\mathcal F}\| \le \mu_s F_N\ \ \text{(stuck)},
+\qquad
+\mathcal F_t = r_c\,\mathcal F_\theta,
+$$
+
+and the soft-string normal force $F_N$ follows the live tension. As a result:
+* rotation reduces drag, and axial motion reduces rotary torque (velocity
+  split);
+* axial load changes torque through $F_N$;
+* combined loads break a stuck string free sooner than either load alone.
+
+*At the bit*, the characteristic relations
 
 $$
 \omega_b = \alpha_t - \text{TOB}/Z_t, \qquad v_b = \alpha_a - \text{WOB}/Z_a,
 $$
 
-and they are closed by a Coulomb-type bit–rock law:
+are closed by a Coulomb-type bit–rock law:
 
 $$
 |\text{TOB}| \le T_{s0} + \mu_{bs}\,r_b\,\text{WOB}\ \ \text{(stuck)},
@@ -58,12 +76,13 @@ $$
 \text{ROP} = k_r\,(\text{WOB} - W_0)^+\,|\omega_b| .
 $$
 
-A sticking torque must be overcome first; after that, the reactive torque is
-linear in WOB. TOB therefore depends on the axial state, and penetration on
-the torsional state. Along the string, axial and torsional friction are
-independent, with the normal force of the static soft string. An opt-in 2-D
-friction model (`along_string_coupling=True`) adds along-string coupling for
-later studies.
+A sticking torque must be overcome first; after that the reactive torque is
+linear in WOB.
+
+For comparison, `along_string_coupling=False` uses independent 1-D axial and
+torsional friction with a static normal force, leaving the bit as the only
+coupling. With no axial motion, both friction models reduce exactly to
+Aarsnes & Shor (2018).
 
 Other model components:
 * **Top drive:** an inertia driven by a stiff, SoftTorque or ZTorque
@@ -71,8 +90,9 @@ Other model components:
 * **Drawworks:** a prescribed block velocity, or an autodriller.
 * **Gravity:** handled by a well-balanced static/dynamic split.
 * **Numerics:** a Godunov finite-volume scheme (upwind on the invariants,
-  exact at section changes) with a CFL-limited time step and projected
-  friction (Aarsnes & Shor eqs. 20–22).
+  exact at section changes) with a CFL-limited time step. Coulomb friction is
+  applied implicitly (backward Euler), so it opposes the sliding direction
+  exactly and sticking is exact.
 
 The derivation, boundary conditions, discrete scheme and analytic limits are
 in [`docs/derivation/README.md`](docs/derivation/README.md).
@@ -128,11 +148,14 @@ The time-stepping kernel is compiled with Numba. Its time step is set by the
 axial wave speed (CFL 0.95), so cost scales with the square of the number of
 cells per unit length. Measured on a 3,337 m string in a 2-core sandbox:
 
-| cell size | cells | time step | speed vs real time | 60 min of drilling |
+| cell size | cells | time step | coupled friction (default) | decoupled option |
 |---|---|---|---|---|
-| 10 m  | 334   | 1.85 ms | 155× | ~23 s |
-| 5 m   | 668   | 0.92 ms | 38×  | ~95 s |
-| 2.5 m | 1,335 | 0.46 ms | 10×  | ~6 min |
+| 10 m  | 334   | 1.85 ms | 85× real time (~42 s per 60 min) | 200× (~18 s) |
+| 5 m   | 668   | 0.92 ms | 22× (~2.7 min) | 49× (~1.2 min) |
+| 2.5 m | 1,335 | 0.46 ms | 6× (~10 min) | 12× (~5 min) |
+
+The coupled model costs about 2× more because it solves an implicit 2-D
+friction update (a short Newton iteration) in every cell, every step.
 
 The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
 
@@ -147,8 +170,11 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
     numerical decay;
   * a string at rest stays exactly at rest;
   * steady rotation, pick-up and slack-off match torque and drag (within 2%);
-  * in the default decoupled model, rotation does not change pick-up drag;
-  * the opt-in along-string coupling matches velocity-split torque and drag;
+  * rotating while picking up or slacking off matches velocity-split torque
+    and drag (within 2%);
+  * rotation reduces pick-up drag with coupled friction, and has no effect with
+    the decoupled option;
+  * the implicit 2-D friction is exact, including combined-load breakout;
   * off-bottom stick-slip appears only when μ_s > μ_k;
   * ZTorque suppresses the limit cycle that a stiff controller sustains;
   * on-bottom steady state satisfies the ROP law and the torque balance;

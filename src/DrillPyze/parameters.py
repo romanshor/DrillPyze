@@ -15,12 +15,12 @@ class FrictionParameters:
     mu_kinetic_open: float = 0.25
     omega_c: float = 1.0        # rad/s, torsional static->kinetic threshold
     v_c: float = 0.01           # m/s, axial static->kinetic threshold
-    # False (default): axial and torsional friction are independent 1-D Coulomb
-    #   inclusions with the normal force of the static hanging string, so the
-    #   only axial-torsional coupling is at the bit.
-    # True: 2-D Coulomb inclusion on the combined sliding velocity with the
-    #   normal force from the live tension (along-string coupling).
-    along_string_coupling: bool = False
+    # True (default): one 2-D Coulomb inclusion on the combined sliding velocity
+    #   (v, omega r) with the normal force from the live tension, so axial and
+    #   torsional motion are coupled along the string as well as at the bit.
+    # False: independent 1-D axial and torsional inclusions with the normal force
+    #   of the static hanging string; the only coupling is then at the bit.
+    along_string_coupling: bool = True
 
 
 @dataclass

@@ -101,28 +101,30 @@ def test_steady_rotation_matches_torque_and_drag():
     assert hk == pytest.approx(free, rel=0.01)
 
 
+@pytest.mark.parametrize('coupled', [True, False])
 @pytest.mark.parametrize('direction', [-1, 1])
-def test_pickup_and_slackoff_match_torque_and_drag(direction):
+def test_pickup_and_slackoff_match_torque_and_drag(direction, coupled):
     mu_c, mu_o = 0.2, 0.25
     sim = Simulation(well_a(), standard_string(), Fluid(1200.0),
-                     friction(mu_c, mu_c, mu_o, mu_o))
+                     friction(mu_c, mu_c, mu_o, mu_o, along_string_coupling=coupled))
     sim.initialize(2500.0, hole_depth=2600.0, dx=5.0, refresh_distance=1e9)
     sim.step(25.0, v_block=direction * 0.1)
     df = sim.results()
     hk = df.hookload[df.time > 20].mean()
-    # decoupled model: normal force of the static hanging string
+    # coupled: normal force follows the live tension (full soft string);
+    # decoupled: normal force of the static hanging string
     td = statics.torque_drag(sim.wellbore, sim.grid, 1200.0, mu_c, mu_o, v=direction,
-                             normal_force=sim.fn0)
+                             normal_force=None if coupled else sim.fn0)
     assert hk == pytest.approx(td.hookload, rel=0.02)
 
 
-def test_along_string_coupling_option_matches_velocity_split():
-    """Opt-in 2-D friction: rotation reduces drag as in velocity-split T&D."""
+@pytest.mark.parametrize('v, rpm', [(-0.05, 100.0), (-0.2, 40.0), (0.1, 60.0)])
+def test_rotating_while_moving_matches_velocity_split(v, rpm):
+    """Cross-coupled friction: steady combined motion matches velocity-split T&D."""
     mu = 0.25
-    v, rpm = -0.05, 100.0
     sim = Simulation(well_a(), standard_string(), Fluid(1200.0),
-                     friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0, along_string_coupling=True))
-    sim.initialize(2500.0, hole_depth=2600.0, dx=5.0, refresh_distance=1e9)
+                     friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0))
+    sim.initialize(2500.0, hole_depth=2700.0, dx=5.0, refresh_distance=1e9)
     for k in range(40):
         sim.step(0.25, omega_td=rpm * units.RPM * (k + 1) / 40)
     sim.step(30.0, v_block=v)
@@ -130,22 +132,53 @@ def test_along_string_coupling_option_matches_velocity_split():
     late = df.time > df.time.max() - 8
     td = statics.torque_drag(sim.wellbore, sim.grid, 1200.0, mu, v=v, omega=rpm * units.RPM)
     assert df.hookload[late].mean() == pytest.approx(td.hookload, rel=0.02)
-    assert df.pipe_torque[late].mean() == pytest.approx(td.surface_torque, rel=0.03)
+    assert df.pipe_torque[late].mean() == pytest.approx(td.surface_torque, rel=0.02)
 
 
-def test_default_model_is_decoupled_along_string():
-    """Without along-string coupling, rotating does not change pick-up drag."""
+def pickup_hookload(rpm, coupled):
     mu = 0.25
-    hk = {}
-    for rpm in (0.0, 100.0):
-        sim = Simulation(well_a(), standard_string(), Fluid(1200.0), friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0))
-        sim.initialize(2500.0, hole_depth=2600.0, dx=5.0, refresh_distance=1e9)
-        for k in range(40):
-            sim.step(0.25, omega_td=rpm * units.RPM * (k + 1) / 40)
-        sim.step(30.0, v_block=-0.05)
-        df = sim.results()
-        hk[rpm] = df.hookload[df.time > df.time.max() - 8].mean()
-    assert hk[100.0] == pytest.approx(hk[0.0], rel=0.002)
+    sim = Simulation(well_a(), standard_string(), Fluid(1200.0),
+                     friction(mu, mu, mu, mu, k_t=0.0, k_a=0.0, along_string_coupling=coupled))
+    sim.initialize(2500.0, hole_depth=2600.0, dx=5.0, refresh_distance=1e9)
+    for k in range(40):
+        sim.step(0.25, omega_td=rpm * units.RPM * (k + 1) / 40)
+    sim.step(30.0, v_block=-0.05)
+    df = sim.results()
+    late = df.time > df.time.max() - 8
+    return df.hookload[late].mean(), df.pipe_torque[late].mean()
+
+
+def test_cross_coupling_rotation_reduces_drag():
+    hk_still, _ = pickup_hookload(0.0, coupled=True)
+    hk_rot, _ = pickup_hookload(100.0, coupled=True)
+    free = statics.torque_drag(well_a(), standard_string().discretize(2500.0, 5.0), 1200.0, 0.0).hookload
+    assert hk_rot - free < 0.2 * (hk_still - free)
+
+
+def test_decoupled_option_has_no_along_string_coupling():
+    """With along_string_coupling=False, rotating does not change pick-up drag."""
+    hk_still, _ = pickup_hookload(0.0, coupled=False)
+    hk_rot, _ = pickup_hookload(100.0, coupled=False)
+    assert hk_rot == pytest.approx(hk_still, rel=0.002)
+
+
+def test_combined_breakout_uses_vector_friction_limit():
+    """
+    A stuck string breaks free when the combined axial + tangential load reaches
+    mu_s F_N, i.e. earlier than either direction alone would.
+    """
+    from DrillPyze.kernel import _coulomb_2d
+    m_a, m_t, c = 20.0, 5.0, 10.0
+    # each component alone is within the static impulse ...
+    va, vt = 0.8 * c / m_a, 0.8 * c / m_t
+    assert abs(m_a * va) < c and abs(m_t * vt) < c
+    # ... but together they exceed it, so the cell slides
+    a, t = _coulomb_2d(va, vt, m_a, m_t, c)
+    assert a > 0 and t > 0
+    # and friction acts exactly against the new sliding direction
+    V = np.hypot(a, t)
+    assert a == pytest.approx(va - c / m_a * a / V, rel=1e-10)
+    assert t == pytest.approx(vt - c / m_t * t / V, rel=1e-10)
 
 
 # ------------------------------------------------------------- stick-slip

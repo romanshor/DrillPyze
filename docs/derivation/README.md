@@ -8,10 +8,13 @@ scheme.
   Aarsnes, di Meglio & Shor (2018) and Auriol et al. (2022).
 * The axial model uses an identical formulation, with Young's modulus in place
   of the shear modulus.
-* In the base model the two directions are coupled **only at the drill bit**,
-  through a Coulomb-type bit–rock interaction.
-* An opt-in extension that also couples them along the string is described in
-  §5.4.
+* The two directions are cross-coupled in two places:
+  1. **along the string**, through a single 2-D Coulomb friction acting on the
+     combined axial and rotational sliding velocity, with a normal force that
+     follows the live tension (§5);
+  2. **at the drill bit**, through a Coulomb-type bit–rock interaction (§6.3).
+* A decoupled variant (`along_string_coupling=False`), in which the only
+  coupling is at the bit, is kept for comparison (§5.4).
 
 All quantities are SI. Notation is collected in §11.
 
@@ -246,23 +249,79 @@ pulls the pipe against the high side and gravity against the low side. In a
 straight inclined hole it reduces to $w_b\sin\theta$, the normal force of
 Aarsnes & Shor (2018), eq. 6.
 
-In the base model the normal force is evaluated with the tension of the static
+In the coupled model (default) the normal force is evaluated with the **live**
+tension $T = -(q_s + q_d)$. Axial loading (pick-up, slack-off, WOB transfer)
+therefore changes the normal force, and through it the rotary friction torque.
+
+In the decoupled variant (§5.4) it is evaluated with the tension of the static
 hanging string, $T_s = -q_s$, so $F_N = F_N(x)$ does not depend on the dynamic
-state. It is re-evaluated whenever the string has moved more than
-`refresh_distance` along the hole.
+state. In both cases it is re-evaluated whenever the string has moved more
+than `refresh_distance` along the hole.
 
-### 5.2 Coulomb inclusion: torsion (Aarsnes & Shor 2018, eqs. 4–5)
+### 5.2 Cross-coupled Coulomb inclusion (default)
 
-With friction factors $\mu_s \ge \mu_k$ (static, kinetic), contact radius
-$r_c$ and threshold $\omega_c$, define the friction torque limits
+The pipe surface at $x$ slides against the borehole with the velocity
 
 $$
-\mathcal{F}_{c,s}(x) = \mu_s\,F_N(x)\,r_c(x),
+\mathbf V = \begin{pmatrix} v \\ \omega\, r_c \end{pmatrix}
+\qquad\text{(axial, tangential)},
+$$
+
+where $r_c$ is the contact radius (tool joint or stabiliser). Coulomb's law
+for a contact with normal force $F_N$ is a **single** friction force in the
+plane of sliding, $\boldsymbol{\mathcal F} = (\mathcal F_a,\ \mathcal F_\theta)$,
+with
+
+$$
+\boldsymbol{\mathcal F} \in
+\begin{cases}
+\left\{\,\mu_k F_N\,\dfrac{\mathbf V}{\|\mathbf V\|}\,\right\}, & \text{sliding},\\[8pt]
+\left\{\,\boldsymbol{\mathcal F} : \|\boldsymbol{\mathcal F}\| \le \mu_s F_N\,\right\}, & \text{stuck}.
+\end{cases} \tag{5.2}
+$$
+
+The regime is set by the normalised sliding speed: the contact is **stuck**
+when
+
+$$
+\left(\frac{v}{v_c}\right)^2 + \left(\frac{\omega}{\omega_c}\right)^2 \le 1,
+$$
+
+and sliding otherwise. The axial friction force per length is $\mathcal F_a$,
+and the frictional torque per length in (3.1) is
+
+$$
+\mathcal F_t = r_c\,\mathcal F_\theta .
+$$
+
+Two cross-coupling mechanisms follow from (5.2):
+
+* **Velocity split.** Kinetic friction has fixed magnitude $\mu_k F_N$ but is
+  shared between the two directions in proportion to the velocity components:
+
+$$
+\mathcal F_a = \mu_k F_N\,\frac{v}{\sqrt{v^2 + \omega^2 r_c^2}},
 \qquad
-\mathcal{F}_{c,k}(x) = \mu_k\,F_N(x)\,r_c(x).
+\mathcal F_t = \mu_k F_N\,r_c\,\frac{\omega r_c}{\sqrt{v^2 + \omega^2 r_c^2}} .
 $$
 
-The friction torque per length is the set-valued map
+  Rotating while tripping therefore reduces axial drag. Conversely, axial
+  motion reduces the rotary torque and can change the stick-slip behaviour.
+
+* **Normal-force coupling.** $F_N$ depends on the live tension (5.1), so axial
+  loads change the torque along the string. This is the effect that Aarsnes &
+  Shor (2018, §5.5) observed as a phase shift once axial motion started.
+
+A stuck contact also breaks out under **combined** load. The friction capacity
+$\mu_s F_N$ is shared, so torque and axial pull together can free the string
+when neither alone would.
+
+### 5.3 Special case: no axial motion
+
+For $v \equiv 0$, (5.2) reduces exactly to the torsional inclusion of Aarsnes &
+Shor (2018, eqs. 4–5), with limits
+$\mathcal F_{c,s} = \mu_s F_N r_c$ and $\mathcal F_{c,k} = \mu_k F_N r_c$ and
+$f_\text{rat} = \mu_k/\mu_s$:
 
 $$
 \mathcal{F}_t(\omega, x) \in
@@ -270,48 +329,19 @@ $$
 \{\,\mathcal{F}_{c,k}(x)\,\}, & \omega > \omega_c,\\[2pt]
 [-\mathcal{F}_{c,s}(x),\ \mathcal{F}_{c,s}(x)], & |\omega| \le \omega_c,\\[2pt]
 \{-\mathcal{F}_{c,k}(x)\}, & \omega < -\omega_c .
-\end{cases} \tag{5.2}
+\end{cases}
 $$
 
-When $|\omega| \le \omega_c$, $\mathcal{F}_t$ takes the value that keeps the
-element at rest,
+The published off-bottom results (break-off torque, stick-slip amplitude and
+period, §9) therefore carry over unchanged.
 
-$$
-\mathcal F_t = -\frac{\partial\tau}{\partial x} - k_t\rho J\omega,
-$$
+### 5.4 Decoupled variant (`along_string_coupling=False`)
 
-provided this lies within the static limit; otherwise it takes the bound.
-With $f_\text{rat} = \mu_k/\mu_s$ this is exactly the published model.
-
-### 5.3 Coulomb inclusion: axial (identical)
-
-$$
-\mathcal{F}_a(v, x) \in
-\begin{cases}
-\{\,\mu_k F_N\,\}, & v > v_c,\\[2pt]
-[-\mu_s F_N,\ \mu_s F_N], & |v| \le v_c,\\[2pt]
-\{-\mu_k F_N\}, & v < -v_c .
-\end{cases} \tag{5.3}
-$$
-
-In the base model (5.2) and (5.3) are **independent**: neither depends on the
-other direction's velocity, and $F_N$ does not depend on the dynamic tension.
-The axial and torsional systems are therefore uncoupled along the string, and
-**the only coupling is at the bit (§6.3)**.
-
-### 5.4 Optional along-string coupling (`along_string_coupling=True`)
-
-For later studies, an opt-in model treats friction as a single 2-D Coulomb
-force opposing the sliding velocity of the pipe surface,
-$\mathbf{V} = (v,\ \omega r_c)$:
-
-* static if $(v/v_c)^2 + (\omega/\omega_c)^2 \le 1$, with
-  $\|\boldsymbol{\mathcal F}\| \le \mu_s F_N$;
-* otherwise $\boldsymbol{\mathcal F} = \mu_k F_N\,\mathbf{V}/\|\mathbf V\|$.
-
-The normal force is evaluated with the live tension $T = -(q_s + q_d)$. This
-reproduces velocity-split torque and drag (rotation reduces drag), and lets
-axial loads change torque along the string.
+For comparison, the axial and torsional inclusions can be applied
+independently, each in the 1-D form above, with thresholds $v_c$ and
+$\omega_c$. The normal force is then taken from the static hanging string
+(§5.1). There is no velocity split and no normal-force coupling, so the only
+axial–torsional coupling is at the bit.
 
 ---
 
@@ -362,7 +392,7 @@ $$
 In autodriller mode, $v_\text{blk}$ is the output of a PI controller acting on
 the surface WOB estimate $\text{HKLD}_\text{off-bottom} - \text{HKLD}$.
 
-### 6.3 Drill bit: the axial–torsional coupling
+### 6.3 Drill bit: coupling at the bit
 
 At $x = L$ the incoming invariants are $\alpha_t$ (torsion) and $\alpha_a$
 (axial). The characteristic relations are
@@ -420,7 +450,8 @@ $\omega_b$, which converges in a few iterations because each step changes the
 state little. The hole depth is updated as
 $\max(\text{hole depth},\ \text{bit depth})$.
 
-**Coupling mechanisms.**
+**Coupling mechanisms at the bit.** These act in addition to the along-string
+friction coupling of §5.2.
 * Torsion depends on axial: TOB $\propto$ WOB in (6.4), so axial waves that
   change WOB modulate the torsional boundary and can trigger or suppress
   stick-slip.
@@ -520,25 +551,58 @@ After the flux update, each cell applies its sources:
 1. **Damping, implicitly:**
    $\omega^{**} = \omega^*/(1 + k_t\Delta t)$ and
    $v^{**} = v^*/(1 + k_a\Delta t)$.
-2. **Friction, by projection** (Aarsnes & Shor 2018, eqs. 20–22). The friction
-   that would bring the cell exactly to rest in this step is
-   $\tilde{\mathcal F}_t = \rho J\,\omega^{**}/\Delta t$
-   (and $\tilde{\mathcal F}_a = \rho A\,v^{**}/\Delta t$).
-   The applied friction is
+2. **Friction, implicitly (coupled model).** Let
+   $\mathbf V^{*} = (v^{**},\ \omega^{**} r_c)$ be the predicted sliding
+   velocity and $M = \operatorname{diag}(m_a, m_\theta)$ the mass per length in
+   each direction, with $m_a = \rho A$ and $m_\theta = \rho J / r_c^2$. Coulomb
+   friction (5.2) is applied with a backward-Euler step:
+
+$$
+\mathbf V^{k+1} = \mathbf V^{*} - \Delta t\, M^{-1}\,\mu F_N\,\frac{\mathbf V^{k+1}}{\|\mathbf V^{k+1}\|},
+\qquad
+c \equiv \Delta t\,\mu F_N,
+$$
+
+   with $\mu = \mu_s$ if the cell was stuck at step $k$ and $\mu = \mu_k$
+   otherwise. Two cases follow:
+
+   * **Stick.** If $\|M\mathbf V^{*}\| \le c$, the friction impulse can absorb
+     the cell's momentum, and $\mathbf V^{k+1} = 0$ exactly. The impulse needed
+     to stop the cell, $M\mathbf V^*/\Delta t$, is the 2-D form of
+     $\tilde{\mathcal F}$ in Aarsnes & Shor (2018, eqs. 20–21).
+   * **Slide.** Otherwise each component satisfies
+
+$$
+V_i^{k+1} = \frac{m_i V_i^{*}\, s}{m_i s + c},
+\qquad
+g(s) = \sum_i \left(\frac{m_i V_i^{*}}{m_i s + c}\right)^2 - 1 = 0,
+$$
+
+     where $s = \|\mathbf V^{k+1}\|$. The function $g$ is convex and
+     decreasing, with $g(0) > 0 \ge g(\|\mathbf V^*\|)$, so Newton's method
+     from $s = \|\mathbf V^*\|$ converges monotonically after the first step.
+     For equal masses this reduces to $s = \|\mathbf V^*\| - c/m$.
+
+   The implicit form guarantees three properties:
+   * friction opposes the **new** sliding direction exactly;
+   * friction never reverses the motion within a step;
+   * sticking is exact.
+
+   An explicit update with each component clipped separately would distort the
+   friction direction when one component is small.
+
+   **Decoupled variant.** Each direction is projected separately:
 
 $$
 \mathcal F = \operatorname{sign}(\tilde{\mathcal F})\,\min\!\left(|\tilde{\mathcal F}|,\ \mathcal F_c\right),
 \qquad
-\mathcal F_c = \begin{cases}\mathcal F_{c,s}, & |\omega^k| \le \omega_c\\ \mathcal F_{c,k}, & \text{otherwise,}\end{cases}
+\tilde{\mathcal F}_t = \rho J\,\omega^{**}/\Delta t,
+\qquad
+\tilde{\mathcal F}_a = \rho A\,v^{**}/\Delta t,
 $$
 
-   followed by $\omega^{k+1} = \omega^{**} - \Delta t\,\mathcal F/(\rho J)$.
-
-This realises the inclusion (5.2) exactly in discrete form:
-* a cell sticks exactly ($\omega^{k+1} = 0$) when the static limit suffices;
-* friction never reverses the motion within a step;
-* the regime is selected from the previous step's velocity, as in eq. 22 of
-  the paper.
+   which is the published scheme (eq. 22). For $v \equiv 0$ the coupled update
+   reduces to exactly this.
 
 ### 8.4 Moving string
 
@@ -563,7 +627,7 @@ against the accumulated requested time.
 These limits connect the model to classical results and are used in the tests.
 
 * **Torque and drag.** Setting $\partial_t = 0$ in (3.1)–(3.2) with kinetic
-  friction gives the soft-string torque and drag equations, integrated from
+  friction (5.2) gives the soft-string torque and drag equations, integrated from
   the bit up:
 
 $$
@@ -574,8 +638,10 @@ $$
 T(L) = -\text{WOB},\ \tau(L) = \text{TOB}.
 $$
 
-  This is `statics.torque_drag`. The decoupled model is compared with it
-  using the static normal force (`normal_force=sim.fn0`).
+  This is `statics.torque_drag`, with friction split by the velocity direction
+  exactly as in (5.2). The coupled dynamic model converges to it in steady
+  combined motion. The decoupled variant is compared with it using the static
+  normal force (`normal_force=sim.fn0`).
 
 * **Break-off torque** (bit off bottom; Aarsnes & Shor 2018, eqs. 26–27):
 
@@ -610,9 +676,10 @@ $$
 | torsional / axial wave arrival at $L/c$ | within 1% |
 | fundamental period $4L/c_t$ | within 0.2%; amplitude loss < 1% over 8 round trips |
 | hanging string at rest | exactly at rest (well balanced) |
-| steady rotation, pick-up, slack-off vs torque & drag | within 2% |
-| decoupled model: rotation does not change pick-up drag | within 0.2% |
-| opt-in coupling vs velocity-split torque & drag | within 2–3% |
+| steady rotation, pick-up, slack-off vs torque & drag (both friction models) | within 2% |
+| coupled friction vs velocity-split torque & drag (rotate while picking up / slacking off) | within 2% |
+| rotation reduces pick-up drag (coupled); has no effect (decoupled) | yes / within 0.2% |
+| combined axial + torsional breakout, implicit friction exact | to $10^{-10}$ |
 | off-bottom stick-slip only when $\mu_s > \mu_k$ | yes |
 | ZTorque suppresses the stiff-controller limit cycle | yes |
 | bit breakout torque, TOB/WOB slope, drill-off at constant block | exact / 1% |
