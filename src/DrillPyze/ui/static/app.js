@@ -9,7 +9,7 @@
 
 const RPM = 2 * Math.PI / 60;
 const COLORS = { ink: '#1c2733', steel: '#5b6b7c', line: '#d3dae2', rot: '#1f6fb2', trq: '#b7790a',
-                 ax: '#2f7d4f', stuck: '#b8326e', ref: '#9aa7b4' };
+                 ax: '#2f7d4f', bit: '#b8326e', ref: '#9aa7b4' };
 const MAX_FRAMES = 4000;
 
 const $ = (id) => document.getElementById(id);
@@ -41,8 +41,8 @@ const SECTIONS = [
       ['parameters.friction.mu_kinetic_cased', 'Kinetic, cased', '–', 1],
       ['parameters.friction.mu_static_open', 'Static, open hole', '–', 1],
       ['parameters.friction.mu_kinetic_open', 'Kinetic, open hole', '–', 1],
-      ['parameters.friction.omega_c', 'Stick threshold, rotation', 'rpm', RPM],
-      ['parameters.friction.v_c', 'Stick threshold, axial', 'mm/s', 1e-3],
+      ['parameters.friction.omega_c', 'Static friction below, rotation', 'rpm', RPM],
+      ['parameters.friction.v_c', 'Static friction below, axial', 'mm/s', 1e-3],
       ['parameters.friction.along_string_coupling', 'Couple axial and rotation in friction', 'bool', 1],
     ] },
   { title: 'Damping',
@@ -51,7 +51,7 @@ const SECTIONS = [
       ['parameters.damping.k_a', 'Axial', '1/s', 1],
     ] },
   { title: 'Bit',
-    note: 'Stuck: |TOB| ≤ T₀ + μs·r·WOB. Sliding: TOB = μk·r·WOB. ROP = k·(WOB − W₀)·|ω|.',
+    note: 'Sticking: |TOB| ≤ T₀ + μs·r·WOB. Sliding: TOB = μk·r·WOB. ROP = k·(WOB − W₀)·|ω|.',
     fields: [
       ['parameters.bit.radius', 'Effective radius r', 'mm', 1e-3, { blank: 'D/3' }],
       ['parameters.bit.mu_static', 'Static friction μs', '–', 1],
@@ -251,21 +251,13 @@ function depthAxis(show = true) {
   return axis(show ? 'Measured depth (m)' : '', { range: r, autorange: false, showticklabels: show });
 }
 
-function stuckSegments(md, x, stuck) {
-  const xs = [], ys = [];
-  for (let i = 0; i < md.length; i++) { if (stuck[i]) { xs.push(x[i]); ys.push(md[i]); } else { xs.push(null); ys.push(null); } }
-  return { xs, ys };
-}
-
 function drawStringViews(fr) {
   const p = fr.profile;
   const ref = state.reference;
   // ---- RPM along the string
   state.rpmMax = Math.max(state.rpmMax, ...p.rpm.map(Math.abs));
-  const s = stuckSegments(p.md, p.rpm, p.stuck);
   Plotly.react('p-rpm', [
     { x: p.rpm, y: p.md, mode: 'lines', line: { color: COLORS.rot, width: 2 }, hovertemplate: '%{x:.0f} rpm at %{y:.0f} m<extra></extra>' },
-    { x: s.xs, y: s.ys, mode: 'lines', line: { color: COLORS.stuck, width: 5 }, hoverinfo: 'skip', connectgaps: false },
   ], baseLayout({ title: TITLE('Rotary speed'), margin: { l: 56, r: 14, t: 74, b: 40 },
     xaxis: axis('rpm', { range: [-0.08 * state.rpmMax, state.rpmMax * 1.05] }), yaxis: depthAxis(true) }), PCONF);
 
@@ -289,24 +281,26 @@ function drawStringViews(fr) {
     legend: LEGEND_TOP, margin: { l: 14, r: 14, t: 74, b: 40 },
     xaxis: axis('kN'), yaxis: depthAxis(false) }), PCONF);
 
-  // ---- well path with the string coloured by rotation
+  // ---- well path with the drill pipe, BHA and bit positions
   const path = state.path;
   const cased = path.md.map((m, i) => (m <= path.shoe_md ? i : -1)).filter(i => i >= 0);
-  const colors = p.rpm.map((r, i) => (p.stuck[i] ? COLORS.stuck : r));
+  const pick = (arr, want) => arr.map((v, i) => (path.bha[i] === want ? v : null));
+  const nb = p.md.length - 1;
+  const bitTip = `Bit at ${fr.latest.bit_depth.toFixed(1)} m MD`;
   Plotly.react('p-path', [
-    { x: path.vs, y: path.tvd, mode: 'lines', line: { color: '#cfd7df', width: 16 }, hoverinfo: 'skip', name: 'Open hole' },
-    { x: cased.map(i => path.vs[i]), y: cased.map(i => path.tvd[i]), mode: 'lines', line: { color: '#a9b5c1', width: 18 }, hoverinfo: 'skip', name: 'Casing' },
-    { x: p.vs, y: p.tvd, mode: 'markers', hoverinfo: 'text',
-      text: p.md.map((m, i) => `${m.toFixed(0)} m MD: ${p.rpm[i].toFixed(0)} rpm${p.stuck[i] ? ', stuck' : ''}`),
-      marker: { size: 7, color: p.rpm, cmin: 0, cmax: state.rpmMax,
-                colorscale: [[0, '#dbe7f3'], [0.5, '#5f9fd4'], [1, '#0b3d6b']],
-                colorbar: { title: { text: 'rpm', side: 'right' }, thickness: 10, len: 0.8, outlinewidth: 0 },
-                line: { width: p.stuck.map(s => (s ? 2 : 0)), color: COLORS.stuck } } },
-    { x: [p.vs[p.vs.length - 1]], y: [p.tvd[p.tvd.length - 1]], mode: 'markers', hoverinfo: 'skip',
-      marker: { symbol: 'diamond', size: 12, color: fr.latest.bit_stuck ? COLORS.stuck : COLORS.ink } },
-  ], baseLayout({ title: TITLE('String in the well (stuck pipe outlined)'),
+    { x: path.vs, y: path.tvd, mode: 'lines', line: { color: '#d9e0e7', width: 16 }, hoverinfo: 'skip', name: 'Open hole' },
+    { x: cased.map(i => path.vs[i]), y: cased.map(i => path.tvd[i]), mode: 'lines', line: { color: '#a9b5c1', width: 18 },
+      hoverinfo: 'skip', name: `Casing to ${path.shoe_md.toFixed(0)} m` },
+    { x: pick(p.vs, 0), y: pick(p.tvd, 0), mode: 'lines', line: { color: COLORS.steel, width: 3 }, name: 'Drill pipe',
+      hoverinfo: 'skip' },
+    { x: pick(p.vs, 1), y: pick(p.tvd, 1), mode: 'lines', line: { color: COLORS.ink, width: 8 },
+      name: `BHA (${path.bha_length.toFixed(0)} m)`, hoverinfo: 'skip' },
+    { x: [p.vs[nb]], y: [p.tvd[nb]], mode: 'markers', name: 'Bit', hovertemplate: bitTip + '<extra></extra>',
+      marker: { symbol: 'diamond', size: 13, color: COLORS.trq, line: { color: COLORS.ink, width: 1 } } },
+  ], baseLayout({ title: TITLE('Well path'), showlegend: true,
+    legend: { x: 0.98, xanchor: 'right', y: 0.98, yanchor: 'top', bgcolor: 'rgba(255,255,255,0.85)', font: { size: 11 } },
     xaxis: axis('Horizontal displacement (m)', { scaleanchor: 'y', scaleratio: 1 }),
-    yaxis: axis('True vertical depth (m)', { autorange: 'reversed' }), margin: { l: 64, r: 10, t: 34, b: 40 } }), PCONF);
+    yaxis: axis('True vertical depth (m)', { autorange: 'reversed' }), margin: { l: 64, r: 14, t: 40, b: 40 } }), PCONF);
 }
 
 function emptyTraces() {
@@ -339,7 +333,7 @@ function drawTraces(cursor) {
   Plotly.react('t-torque', [
     sg(T.motor_torque_knm, 'Motor', COLORS.ink),
     sg(T.pipe_torque_knm, 'Pipe at surface', COLORS.trq),
-    sg(T.tob_knm, 'On bit', COLORS.stuck),
+    sg(T.tob_knm, 'On bit', COLORS.bit),
   ], lay('Torque', 'kN·m'), PCONF);
   Plotly.react('t-axial', [
     sg(T.hookload_kn, 'Hookload', COLORS.ax),
@@ -357,7 +351,6 @@ function showReadouts(L) {
   $('ro-wob').textContent = fixed(L.wob_kn, 1);
   $('ro-rop').textContent = fixed(L.rop_mh, 1);
   $('ro-depth').textContent = fixed(L.bit_depth, 2);
-  $('ro-stuck').textContent = fixed(100 * L.stuck_fraction, 0);
 }
 
 function render(fr, live = true) {

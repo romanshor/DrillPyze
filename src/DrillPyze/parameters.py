@@ -34,7 +34,7 @@ class BitParameters:
     """
     Coulomb-type bit-rock interaction (the axial-torsional coupling point).
 
-    stuck   (|omega_b| <= omega_c):  |TOB| <= stick_torque + mu_static * radius * WOB
+    sticking (|omega_b| <= omega_c): |TOB| <= stick_torque + mu_static * radius * WOB
     sliding:                         TOB  =  mu_kinetic * radius * WOB
 
     ``radius=None`` uses D/3 (hole diameter / 3), so ``mu_kinetic`` is the

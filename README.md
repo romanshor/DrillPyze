@@ -49,7 +49,7 @@ velocity $\mathbf V = (v,\ \omega r_c)$:
 $$
 \boldsymbol{\mathcal F} = \mu_k F_N\,\frac{\mathbf V}{\|\mathbf V\|}\ \ \text{(sliding)},
 \qquad
-\|\boldsymbol{\mathcal F}\| \le \mu_s F_N\ \ \text{(stuck)},
+\|\boldsymbol{\mathcal F}\| \le \mu_s F_N\ \ \text{(sticking)},
 \qquad
 \mathcal F_t = r_c\,\mathcal F_\theta,
 $$
@@ -58,7 +58,7 @@ and the soft-string normal force $F_N$ follows the live tension. As a result:
 * rotation reduces drag, and axial motion reduces rotary torque (velocity
   split);
 * axial load changes torque through $F_N$;
-* combined loads break a stuck string free sooner than either load alone.
+* combined axial and torsional loads overcome static friction sooner than either alone.
 
 *At the bit*, the characteristic relations
 
@@ -69,7 +69,7 @@ $$
 are closed by a Coulomb-type bit–rock law:
 
 $$
-|\text{TOB}| \le T_{s0} + \mu_{bs}\,r_b\,\text{WOB}\ \ \text{(stuck)},
+|\text{TOB}| \le T_{s0} + \mu_{bs}\,r_b\,\text{WOB}\ \ \text{(sticking)},
 \qquad
 \text{TOB} = \mu_{bk}\,r_b\,\text{WOB}\ \ \text{(sliding)},
 \qquad
@@ -128,8 +128,7 @@ The UI starts with the Well A example case preloaded.
   * top drive: controller set point, or a prescribed speed;
   * drawworks: block speed, or an autodriller WOB set point.
 * **Watch the string**:
-  * the well path, with the string coloured by rotary speed and stuck pipe
-    outlined;
+  * the well path, with the casing, drill pipe, BHA and bit positions;
   * rpm, torque and tension against depth, compared with torque-and-drag
     references;
   * time histories with 60 s, 10 min, 60 min and full-run windows.

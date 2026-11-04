@@ -276,11 +276,11 @@ $$
 \boldsymbol{\mathcal F} \in
 \begin{cases}
 \left\{\,\mu_k F_N\,\dfrac{\mathbf V}{\|\mathbf V\|}\,\right\}, & \text{sliding},\\[8pt]
-\left\{\,\boldsymbol{\mathcal F} : \|\boldsymbol{\mathcal F}\| \le \mu_s F_N\,\right\}, & \text{stuck}.
+\left\{\,\boldsymbol{\mathcal F} : \|\boldsymbol{\mathcal F}\| \le \mu_s F_N\,\right\}, & \text{sticking}.
 \end{cases} \tag{5.2}
 $$
 
-The regime is set by the normalised sliding speed: the contact is **stuck**
+The regime is set by the normalised sliding speed: the contact is **sticking**
 when
 
 $$
@@ -312,7 +312,7 @@ $$
   loads change the torque along the string. This is the effect that Aarsnes &
   Shor (2018, §5.5) observed as a phase shift once axial motion started.
 
-A stuck contact also breaks out under **combined** load. The friction capacity
+A sticking contact also breaks out under **combined** load. The friction capacity
 $\mu_s F_N$ is shared, so torque and axial pull together can free the string
 when neither alone would.
 
@@ -420,12 +420,12 @@ sticking torque $T_{s0}$ and threshold $\omega_c$:
 $$
 \text{TOB} \in
 \begin{cases}
-[-(T_{s0} + \mu_{bs}\,r_b\,\text{WOB}),\ T_{s0} + \mu_{bs}\,r_b\,\text{WOB}], & \text{stuck } (|\omega_b| \le \omega_c),\\[3pt]
+[-(T_{s0} + \mu_{bs}\,r_b\,\text{WOB}),\ T_{s0} + \mu_{bs}\,r_b\,\text{WOB}], & \text{sticking } (|\omega_b| \le \omega_c),\\[3pt]
 \mu_{bk}\,r_b\,\text{WOB}\;\operatorname{sign}(\omega_b), & \text{sliding}.
 \end{cases} \tag{6.4}
 $$
 
-* **Stuck.** The bit stays at rest ($\omega_b = 0$, so
+* **Sticking.** The bit stays at rest ($\omega_b = 0$, so
   $\text{TOB} = Z_t\alpha_t$ from (6.3)) as long as
   $|Z_t\alpha_t| \le T_{s0} + \mu_{bs} r_b \text{WOB}$. Breakout occurs when the
   torque delivered by the string exceeds this limit.
@@ -563,7 +563,7 @@ $$
 c \equiv \Delta t\,\mu F_N,
 $$
 
-   with $\mu = \mu_s$ if the cell was stuck at step $k$ and $\mu = \mu_k$
+   with $\mu = \mu_s$ if the cell was sticking at step $k$ and $\mu = \mu_k$
    otherwise. Two cases follow:
 
    * **Stick.** If $\|M\mathbf V^{*}\| \le c$, the friction impulse can absorb
@@ -663,7 +663,7 @@ $$
   arrival at the bit after $L/c$, and fundamental frequency $f_1 = c/(4L)$.
 
 * **Bit.**
-  * Stuck-bit breakout at $\text{TOB} = T_{s0} + \mu_{bs} r_b\,\text{WOB}$.
+  * Bit breakout from sticking at $\text{TOB} = T_{s0} + \mu_{bs} r_b\,\text{WOB}$.
   * While sliding, $\text{TOB}/\text{WOB} = \mu_{bk} r_b$.
   * Steady drilling at $\text{WOB} = W_0 + V/(k_r\Omega)$.
 

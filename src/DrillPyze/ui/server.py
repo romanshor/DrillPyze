@@ -83,8 +83,12 @@ class Session:
         n, e, z = sv.positions(md_path)
         az = sv.azi[-1]
         self.vs_azimuth = az
+        g = sim.grid
+        top = len(sim.drillstring.components) - 1        # the component stretched to surface
         self.path = {'md': _r(md_path, 1), 'vs': _r(n * np.cos(az) + e * np.sin(az), 2), 'tvd': _r(z, 2),
-                     'shoe_md': sim.wellbore.casing_shoe}
+                     'shoe_md': sim.wellbore.casing_shoe,
+                     'bha': (g.component != top).astype(int).tolist(),
+                     'bha_length': float(sim.drillstring.bha_length)}
 
     # -------------------------------------------------------------- inputs
     def apply_inputs(self, inp):
@@ -114,7 +118,6 @@ class Session:
     # --------------------------------------------------------------- frame
     def frame(self, wall=0.0, duration=0.0):
         sim = self.sim
-        f = sim.params.friction
         chunks = sim._records[self.sent_chunks:]
         self.sent_chunks = len(sim._records)
         if chunks:
@@ -141,7 +144,6 @@ class Session:
             'hole_depth': _r(col['hole_depth'], 3),
         }
         prof = sim.profiles()
-        stuck = (np.abs(sim.w) <= f.omega_c) & (np.abs(sim.v) <= f.v_c)
         sv = sim.wellbore.survey
         n, e, z = sv.positions(np.clip(prof.md.values, 0, None))
         az = self.vs_azimuth
@@ -154,7 +156,6 @@ class Session:
                 'motor_torque_knm': L['motor_torque'] / 1e3, 'pipe_torque_knm': L['pipe_torque'] / 1e3,
                 'tob_knm': L['tob'] / 1e3, 'hookload_kn': L['hookload'] / 1e3, 'wob_kn': L['wob'] / 1e3,
                 'rop_mh': L['v_bit'] * 3600.0, 'bit_depth': L['bit_depth'], 'hole_depth': L['hole_depth'],
-                'stuck_fraction': float(stuck.mean()), 'bit_stuck': bool(sim.sc[K.S_BITSTUCK] > 0.5),
             },
             'profile': {
                 'md': _r(prof.md, 2),
@@ -163,7 +164,6 @@ class Session:
                 'tension_kn': _r(prof.tension / 1e3, 2),
                 'v_axial_mms': _r(prof.v * 1e3, 3),
                 'normal_knm': _r(prof.normal_force / 1e3, 4),
-                'stuck': stuck.astype(int).tolist(),
                 'vs': _r(n * np.cos(az) + e * np.sin(az), 2),
                 'tvd': _r(z, 2),
             },
