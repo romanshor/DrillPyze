@@ -18,11 +18,18 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+ui = ["plotly"]
 test = ["pytest"]
 docs = ["sphinx>=1.8.3", "sphinx-rtd-theme", "myst_parser"]
 
+[project.scripts]
+drillpyze-ui = "DrillPyze.ui.server:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"DrillPyze.ui" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

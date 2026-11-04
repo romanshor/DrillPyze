@@ -133,11 +133,18 @@ class Survey:
         azi = np.mod(np.arctan2(t[:, 1], t[:, 0]), 2 * np.pi)
         return inc, azi
 
+    def positions(self, md):
+        """
+        (north, east, tvd) in metres at measured depths, by integrating the
+        interpolated tangent along the minimum-curvature path.
+        """
+        md = np.atleast_1d(np.asarray(md, dtype=float))
+        grid = np.union1d(self.md, np.linspace(0, max(self.md[-1], md.max()), 4000))
+        t = self.tangent(grid)
+        d = 0.5 * (t[1:] + t[:-1]) * np.diff(grid)[:, None]
+        pos = np.vstack([np.zeros(3), np.cumsum(d, axis=0)])
+        return tuple(np.interp(md, grid, pos[:, k]) for k in range(3))
+
     def tvd_at(self, md):
         """True vertical depth (m) at measured depths (numerical arc integration)."""
-        md = np.atleast_1d(np.asarray(md, dtype=float))
-        grid = np.union1d(self.md, np.linspace(0, max(self.md[-1], md.max()), 2000))
-        t = self.tangent(grid)
-        dz = 0.5 * (t[1:, 2] + t[:-1, 2]) * np.diff(grid)
-        z = np.concatenate([[0.0], np.cumsum(dz)])
-        return np.interp(md, grid, z)
+        return self.positions(md)[2]

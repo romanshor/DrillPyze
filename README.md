@@ -104,6 +104,42 @@ pip install -e ".[test]"
 pytest -q
 ```
 
+## Interactive simulator
+
+```bash
+pip install -e ".[ui]"
+drillpyze-ui            # opens http://127.0.0.1:8050 in your browser
+```
+
+The UI starts with the Well A example case preloaded.
+
+* **Edit the case** in the left panel: survey, drillstring, bit position,
+  string and bit friction, damping, top-drive controller and numerics.
+  * Diameters are in mm; everything else is in SI units, with rpm for speed.
+  * *Apply and reset* restarts the simulation with the new inputs.
+  * The survey and drillstring tables can be imported from CSV files.
+  * The whole case can be saved and reopened as JSON (`DrillPyze.config`).
+* **Play, pause and step** through the simulation.
+  * Choose the frame length and the playback speed (from ¼× real time to as
+    fast as possible).
+  * *Run ahead* jumps forward without animating each frame. Space toggles
+    play; the right arrow steps one frame.
+* **Change rig inputs while running** in the transport bar:
+  * top drive: controller set point, or a prescribed speed;
+  * drawworks: block speed, or an autodriller WOB set point.
+* **Watch the string**:
+  * the well path, with the string coloured by rotary speed and stuck pipe
+    outlined;
+  * rpm, torque and tension against depth, compared with torque-and-drag
+    references;
+  * time histories with 60 s, 10 min, 60 min and full-run windows.
+* **Scrub back** through earlier frames with the replay slider.
+* **Download** the recorded channels as CSV.
+
+The server runs the same `Simulation` objects as the Python API (see
+`DrillPyze/ui/server.py`). Plotly is served from the installed `plotly`
+package, so the UI also works offline.
+
 ## Workflow: set up, initialise, step
 
 ```python
