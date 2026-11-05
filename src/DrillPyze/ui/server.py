@@ -138,7 +138,7 @@ class Session:
             'tob_knm': _r(col['tob'] / 1e3, 3),
             'hookload_kn': _r(col['hookload'] / 1e3, 2),
             'wob_kn': _r(col['wob'] / 1e3, 2),
-            'rop_mh': _r(col['v_bit'] * 3600.0, 2),
+            'rop_mh': _r(np.where(col['bit_depth'] >= col['hole_depth'] - 1e-6, np.maximum(col['v_bit'], 0.0), 0.0) * 3600.0, 2),
             'block_mh': _r(col['v_block'] * 3600.0, 2),
             'bit_depth': _r(col['bit_depth'], 3),
             'hole_depth': _r(col['hole_depth'], 3),
@@ -148,6 +148,8 @@ class Session:
         n, e, z = sv.positions(np.clip(prof.md.values, 0, None))
         az = self.vs_azimuth
         L = sim.latest()
+        on_bottom = L['bit_depth'] >= L['hole_depth'] - 1e-6
+        rop = max(L['v_bit'], 0.0) if on_bottom else 0.0
         return {
             'time': L['time'],
             'latest': {
@@ -155,7 +157,8 @@ class Session:
                 'rpm_sp': units.rads_to_rpm(L['omega_sp']),
                 'motor_torque_knm': L['motor_torque'] / 1e3, 'pipe_torque_knm': L['pipe_torque'] / 1e3,
                 'tob_knm': L['tob'] / 1e3, 'hookload_kn': L['hookload'] / 1e3, 'wob_kn': L['wob'] / 1e3,
-                'rop_mh': L['v_bit'] * 3600.0, 'bit_depth': L['bit_depth'], 'hole_depth': L['hole_depth'],
+                'rop_mh': rop * 3600.0, 'bit_axial_mh': L['v_bit'] * 3600.0,
+                'bit_depth': L['bit_depth'], 'hole_depth': L['hole_depth'], 'on_bottom': bool(on_bottom),
             },
             'profile': {
                 'md': _r(prof.md, 2),

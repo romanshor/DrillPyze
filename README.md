@@ -111,11 +111,14 @@ pip install -e ".[ui]"
 drillpyze-ui            # opens http://127.0.0.1:8050 in your browser
 ```
 
-The UI starts with the Well A example case preloaded.
+The UI starts with the Well A example case preloaded. The **SI / Field**
+switch at the top of the input panel changes every input, readout, plot axis
+and CSV import between SI (m, mm, kN, kN·m, kg/m³, m/h) and field units (ft,
+in, klbf, kft·lbf, ppg, ft/h). The case itself is always stored in SI, so
+switching never changes it, and the choice is remembered in the browser.
 
 * **Edit the case** in the left panel: survey, drillstring, bit position,
   string and bit friction, damping, top-drive controller and numerics.
-  * Diameters are in mm; everything else is in SI units, with rpm for speed.
   * *Apply and reset* restarts the simulation with the new inputs.
   * The survey and drillstring tables can be imported from CSV files.
   * The whole case can be saved and reopened as JSON (`DrillPyze.config`).

@@ -165,3 +165,5 @@ table.grid .del { border: 0; background: none; color: var(--steel); cursor: poin
 table.grid input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 table.grid input[type=number]::-webkit-inner-spin-button,
 table.grid input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.head-tools { display: flex; gap: 8px; align-items: center; }

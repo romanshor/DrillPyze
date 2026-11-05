@@ -20,7 +20,13 @@
         <h1>DrillPyze</h1>
         <p class="case-name" id="case-name">Well A</p>
       </div>
-      <button class="icon-btn" id="collapse-case" aria-label="Hide inputs" title="Hide inputs">‹</button>
+      <div class="head-tools">
+        <div class="seg" role="radiogroup" aria-label="Units" id="units">
+          <button role="radio" data-sys="si" aria-checked="true">SI</button>
+          <button role="radio" data-sys="field" aria-checked="false">Field</button>
+        </div>
+        <button class="icon-btn" id="collapse-case" aria-label="Hide inputs" title="Hide inputs">‹</button>
+      </div>
     </header>
 
     <div class="case-scroll" id="form">
@@ -96,7 +102,7 @@
             <option value="wob">Autodriller WOB</option>
           </select>
           <input type="range" id="dw-slider" min="-60" max="60" step="0.5" value="0" aria-label="Drawworks input">
-          <input type="number" id="dw" value="0" step="0.5" class="num"><span class="unit" id="dw-unit">m/h</span>
+          <input type="number" id="dw" value="0" step="any" class="num"><span class="unit" id="dw-unit">m/h</span>
         </div>
       </div>
     </section>
@@ -106,12 +112,12 @@
     <section class="readouts" aria-label="Current values">
       <div class="ro rot"><span class="ro-label">Top drive</span><span class="ro-val" id="ro-rpm-td">–</span><span class="ro-unit">rpm</span></div>
       <div class="ro rot"><span class="ro-label">Bit</span><span class="ro-val" id="ro-rpm-bit">–</span><span class="ro-unit">rpm</span></div>
-      <div class="ro trq"><span class="ro-label">Surface torque</span><span class="ro-val" id="ro-tq">–</span><span class="ro-unit">kN·m</span></div>
-      <div class="ro trq"><span class="ro-label">Torque on bit</span><span class="ro-val" id="ro-tob">–</span><span class="ro-unit">kN·m</span></div>
-      <div class="ro ax"><span class="ro-label">Hookload</span><span class="ro-val" id="ro-hk">–</span><span class="ro-unit">kN</span></div>
-      <div class="ro ax"><span class="ro-label">WOB</span><span class="ro-val" id="ro-wob">–</span><span class="ro-unit">kN</span></div>
-      <div class="ro ax"><span class="ro-label">ROP</span><span class="ro-val" id="ro-rop">–</span><span class="ro-unit">m/h</span></div>
-      <div class="ro"><span class="ro-label">Bit depth</span><span class="ro-val" id="ro-depth">–</span><span class="ro-unit">m</span></div>
+      <div class="ro trq"><span class="ro-label">Surface torque</span><span class="ro-val" id="ro-tq">–</span><span class="ro-unit" data-kind="torque"></span></div>
+      <div class="ro trq"><span class="ro-label">Torque on bit</span><span class="ro-val" id="ro-tob">–</span><span class="ro-unit" data-kind="torque"></span></div>
+      <div class="ro ax"><span class="ro-label">Hookload</span><span class="ro-val" id="ro-hk">–</span><span class="ro-unit" data-kind="force"></span></div>
+      <div class="ro ax"><span class="ro-label">WOB</span><span class="ro-val" id="ro-wob">–</span><span class="ro-unit" data-kind="force"></span></div>
+      <div class="ro ax"><span class="ro-label">ROP</span><span class="ro-val" id="ro-rop">–</span><span class="ro-unit" data-kind="rop"></span></div>
+      <div class="ro"><span class="ro-label">Bit depth</span><span class="ro-val" id="ro-depth">–</span><span class="ro-unit" data-kind="depth"></span></div>
     </section>
 
     <section class="string-views" aria-label="Along-string state">
