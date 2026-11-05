@@ -394,3 +394,44 @@ def test_bit_is_the_coupling_point(model):
     s = sim.latest()
     assert s['wob'] < 0.7 * wob0
     assert s['hole_depth'] > 2000.0
+
+
+
+# ---------------------------------------------------------- axial behaviour
+def axial_well_a(v_mh, T=120.0, **friction_kw):
+    from DrillPyze import config
+    cfg = config.merge(config.default(), {'simulation': {'hole_depth': 2600.0},
+                                          'parameters': {'friction': friction_kw, 'thermal': {'enabled': False}}})
+    sim = config.build(cfg)
+    sim.step(T, omega_sp=0.0, v_block=v_mh / 3600)
+    df = sim.results()
+    return df[df.time > 60]
+
+
+@pytest.mark.parametrize('v_mh', [200.0, 20.0, -200.0])
+def test_tripping_without_rotation_has_no_axial_stick_slip(v_mh):
+    """Slack-off and pick-up of Well A at 0 rpm: the bit follows the block without sticking."""
+    late = axial_well_a(v_mh)
+    v = late.v_bit.values * 3600
+    assert np.all(np.sign(v) == np.sign(v_mh)) or abs(v_mh) < 50
+    assert np.abs(v.mean() - v_mh) < 0.05 * abs(v_mh) + 1.0
+    assert late.hookload.max() - late.hookload.min() < 10e3
+
+
+def test_full_axial_static_contrast_reproduces_axial_stick_slip():
+    """Documents the mechanism: the torsional mu_s/mu_k contrast applied axially gives stick-slip."""
+    late = axial_well_a(200.0, axial_static_contrast=1.0)
+    v = late.v_bit.values * 3600
+    assert v.min() < 20.0 and v.max() > 400.0
+
+
+def test_hook_cannot_push_the_string():
+    """On bottom at 0 rpm the block stacks out: hookload stays >= 0 and WOB levels off."""
+    from DrillPyze import config
+    cfg = config.merge(config.default(), {'parameters': {'thermal': {'enabled': False}}})
+    sim = config.build(cfg)
+    sim.step(200.0, omega_sp=0.0, v_block=200 / 3600)
+    df = sim.results()
+    assert df.hookload.min() >= -1e-6
+    late = df[df.time > 170]
+    assert late.wob.max() - late.wob.min() < 0.02 * late.wob.mean()

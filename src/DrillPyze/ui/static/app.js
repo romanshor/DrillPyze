@@ -35,7 +35,7 @@ const UNITS = {
   },
 };
 // kinds whose unit does not change between systems: [label, SI per display unit]
-const FIXED = { cond: ['W/(m·K)', 1], cp: ['J/(kg·K)', 1], visc: ['mPa·s', 1e-3], none: ['–', 1], deg: ['°', 1], rpm: ['rpm', RPM], rpm_s: ['rpm/s', RPM], per_s: ['1/s', 1],
+const FIXED = { accel: ['m/s²', 1], cond: ['W/(m·K)', 1], cp: ['J/(kg·K)', 1], visc: ['mPa·s', 1e-3], none: ['–', 1], deg: ['°', 1], rpm: ['rpm', RPM], rpm_s: ['rpm/s', RPM], per_s: ['1/s', 1],
                 hz: ['Hz', 1], s: ['s', 1] };
 const SERVER = { force: 1e3, torque: 1e3, length: 1, depth: 1, rop: 1 / 3600, temp: 1, stress: 1 };   // SI per unit the server sends
 
@@ -86,6 +86,8 @@ const SECTIONS = [
       ['parameters.friction.omega_c', 'Static friction below, rotation', 'rpm'],
       ['parameters.friction.v_c', 'Static friction below, axial', 'slow_speed'],
       ['parameters.friction.along_string_coupling', 'Couple axial and rotation in friction', 'bool'],
+      ['parameters.friction.axial_static_contrast', 'Axial static contrast', 'none', { hint: '0: axial static = kinetic (default). 1: the full static/kinetic difference applies axially' }],
+      ['parameters.friction.weakening', 'Static to kinetic', 'select', { options: [['step', 'Step (Aarsnes & Shor)'], ['exponential', 'Exponential']] }],
     ] },
   { title: 'Damping',
     fields: [
@@ -157,6 +159,7 @@ const SECTIONS = [
       ['parameters.top_drive.inertia', 'Top drive inertia', 'inertia'],
       ['parameters.top_drive.max_torque', 'Torque limit', 'torque', { hint: '0 for no limit' }],
       ['parameters.top_drive.setpoint_ramp', 'Set point ramp', 'rpm_s'],
+      ['parameters.drawworks.block_acceleration', 'Block acceleration limit', 'accel', { hint: '0 for instant changes in block speed' }],
     ] },
   { title: 'Numerics',
     fields: [

@@ -63,7 +63,10 @@ P_AD_KP = 21       # autodriller gains (m/s per N)
 P_AD_KI = 22
 P_AD_VMAX = 23     # autodriller max block speed (m/s)
 P_HKLD_REF = 24    # off-bottom reference hookload for autodriller (N)
-N_PF = 25
+P_AXC = 25         # axial static contrast c: mu_s,axial = mu_k + c (mu_s - mu_k)
+P_WEAK = 26        # 0: step static->kinetic, 1: exponential weakening mu_k + (mu_s - mu_k) exp(-s)
+P_BLK_ACC = 27     # block acceleration limit (m/s^2), 0 = unlimited
+N_PF = 28
 
 # indices into the integer parameter vector ``pi``
 I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed
@@ -311,6 +314,8 @@ def advance(nsteps, sc, pf, pi,
     coupled = pi[I_COUPLE] == 1
     bit_model = pi[I_BIT]
     n_blades = int(pf[P_BLADES])
+    axc = pf[P_AXC]
+    weak_exp = pf[P_WEAK] > 0.5
 
     # filter coefficients (exact discretisation of first-order lags)
     a_en = np.exp(-dt / pf[P_TEN]) if pf[P_TEN] > 0.0 else 0.0
@@ -376,10 +381,20 @@ def advance(nsteps, sc, pf, pi,
                 sc[S_AD_INT] += err * dt
             sc[S_VBLK] = vb
         else:
-            sc[S_VBLK] = v_blk_in
+            acc = pf[P_BLK_ACC]
+            dv = v_blk_in - sc[S_VBLK]
+            if acc > 0.0 and abs(dv) > acc * dt:
+                sc[S_VBLK] += acc * dt * _sign(dv)
+            else:
+                sc[S_VBLK] = v_blk_in
         beta_a1 = v[0] - qd[0] / Za[0]
         q0 = Za[0] * (sc[S_VBLK] - beta_a1)
-        vf[0] = sc[S_VBLK]
+        v_top = sc[S_VBLK]
+        # the hook can only hold the string up: hookload >= 0 (the block stacks out)
+        if -(q0 + pf[P_QS_TOP]) < 0.0:
+            q0 = -pf[P_QS_TOP]
+            v_top = beta_a1 + q0 / Za[0]
+        vf[0] = v_top
         qf[0] = q0
         sc[S_HKLD] = -(q0 + pf[P_QS_TOP])
 
@@ -431,11 +446,32 @@ def advance(nsteps, sc, pf, pi,
                 #      changes torque and rotation changes drag
                 T = -(qs_c[j] + qd[j])
                 fn = normal_force(T, wb_len[j], kx[j], ky[j], kz[j], zx[j], zy[j], zz[j])
-                if (v_old / vc) ** 2 + (w_old / wc) ** 2 <= 1.0:
-                    mu = mus[j]
+                # static limit: an ellipse with axial and torsional static factors
+                mu_sa = muk[j] + axc * (mus[j] - muk[j])
+                mu_st = mus[j]
+                vt_s = ws * r
+                spd = np.sqrt(vs * vs + vt_s * vt_s)
+                if spd > 0.0:
+                    ea = vs / spd
+                    et = vt_s / spd
+                    mu_sd = 1.0 / np.sqrt((ea / mu_sa) ** 2 + (et / mu_st) ** 2) if mu_sa > 0.0 and mu_st > 0.0 else 0.0
+                else:
+                    mu_sd = mu_st
+                s_old = np.sqrt((v_old / vc) ** 2 + (w_old / wc) ** 2)
+                if s_old <= 1.0:
+                    # near rest: stick if the static ellipse can hold the cell
+                    pa = ma[j] * vs / (dt * fn * mu_sa) if fn > 0.0 and mu_sa > 0.0 else 1e30
+                    pt = mt[j] * ws / (r * dt * fn * mu_st) if fn > 0.0 and mu_st > 0.0 else 1e30
+                    if pa * pa + pt * pt <= 1.0:
+                        v[j] = 0.0
+                        w[j] = 0.0
+                        continue
+                    mu = mu_sd
+                elif weak_exp:
+                    mu = muk[j] + (mu_sd - muk[j]) * np.exp(-s_old)
                 else:
                     mu = muk[j]
-                va, vt = _coulomb_2d(vs, ws * r, ma[j], mt[j] / (r * r), dt * mu * fn)
+                va, vt = _coulomb_2d(vs, vt_s, ma[j], mt[j] / (r * r), dt * mu * fn)
                 v[j] = va
                 w[j] = vt / r
             else:
@@ -445,6 +481,8 @@ def advance(nsteps, sc, pf, pi,
                 t_stop = mt[j] * ws / dt
                 if abs(w_old) <= wc:
                     cap = mus[j] * fn * r
+                elif weak_exp:
+                    cap = (muk[j] + (mus[j] - muk[j]) * np.exp(-abs(w_old) / wc)) * fn * r
                 else:
                     cap = muk[j] * fn * r
                 if t_stop > cap:
@@ -454,8 +492,11 @@ def advance(nsteps, sc, pf, pi,
                 w[j] = ws - dt * t_stop / mt[j]
                 # axial: force per length needed to stop the cell this step
                 f_stop = ma[j] * vs / dt
+                mu_sa = muk[j] + axc * (mus[j] - muk[j])
                 if abs(v_old) <= vc:
-                    cap = mus[j] * fn
+                    cap = mu_sa * fn
+                elif weak_exp:
+                    cap = (muk[j] + (mu_sa - muk[j]) * np.exp(-abs(v_old) / vc)) * fn
                 else:
                     cap = muk[j] * fn
                 if f_stop > cap:

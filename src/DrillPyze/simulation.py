@@ -184,6 +184,11 @@ class Simulation:
         pf[K.P_AD_KI] = p.autodriller.ki
         pf[K.P_AD_VMAX] = p.autodriller.v_max
         self.pi[K.I_COUPLE] = 1 if f.along_string_coupling else 0
+        pf[K.P_AXC] = f.axial_static_contrast
+        if f.weakening not in ('step', 'exponential'):
+            raise ValueError("friction weakening must be 'step' or 'exponential'")
+        pf[K.P_WEAK] = 1.0 if f.weakening == 'exponential' else 0.0
+        pf[K.P_BLK_ACC] = p.drawworks.block_acceleration
 
     def _set_drilling_strength(self, S):
         """Update the drilling strength S used by the bit model (Pa)."""

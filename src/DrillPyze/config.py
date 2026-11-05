@@ -23,7 +23,7 @@ from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
 from .parameters import (ModelParameters, FrictionParameters, DampingParameters, BitParameters,
-                         TopDriveParameters, AutodrillerParameters)
+                         TopDriveParameters, AutodrillerParameters, DrawworksParameters)
 from .simulation import Simulation
 from .formation import Formation, FormationLayer
 from .thermal import ThermalParameters
@@ -68,6 +68,7 @@ def well_a():
             'controller': {'type': 'stiff', 'f_c': None, 't_hp': 10.0, 't_lp': 0.001,
                            't_en': 0.001, 'kp': None, 'ki': None, 'impedance': None},
             'autodriller': asdict(AutodrillerParameters()),
+            'drawworks': asdict(DrawworksParameters()),
             'thermal': asdict(ThermalParameters(flow_rate=2000 / 60000, inlet_temperature=30.0)),
             'cfl': 0.95,
         },
@@ -132,6 +133,7 @@ def build_parameters(cfg, zeta_p=None, first_mode=None):
         bit=bit_parameters(p['bit'], _num(cfg['well'].get('hole_diameter'))),
         top_drive=TopDriveParameters(**p['top_drive']),
         autodriller=AutodrillerParameters(**p.get('autodriller', {})),
+        drawworks=DrawworksParameters(**p.get('drawworks', {})),
         thermal=ThermalParameters(**p['thermal']) if p.get('thermal') else ThermalParameters(enabled=False),
         cfl=float(p.get('cfl', 0.95)),
     )

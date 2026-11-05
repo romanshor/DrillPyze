@@ -345,6 +345,54 @@ axial–torsional coupling is at the bit.
 
 ---
 
+### 5.5 Axial static friction
+
+The static and kinetic factors $\mu_s > \mu_k$ were identified from
+**torsional** start-ups (Aarsnes & Shor 2018). Axial friction factors from
+pick-up and slack-off are kinetic values (Johancsik et al. 1984).
+
+**What goes wrong if the torsional contrast is also applied axially.** Applying
+the full contrast axially, with the step law and $v_c = 0.01$ m/s, gives
+sustained axial stick-slip at 0 rpm. In slack-off at 200 m/h on Well A:
+* the bit alternates between rest and 600 m/h;
+* the cycle is about 3 s;
+* hookload swings by 40 kN.
+
+The mechanism is the classic one for velocity-weakening friction on a long,
+compliant string driven at constant speed: a step from $\mu_s$ to $\mu_k$ is
+infinitely steep weakening.
+
+**Options evaluated.** All were run on Well A at 0 rpm, using the bit axial
+speed after 40 s; the bit is off bottom.
+
+| option | slack-off 200 m/h | slack-off 20 m/h | pick-up 200 m/h | torsional stick-slip kept |
+|---|---|---|---|---|
+| full contrast (previous default) | 5–658 m/h | 5–28 | −1128 to −2 | yes |
+| $v_c$ = 10⁻³ m/s | 154–245 | 4–367 (stick-slip moves to lower speed) | −236 to −165 | yes |
+| $v_c$ = 10⁻⁴ m/s | 154–245 | 4–658 | −806 to −3 | yes |
+| axial contrast 0.25 | 4–605 | 6–32 | −805 to 0 | yes |
+| exponential weakening $\mu_k + (\mu_s-\mu_k)e^{-s}$ | 5–644 | 5–28 | −1267 to 1 | yes |
+| block acceleration ≤ 0.5 m/s² | 5–658 | 5–28 | −1115 to −2 | yes |
+| raise axial damping $k_a$ to 1–5 /s | 190–206 | – | – | yes, but not physical: viscous mud drag is about 10⁻³ /s |
+| **axial contrast 0** (new default) | **170–225**, settling to ±5 within 100 s | **6–33** | **−233 to −172** | **yes** |
+
+**Default.** Static friction now acts on an **ellipse** in force space:
+
+$$
+\left(\frac{\mathcal F_a}{\mu_{s,a}F_N}\right)^2 + \left(\frac{\mathcal F_\theta}{\mu_s F_N}\right)^2 \le 1,
+\qquad \mu_{s,a} = \mu_k + c_a(\mu_s - \mu_k),
+$$
+
+with $c_a$ = `axial_static_contrast` = 0 by default. A cell that breaks out
+slides with the ellipse radius in the direction of motion for that step, then
+with $\mu_k$. The torsional behaviour, and the cross-coupling of §5.2, are
+unchanged. The full contrast ($c_a = 1$) and the exponential weakening law
+remain available for research, for example to study axial breakover after
+connections.
+
+The ±10% start-up ringing that remains is the first axial mode (0.42 Hz),
+excited by the step change in block speed. It decays with the axial damping.
+
 ## 6. Boundary conditions
 
 At each boundary one invariant arrives from the interior. The boundary model
@@ -391,6 +439,16 @@ $$
 
 In autodriller mode, $v_\text{blk}$ is the output of a PI controller acting on
 the surface WOB estimate $\text{HKLD}_\text{off-bottom} - \text{HKLD}$.
+
+**The hook cannot push.** If the prescribed block speed would make
+$\text{HKLD} < 0$, the block stacks out. Hookload is then held at zero, so
+$q_d(0) = -q_s(0)$, and the top of the string moves freely with
+$v(0) = \beta_{a,1} + q_d(0)/Z_a$. For example, with the bit on bottom at
+0 rpm, WOB levels off at the buoyed string weight less friction, instead of
+growing without limit.
+
+An optional block-acceleration limit (`DrawworksParameters.block_acceleration`)
+rate-limits changes in $v_\text{blk}$.
 
 ### 6.3 Drill bit: coupling at the bit
 
@@ -695,6 +753,8 @@ $$
 | fundamental period $4L/c_t$ | within 0.2%; amplitude loss < 1% over 8 round trips |
 | hanging string at rest | exactly at rest (well balanced) |
 | steady rotation, pick-up, slack-off vs torque & drag (both friction models) | within 2% |
+| tripping at 0 rpm (±200, 20 m/h): no axial stick-slip; the full axial contrast reproduces it | yes |
+| on bottom at 0 rpm: hookload ≥ 0, WOB levels off | yes |
 | coupled friction vs velocity-split torque & drag (rotate while picking up / slacking off) | within 2% |
 | rotation reduces pick-up drag (coupled); has no effect (decoupled) | yes / within 0.2% |
 | combined axial + torsional breakout, implicit friction exact | to $10^{-10}$ |

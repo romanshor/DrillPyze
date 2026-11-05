@@ -23,6 +23,15 @@ class FrictionParameters:
     # False: independent 1-D axial and torsional inclusions with the normal force
     #   of the static hanging string; the only coupling is then at the bit.
     along_string_coupling: bool = True
+    # fraction of the static-kinetic difference that applies axially:
+    # mu_s,axial = mu_k + axial_static_contrast * (mu_s - mu_k).
+    # Default 0: the mu_s / mu_k contrast was identified from torsional start-ups
+    # (Aarsnes & Shor 2018); with a step law along a multi-km string any axial
+    # contrast produces slack-off / pick-up stick-slip (docs/derivation, sec. 5.5).
+    axial_static_contrast: float = 0.0
+    # 'step': mu_s below the threshold, mu_k above (Aarsnes & Shor 2018)
+    # 'exponential': mu_k + (mu_s - mu_k) exp(-s) with s the normalised sliding speed
+    weakening: str = 'step'
 
 
 @dataclass
@@ -92,6 +101,11 @@ class ControllerParameters:
 
 
 @dataclass
+class DrawworksParameters:
+    block_acceleration: float = 0.0   # m/s^2, 0 = block speed changes instantly
+
+
+@dataclass
 class AutodrillerParameters:
     kp: float = 1e-7            # (m/s) per N of WOB error
     ki: float = 1e-8            # (m/s) per N s
@@ -106,6 +120,7 @@ class ModelParameters:
     top_drive: TopDriveParameters = field(default_factory=TopDriveParameters)
     controller: ControllerParameters = None
     autodriller: AutodrillerParameters = field(default_factory=AutodrillerParameters)
+    drawworks: DrawworksParameters = field(default_factory=DrawworksParameters)
     thermal: ThermalParameters = field(default_factory=ThermalParameters)
     thermal_update_period: float = 2.0   # s between thermal / rock-strength updates
     cfl: float = 0.95           # Courant number on the axial wave speed

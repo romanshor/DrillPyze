@@ -99,6 +99,12 @@ Utah FORGE case: downhole temperature falls from about 310 °F to 210 °F in
 The regenerative model adds the delay of one blade passage, which can
 self-excite bit bounce and stick-slip.
 
+Static friction is anisotropic. The torsional static/kinetic contrast of
+Aarsnes & Shor applies to rotation. Axially, the static factor defaults to the
+kinetic one (`axial_static_contrast=0`). Applying the torsional contrast
+axially produces artificial axial stick-slip when tripping; see the derivation,
+§5.5.
+
 For comparison, `along_string_coupling=False` uses independent 1-D axial and
 torsional friction with a static normal force, leaving the bit as the only
 coupling. With no axial motion, both friction models reduce exactly to
@@ -107,7 +113,8 @@ Aarsnes & Shor (2018).
 Other model components:
 * **Top drive:** an inertia driven by a stiff, SoftTorque or ZTorque
   controller, by an external torque, or by a prescribed speed.
-* **Drawworks:** a prescribed block velocity, or an autodriller.
+* **Drawworks:** a prescribed block velocity, or an autodriller. The hook can
+  only hold the string up, so hookload is never negative.
 * **Wellbore temperature and pressure:** the drift-flux model of Wang et al.
   (2023), coupled every 2 s of simulated time.
 * **Gravity:** handled by a well-balanced static/dynamic split.
