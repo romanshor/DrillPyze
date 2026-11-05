@@ -167,3 +167,4 @@ table.grid input[type=number]::-webkit-inner-spin-button,
 table.grid input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 .head-tools { display: flex; gap: 8px; align-items: center; }
+.field select { grid-column: 2 / 4; }

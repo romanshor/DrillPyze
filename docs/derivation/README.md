@@ -413,58 +413,64 @@ wave with the same sign.
 $\text{WOB} \ge 0$. If $\alpha_a \le 0$ (the string is pulling the bit up),
 the bit lifts off: $\text{WOB} = 0$ and $v_b = \alpha_a$.
 
-**Torque: Coulomb-type law with sticking.** With bit radius $r_b$ (default
-$D_\text{bit}/3$), static and kinetic bit friction $\mu_{bs} \ge \mu_{bk}$,
-sticking torque $T_{s0}$ and threshold $\omega_c$:
+**Bit–rock law.** Three reduced models are available
+(`BitParameters.model`). Their derivation from the Bit Model Library is in
+[`bit-models.md`](bit-models.md). With $a = D/2$ and the drilling strength
+$S = \zeta\varepsilon$:
+
+| model | parameters | torque | penetration |
+|---|---|---|---|
+| `coulomb` | $\mu_s, \mu_k, S$ | sticking $\lvert\text{TOB}\rvert \le \mu_s\,\text{WOB}\,D/3$; sliding $\mu_k\,\text{WOB}\,D/3$ | $\text{ROP} = \omega\,\text{WOB}/(2\pi a S)$ |
+| `cutting` | $S, \zeta, W_f$ | $\text{WOB}\,a/(2\zeta)$, both sticking and sliding | $\text{ROP} = \omega\,(\text{WOB}-W_f)^+/(2\pi a S)$ |
+| `regenerative` | $S, \zeta$ + blades $n$ | $\text{WOB}\,a/(2\zeta)$ | from the hole-bottom profile (below) |
+
+**Quasi-static models (`coulomb`, `cutting`).** Sticking applies when
+$|\omega_b| \le \omega_c$: the bit stays at rest, and $\text{TOB} = Z_t\alpha_t$
+from (6.3), as long as that is within the sticking limit. When sliding,
+$\text{TOB}$ is limited to $|Z_t\alpha_t|$, so the bit is never driven backwards
+within a step. Combining the penetration law with (6.3): if
+$Z_a\alpha_a \le W_0$ (with $W_0 = W_f$, or 0 for Coulomb) or $\omega_b = 0$, then
+$v_b = 0$ and $\text{WOB} = Z_a\alpha_a$. Otherwise
 
 $$
-\text{TOB} \in
-\begin{cases}
-[-(T_{s0} + \mu_{bs}\,r_b\,\text{WOB}),\ T_{s0} + \mu_{bs}\,r_b\,\text{WOB}], & \text{sticking } (|\omega_b| \le \omega_c),\\[3pt]
-\mu_{bk}\,r_b\,\text{WOB}\;\operatorname{sign}(\omega_b), & \text{sliding}.
-\end{cases} \tag{6.4}
+\text{WOB} = \frac{\alpha_a + k_r W_0 |\omega_b|}{1/Z_a + k_r|\omega_b|},
+\qquad k_r = \frac{1}{2\pi a S}.
 $$
 
-* **Sticking.** The bit stays at rest ($\omega_b = 0$, so
-  $\text{TOB} = Z_t\alpha_t$ from (6.3)) as long as
-  $|Z_t\alpha_t| \le T_{s0} + \mu_{bs} r_b \text{WOB}$. Breakout occurs when the
-  torque delivered by the string exceeds this limit.
-* **Sliding.** The reactive torque is linear in WOB. TOB is limited to
-  $|Z_t\alpha_t|$, so the bit is never driven backwards within one step.
+These are solved by fixed-point iteration on $\omega_b$.
 
-**Penetration law.** On bottom, the rock advances at
-
-$$
-v_b = \text{ROP} = k_r\,\max(\text{WOB} - W_0,\ 0)\;|\omega_b|. \tag{6.5}
-$$
-
-Combining with (6.3): if $Z_a\alpha_a \le W_0$ or $\omega_b = 0$, the bit does
-not advance ($v_b = 0$, $\text{WOB} = Z_a\alpha_a$). Otherwise
+**Regenerative model.**
+* **Profile.** The hole bottom is stored as a profile $s(\theta)$ over 720
+  angular bins.
+* **Depth of cut.** Blade $j$, at angle $\varphi_b + 2\pi j/n$, cuts to depth
+  $d_j = (u_b - s(\theta_j))^+$, measured against the surface left by the
+  previous blade:
 
 $$
-\text{WOB} = \frac{\alpha_a + k_r W_0 |\omega_b|}{1/Z_a + k_r|\omega_b|}.
+\text{WOB} = S a \sum_j d_j, \qquad \text{TOB} = \frac{a}{2\zeta}\,\text{WOB}.
 $$
 
-**Solution.** Equations (6.3)–(6.5) are solved by fixed-point iteration on
-$\omega_b$, which converges in a few iterations because each step changes the
-state little. The hole depth is updated as
-$\max(\text{hole depth},\ \text{bit depth})$.
+* **Axial contact.** The contact is solved implicitly for the new bit depth,
+  $u_b^{k+1} = u_b^k + \Delta t\,(\alpha_a - \text{WOB}/Z_a)$, by iterating on
+  the set of blades in contact. If the bit rises above the profile, WOB is
+  zero (lift-off).
+* **Sweep.** After each step the blades sweep from $\varphi_b^k$ to
+  $\varphi_b^{k+1}$, and the bins they leave are set to the bit depth. The
+  depth of cut therefore carries the delay of one blade passage. That delay is
+  the regenerative effect, a coupling between axial and torsional motion that
+  can self-excite.
+* **Hole depth.** The hole depth is the deepest point of the profile.
 
 **Coupling mechanisms at the bit.** These act in addition to the along-string
 friction coupling of §5.2.
-* Torsion depends on axial: TOB $\propto$ WOB in (6.4), so axial waves that
-  change WOB modulate the torsional boundary and can trigger or suppress
-  stick-slip.
-* Axial depends on torsion: ROP $\propto |\omega_b|$ in (6.5). A stalled bit
-  stops penetrating, WOB rises, and the stick limit rises with it.
-* Steady drilling at block speed $V$ and bit speed $\Omega$ therefore gives
-
-$$
-\text{WOB} = W_0 + \frac{V}{k_r\Omega}, \qquad \text{TOB} = \mu_{bk} r_b\,\text{WOB}.
-$$
-
-A Detournay-type cutting/contact law with depth-of-cut delay (the regenerative
-effect) is a planned refinement that would replace (6.4)–(6.5).
+* Torsion depends on axial: TOB is proportional to WOB in every model, so
+  axial waves that change WOB modulate the torsional boundary and can trigger
+  or suppress stick-slip.
+* Axial depends on torsion: penetration needs rotation. A stalled bit stops
+  penetrating, WOB rises, and the sticking limit rises with it.
+* In the regenerative model the depth of cut also remembers the previous
+  blade passage. That delay can destabilise steady drilling, producing bit
+  bounce and stick-slip.
 
 ---
 
@@ -663,9 +669,13 @@ $$
   arrival at the bit after $L/c$, and fundamental frequency $f_1 = c/(4L)$.
 
 * **Bit.**
-  * Bit breakout from sticking at $\text{TOB} = T_{s0} + \mu_{bs} r_b\,\text{WOB}$.
-  * While sliding, $\text{TOB}/\text{WOB} = \mu_{bk} r_b$.
-  * Steady drilling at $\text{WOB} = W_0 + V/(k_r\Omega)$.
+  * Coulomb: breakout at $\mu_s\,\text{WOB}\,D/3$; while sliding,
+    $\text{TOB}/\text{WOB} = \mu_k D/3$.
+  * Cutting: steady drilling at block speed $V$ and bit speed $\Omega$ gives
+    $\text{WOB} = W_f + 2\pi a S V/\Omega$ and
+    $\text{TOB} = a\,\text{WOB}/(2\zeta)$.
+  * Regenerative: the same steady state as cutting with $W_f = 0$ when it is
+    stable.
 
 ---
 
@@ -706,8 +716,12 @@ $$
 | $\omega_c, v_c$ | static → kinetic thresholds | rad/s, m/s |
 | $k_t, k_a$ | viscous damping rates | 1/s |
 | $I_{TD}, \tau_m, \tau_0$ | top-drive inertia, motor torque, pipe torque at top | kg m², N m, N m |
-| $r_b, \mu_{bs}, \mu_{bk}, T_{s0}$ | bit radius, bit static/kinetic friction, sticking torque | m, –, –, N m |
-| $k_r, W_0$ | penetration coefficient, threshold WOB | m/(N rad), N |
+| $a = D/2$ | bit radius | m |
+| $S = \zeta\varepsilon$ | drilling strength (axial cutting force per unit cut area) | Pa |
+| $\zeta, \varepsilon$ | normal/tangential cutting force ratio, intrinsic specific energy | –, Pa |
+| $\mu_s, \mu_k$ (bit) | Coulomb bit static/kinetic friction (lever $D/3$) | – |
+| $W_f$ | wear-flat contact WOB (cutting model) | N |
+| $n$ | blades (regenerative model) | – |
 
 ## References
 

@@ -82,3 +82,24 @@ def test_ui_server_reports_invalid_case(ui_url):
         _post(ui_url + '/api/init', {'config': cfg})
     assert e.value.code == 400
     assert 'BHA length' in json.loads(e.value.read())['error']
+
+
+def test_legacy_bit_keys_are_translated():
+    cfg = config.default()
+    a = cfg['well']['hole_diameter'] / 2
+    cfg['parameters']['bit'] = {'radius': None, 'mu_static': 0.6, 'mu_kinetic': 0.4, 'stick_torque': 0.0,
+                                'k_rop': 1e-8, 'wob_threshold': 5e3}
+    b = config.bit_parameters(cfg['parameters']['bit'], cfg['well']['hole_diameter'])
+    assert b.model == 'coulomb'
+    assert b.drilling_strength == pytest.approx(1 / (2 * np.pi * a * 1e-8))
+    assert b.contact_wob == 5e3
+    config.build(cfg).step(0.1)
+
+
+@pytest.mark.parametrize('model', ['coulomb', 'cutting', 'regenerative'])
+def test_each_bit_model_builds_from_config(model):
+    cfg = config.merge(config.default(), {'parameters': {'bit': {'model': model}}, 'simulation': {'hole_depth': 2500.0}})
+    assert config.validate(cfg) == []
+    sim = config.build(cfg)
+    sim.step(1.0, omega_sp=60 * units.RPM, v_block=0.01)
+    assert np.isfinite(sim.w).all() and sim.latest()['wob'] >= 0

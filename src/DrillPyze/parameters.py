@@ -32,22 +32,35 @@ class DampingParameters:
 @dataclass
 class BitParameters:
     """
-    Coulomb-type bit-rock interaction (the axial-torsional coupling point).
+    Bit-rock interaction: the axial-torsional coupling point at the bit.
+    Three reduced models (see docs/derivation/bit-models.md); D = hole
+    diameter, a = D/2, omega = bit speed, d = depth of cut per revolution.
 
-    sticking (|omega_b| <= omega_c): |TOB| <= stick_torque + mu_static * radius * WOB
-    sliding:                         TOB  =  mu_kinetic * radius * WOB
+    ``coulomb`` -- friction-dominated (worn bit / contact regime); 3 parameters
+        TOB = mu_kinetic * WOB * D/3 sliding;  |TOB| <= mu_static * WOB * D/3 sticking
+        ROP = omega * WOB / (2 pi a S)
 
-    ``radius=None`` uses D/3 (hole diameter / 3), so ``mu_kinetic`` is the
-    conventional bit friction coefficient in TOB = mu * WOB * D/3.
+    ``cutting`` -- Detournay & Defourny (1992), quasi-static; 3 parameters
+        WOB = W_f + S a d                    (contact threshold + cutting)
+        TOB = WOB a / (2 zeta)               (rate independent, no weakening)
+        ROP = omega * (WOB - W_f) / (2 pi a S)
 
-    Penetration law: ROP = k_rop * max(WOB - wob_threshold, 0) * |omega_bit|.
+    ``regenerative`` -- cutting with the depth of cut set by the hole-bottom
+        profile left by the previous blade (Richard, Germay & Detournay 2007);
+        2 rock parameters + the blade count
+        WOB = S a sum_j d_j,  TOB = WOB a / (2 zeta)
+
+    S = zeta * epsilon is the drilling strength (Pa); epsilon the intrinsic
+    specific energy; zeta the ratio of normal to tangential cutting force.
     """
-    radius: float = None
-    mu_static: float = 0.6
-    mu_kinetic: float = 0.4
-    stick_torque: float = 0.0   # N m, sticking torque at zero WOB
-    k_rop: float = 1e-8         # m / (N rad)
-    wob_threshold: float = 0.0  # N
+    model: str = 'coulomb'
+    mu_static: float = 0.6          # coulomb
+    mu_kinetic: float = 0.4         # coulomb
+    drilling_strength: float = 50e6 # all models, S = zeta * epsilon (Pa)
+    zeta: float = 0.8               # cutting, regenerative
+    contact_wob: float = 0.0        # cutting, W_f (N)
+    blades: int = 5                 # regenerative
+    radius: float = None            # coulomb torque lever; None = D/3
 
 
 @dataclass

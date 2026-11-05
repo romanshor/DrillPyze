@@ -21,14 +21,14 @@ const UNITS = {
   si: {
     length: ['m', 1], depth: ['m', 1], diameter: ['mm', 1e-3], density: ['kg/m³', 1],
     linear_mass: ['kg/m', 1], force: ['kN', 1e3], torque: ['kN·m', 1e3], rop: ['m/h', 1 / 3600],
-    slow_speed: ['mm/s', 1e-3], inertia: ['kg·m²', 1], k_rop: ['(m/h)/(kN·rpm)', (1 / 3600) / (1e3 * RPM)],
+    slow_speed: ['mm/s', 1e-3], inertia: ['kg·m²', 1], k_rop: ['(m/h)/(kN·rpm)', (1 / 3600) / (1e3 * RPM)], stress: ['MPa', 1e6],
     kp: ['N·m·s', 1], ki: ['N·m', 1],
   },
   field: {
     length: ['ft', 0.3048], depth: ['ft', 0.3048], diameter: ['in', 0.0254], density: ['ppg', 119.826427],
     linear_mass: ['lb/ft', 1.48816394], force: ['klbf', 4448.2216], torque: ['kft·lbf', 1355.8179],
     rop: ['ft/h', 0.3048 / 3600], slow_speed: ['in/s', 0.0254], inertia: ['lbm·ft²', 0.0421401],
-    k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
+    k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], stress: ['psi', 6894.7573], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
   },
 };
 // kinds whose unit does not change between systems: [label, SI per display unit]
@@ -88,14 +88,20 @@ const SECTIONS = [
       ['parameters.damping.k_a', 'Axial', 'per_s'],
     ] },
   { title: 'Bit',
-    note: () => 'Sticking: |TOB| ≤ T₀ + μs·r·WOB. Sliding: TOB = μk·r·WOB. ROP = k·(WOB − W₀)·|ω|.',
+    note: () => ({
+      coulomb: 'Friction-dominated bit. Sliding: TOB = μk·WOB·D/3; sticking up to μs·WOB·D/3. ROP = ω·WOB / (2π·a·S).',
+      cutting: 'Detournay & Defourny cutting. WOB = W_f + S·a·d, TOB = WOB·a/(2ζ), with d the depth of cut per revolution. No velocity weakening.',
+      regenerative: 'Cutting with the depth of cut set by the hole bottom left by the previous blade. WOB = S·a·Σd_j, TOB = WOB·a/(2ζ).',
+    })[get(state.cfg, 'parameters.bit.model') || 'coulomb'],
     fields: [
-      ['parameters.bit.radius', 'Effective radius r', 'diameter', { blank: 'D/3' }],
-      ['parameters.bit.mu_static', 'Static friction μs', 'none'],
-      ['parameters.bit.mu_kinetic', 'Kinetic friction μk', 'none'],
-      ['parameters.bit.stick_torque', 'Sticking torque T₀', 'torque'],
-      ['parameters.bit.k_rop', 'Penetration coefficient k', 'k_rop'],
-      ['parameters.bit.wob_threshold', 'Threshold WOB W₀', 'force'],
+      ['parameters.bit.model', 'Model', 'select',
+        { options: [['coulomb', 'Coulomb (friction)'], ['cutting', 'Cutting (Detournay)'], ['regenerative', 'Regenerative cutting']], rebuild: true }],
+      ['parameters.bit.mu_static', 'Static friction μs', 'none', { models: ['coulomb'] }],
+      ['parameters.bit.mu_kinetic', 'Kinetic friction μk', 'none', { models: ['coulomb'] }],
+      ['parameters.bit.drilling_strength', 'Drilling strength S', 'stress', { hint: 'S = ζ·ε, the axial cutting force per unit cut area' }],
+      ['parameters.bit.zeta', 'Force ratio ζ', 'none', { models: ['cutting', 'regenerative'], hint: 'Normal / tangential cutting force' }],
+      ['parameters.bit.contact_wob', 'Contact WOB W_f', 'force', { models: ['cutting'], hint: 'WOB carried by wear flats before cutting starts' }],
+      ['parameters.bit.blades', 'Blades', 'none', { models: ['regenerative'] }],
     ] },
   { title: 'Top drive and controller',
     fields: [
@@ -173,7 +179,7 @@ function fieldRow(spec) {
     const el = row.querySelector('select');
     for (const [v, t] of opt.options) el.add(new Option(t, v));
     el.value = get(state.cfg, path);
-    el.addEventListener('change', () => { set(state.cfg, path, el.value); markDirty(); });
+    el.addEventListener('change', () => { set(state.cfg, path, el.value); markDirty(); if (opt.rebuild) buildForm(); });
     return row;
   }
   row.innerHTML = `<label for="${id}">${label}</label><input type="number" id="${id}" step="any"><span class="unit">${unitOf(kind)}</span>`;
@@ -272,7 +278,12 @@ function buildForm() {
     d.innerHTML = `<summary>${sec.title}</summary>`;
     const body = document.createElement('div'); body.className = 'sec-body';
     if (sec.note) { const p = document.createElement('p'); p.className = 'sec-note'; p.textContent = sec.note(); body.appendChild(p); }
-    for (const f of sec.fields) body.appendChild(fieldRow(f));
+    const bitModel = get(state.cfg, 'parameters.bit.model') || 'coulomb';
+    for (const f of sec.fields) {
+      const opt = f[3] || {};
+      if (opt.models && !opt.models.includes(bitModel)) continue;
+      body.appendChild(fieldRow(f));
+    }
     if (sec.table) body.appendChild(tableEditor(sec.table));
     d.appendChild(body); form.appendChild(d);
   }

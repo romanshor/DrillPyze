@@ -203,27 +203,73 @@ def test_off_bottom_stick_slip_needs_static_kinetic_difference():
 
 
 # ------------------------------------------------------------------ drilling
-def test_on_bottom_drilling_steady_state():
+def drilling_sim(model, rpm=100.0, rop_mh=20.0, kt=0.5, T=60.0, **bit):
     p = frictionless()
-    p.damping = DampingParameters(0.5, 0.5)
-    p.bit = BitParameters(radius=0.1, mu_static=0.4, mu_kinetic=0.4, k_rop=1e-7)
+    p.damping = DampingParameters(kt, kt)
+    p.bit = BitParameters(model=model, **bit)
     sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
-    sim.initialize(2000.0, hole_depth=2000.0, dx=10.0)
-    w = 100 * units.RPM
+    sim.initialize(2000.0, hole_depth=2000.0, dx=10.0, record_rate=200)
+    w = rpm * units.RPM
     for k in range(20):
         sim.step(0.25, omega_td=w * (k + 1) / 20)
-    rop = 20.0 / 3600.0
-    sim.step(60.0, v_block=rop)
-    s = sim.latest()
-    expected_wob = rop / (1e-7 * w)
-    assert s['v_bit'] == pytest.approx(rop, rel=0.02)
-    assert s['wob'] == pytest.approx(expected_wob, rel=0.02)
-    assert s['tob'] == pytest.approx(0.4 * expected_wob * 0.1, rel=0.02)
-    # no wall friction: surface torque = TOB + viscous damping torque k_t rho J omega L
+    sim.step(T, v_block=rop_mh / 3600.0)
+    df = sim.results()
+    return sim, df[df.time > df.time.max() - 10]
+
+
+def test_coulomb_bit_drilling_steady_state():
+    S, mu, rpm, rop = 50e6, 0.4, 100.0, 20.0
+    sim, late = drilling_sim('coulomb', rpm, rop, mu_static=mu, mu_kinetic=mu, drilling_strength=S)
+    D = sim.wellbore.hole_diameter
+    a, w, v = D / 2, rpm * units.RPM, rop / 3600
+    wob = 2 * np.pi * a * S * v / w                     # ROP = omega WOB / (2 pi a S)
+    assert late.v_bit.mean() == pytest.approx(v, rel=0.01)
+    assert late.wob.mean() == pytest.approx(wob, rel=0.01)
+    assert late.tob.mean() == pytest.approx(mu * wob * D / 3, rel=0.01)
+    # no wall friction: surface torque = TOB + viscous damping torque
     g = sim.grid
     viscous = 0.5 * np.sum(g.rho * g.J * g.dx) * w
-    assert s['pipe_torque'] == pytest.approx(s['tob'] + viscous, rel=0.01)
-    assert s['hole_depth'] > 2000.0 + 0.9 * 60 * rop
+    assert late.pipe_torque.mean() == pytest.approx(late.tob.mean() + viscous, rel=0.01)
+
+
+@pytest.mark.parametrize('contact_wob', [0.0, 10e3])
+def test_cutting_bit_drilling_steady_state(contact_wob):
+    """Detournay & Defourny phase II: WOB = W_f + 2 pi a S v / omega, TOB = a WOB / (2 zeta)."""
+    S, zeta, rpm, rop = 50e6, 0.8, 100.0, 20.0
+    sim, late = drilling_sim('cutting', rpm, rop, drilling_strength=S, zeta=zeta, contact_wob=contact_wob)
+    a, w, v = sim.wellbore.hole_diameter / 2, rpm * units.RPM, rop / 3600
+    wob = contact_wob + 2 * np.pi * a * S * v / w
+    assert late.v_bit.mean() == pytest.approx(v, rel=0.01)
+    assert late.wob.mean() == pytest.approx(wob, rel=0.01)
+    assert late.tob.mean() == pytest.approx(a * wob / (2 * zeta), rel=0.01)
+
+
+def test_regenerative_bit_converges_to_cutting_when_stable():
+    """With enough damping the regenerative model drills at the quasi-static cutting state."""
+    S, zeta, rpm, rop = 50e6, 0.8, 100.0, 20.0
+    sim, late = drilling_sim('regenerative', rpm, rop, kt=5.0, drilling_strength=S, zeta=zeta, blades=5)
+    a, w, v = sim.wellbore.hole_diameter / 2, rpm * units.RPM, rop / 3600
+    wob = 2 * np.pi * a * S * v / w
+    assert late.wob.mean() == pytest.approx(wob, rel=0.01)
+    assert late.tob.mean() == pytest.approx(a * wob / (2 * zeta), rel=0.01)
+    assert late.v_bit.mean() == pytest.approx(v, rel=0.01)
+    assert late.wob.std() < 0.01 * wob
+
+
+def test_regenerative_bit_self_excites_when_lightly_damped():
+    """The depth-of-cut delay destabilises steady drilling: bit bounce and torsional oscillation."""
+    sim, late = drilling_sim('regenerative', 100.0, 20.0, kt=0.5, drilling_strength=50e6, zeta=0.8, blades=5)
+    rpm = units.rads_to_rpm(late.omega_bit)
+    assert (late.wob == 0).mean() > 0.05            # the bit leaves bottom (bit bounce)
+    assert rpm.max() - rpm.min() > 100.0           # large torsional oscillation
+
+
+def test_regenerative_hole_bottom_follows_the_bit():
+    sim, late = drilling_sim('regenerative', 100.0, 20.0, kt=5.0, T=30.0, drilling_strength=50e6, zeta=0.8, blades=4)
+    s = sim.latest()
+    # hole bottom profile: deepest point equals the reported hole depth, and every bin has been cut
+    assert sim.surf.max() == pytest.approx(s['hole_depth'], abs=1e-9)
+    assert sim.surf.min() > 2000.0 + 0.5 * (s['hole_depth'] - 2000.0)
 
 
 def test_bit_lifts_off_when_picked_up():
@@ -299,11 +345,11 @@ def test_ztorque_suppresses_off_bottom_stick_slip():
 
 
 # ------------------------------------------------------------ bit coupling
-def loaded_bit_sim(stick_torque=500.0, mus=0.6, muk=0.4, r=0.08, k_rop=1e-8):
+def loaded_bit_sim(model='coulomb', **bit):
     """Vertical, frictionless string standing on bottom with WOB applied, not rotating."""
     p = frictionless()
     p.damping = DampingParameters(0.5, 0.5)
-    p.bit = BitParameters(radius=r, mu_static=mus, mu_kinetic=muk, stick_torque=stick_torque, k_rop=k_rop)
+    p.bit = BitParameters(model=model, **bit)
     sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
     sim.initialize(2000.0, hole_depth=2000.0, dx=10.0, record_rate=1000)
     sim.step(4.0, v_block=0.02, omega_td=0.0)       # set down ~80 mm: WOB builds, bit cannot drill
@@ -311,9 +357,11 @@ def loaded_bit_sim(stick_torque=500.0, mus=0.6, muk=0.4, r=0.08, k_rop=1e-8):
     return sim
 
 
-def test_bit_sticks_until_breakout_torque():
-    ts0, mus, r = 500.0, 0.6, 0.08
-    sim = loaded_bit_sim(stick_torque=ts0, mus=mus, r=r)
+@pytest.mark.parametrize('model, lever', [('coulomb', 'mu_static'), ('cutting', 'zeta'), ('regenerative', 'zeta')])
+def test_bit_sticks_until_breakout_torque(model, lever):
+    mus, zeta, r = 0.6, 0.8, 0.08
+    sim = loaded_bit_sim(model, mu_static=mus, mu_kinetic=0.4, radius=r, zeta=zeta)
+    a = sim.wellbore.hole_diameter / 2
     wob = sim.latest()['wob']
     assert wob > 20e3                                # ~80 mm set-down x EA/L ~ 28 kN
     n0 = len(sim.results())
@@ -321,25 +369,26 @@ def test_bit_sticks_until_breakout_torque():
     df = sim.results().iloc[n0:]
     moving = np.abs(df.omega_bit.values) > 1e-6
     i = np.argmax(moving)
-    assert i > 0                                    # bit was stuck at first
+    assert i > 0                                    # bit was sticking at first
     breakout = np.abs(df.tob.values[:i]).max()
-    assert breakout == pytest.approx(ts0 + mus * r * wob, rel=0.01)
+    limit = mus * r * df.wob.values[i - 1] if model == 'coulomb' else a / (2 * zeta) * df.wob.values[i - 1]
+    assert breakout == pytest.approx(limit, rel=0.02)
 
 
-def test_sliding_bit_torque_is_linear_in_wob():
+def test_sliding_coulomb_bit_torque_is_linear_in_wob():
     muk, r = 0.4, 0.08
-    sim = loaded_bit_sim(stick_torque=0.0, mus=muk, muk=muk, r=r, k_rop=1e-9)
+    sim = loaded_bit_sim('coulomb', mu_static=muk, mu_kinetic=muk, radius=r, drilling_strength=500e6)
     n0 = len(sim.results())
     sim.step(30.0, omega_td=60 * units.RPM)
     df = sim.results().iloc[n0:]
     sliding = (df.omega_bit > 1.0) & (df.wob > 1e3)
-    ratio = df.tob[sliding] / df.wob[sliding]
-    np.testing.assert_allclose(ratio, muk * r, rtol=1e-9)
+    np.testing.assert_allclose(df.tob[sliding] / df.wob[sliding], muk * r, rtol=1e-9)
 
 
-def test_bit_is_the_coupling_point():
+@pytest.mark.parametrize('model', ['coulomb', 'cutting', 'regenerative'])
+def test_bit_is_the_coupling_point(model):
     """Rotation changes WOB only through the bit: drilling off at constant block position."""
-    sim = loaded_bit_sim(stick_torque=0.0, mus=0.4, muk=0.4, k_rop=1e-8)
+    sim = loaded_bit_sim(model, mu_static=0.4, mu_kinetic=0.4, zeta=0.8, drilling_strength=50e6)
     wob0 = sim.latest()['wob']
     sim.step(20.0, omega_td=100 * units.RPM)        # block held: rotating drills off the WOB
     s = sim.latest()

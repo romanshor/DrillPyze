@@ -94,6 +94,8 @@ class Simulation:
         self.sc = np.zeros(K.N_SCALARS)
         self.sc[K.S_BITD] = bit_depth
         self.sc[K.S_HOLED] = bit_depth if hole_depth is None else max(hole_depth, bit_depth)
+        # hole-bottom profile for the regenerative bit model (flat at the hole depth)
+        self.surf = np.full(720, self.sc[K.S_HOLED])
         self._bit_depth0 = bit_depth
         self._geom_bitd = None
         self._qs_c = None
@@ -141,12 +143,26 @@ class Simulation:
         pf[K.P_TEN] = c.t_en
         pf[K.P_TAUMAX] = td.max_torque
         pf[K.P_RAMP] = td.setpoint_ramp
-        pf[K.P_RBIT] = b.radius if b.radius is not None else self.wellbore.hole_diameter / 3
-        pf[K.P_MUBS] = b.mu_static
-        pf[K.P_MUBK] = b.mu_kinetic
-        pf[K.P_TSTICK] = b.stick_torque
-        pf[K.P_KROP] = b.k_rop
-        pf[K.P_W0] = b.wob_threshold
+        D = self.wellbore.hole_diameter
+        a = D / 2.0
+        S = float(b.drilling_strength)
+        if b.model not in K.BIT_MODELS:
+            raise ValueError(f'unknown bit model {b.model!r}; expected one of {K.BIT_MODELS}')
+        self.pi[K.I_BIT] = K.BIT_MODELS.index(b.model)
+        if b.model == 'coulomb':
+            r = b.radius if b.radius is not None else D / 3.0
+            pf[K.P_LEVS] = b.mu_static * r
+            pf[K.P_LEVK] = b.mu_kinetic * r
+            pf[K.P_KROP] = 1.0 / (2.0 * np.pi * a * S)
+            pf[K.P_W0] = 0.0
+        else:
+            lev = a / (2.0 * b.zeta)
+            pf[K.P_LEVS] = lev
+            pf[K.P_LEVK] = lev
+            pf[K.P_KROP] = 1.0 / (2.0 * np.pi * a * S)
+            pf[K.P_W0] = b.contact_wob if b.model == 'cutting' else 0.0
+        pf[K.P_KCUT] = S * a
+        pf[K.P_BLADES] = max(1, int(b.blades))
         pf[K.P_QS_TOP] = self._qs_top
         pf[K.P_AD_KP] = p.autodriller.kp
         pf[K.P_AD_KI] = p.autodriller.ki
@@ -272,7 +288,7 @@ class Simulation:
             self.w, self.tau, self.v, self.qd,
             i['omega_sp'], i['v_block'], i['motor_torque'], i['omega_td'], i['wob_sp'],
             rec, 0, self.rec_every, self._rec_phase,
-            wf, tf, vf, qf)
+            wf, tf, vf, qf, self.surf)
         if idx:
             self._records.append(rec[:idx])
         self._steps_total += nsteps

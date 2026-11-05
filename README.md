@@ -66,18 +66,21 @@ $$
 \omega_b = \alpha_t - \text{TOB}/Z_t, \qquad v_b = \alpha_a - \text{WOB}/Z_a,
 $$
 
-are closed by a Coulomb-type bit–rock law:
+are closed by one of three reduced bit–rock laws. Each has two or three
+parameters and was derived from the
+[Bit Model Library](https://github.com/Kartikay100/Bit-Model-Library); see
+[`docs/derivation/bit-models.md`](docs/derivation/bit-models.md). With
+$a = D/2$ and the drilling strength $S = \zeta\varepsilon$:
 
-$$
-|\text{TOB}| \le T_{s0} + \mu_{bs}\,r_b\,\text{WOB}\ \ \text{(sticking)},
-\qquad
-\text{TOB} = \mu_{bk}\,r_b\,\text{WOB}\ \ \text{(sliding)},
-\qquad
-\text{ROP} = k_r\,(\text{WOB} - W_0)^+\,|\omega_b| .
-$$
+| model | parameters | torque on bit | penetration |
+|---|---|---|---|
+| Coulomb (friction-dominated) | $\mu_s, \mu_k, S$ | sticking $\le \mu_s\,\text{WOB}\,D/3$, sliding $\mu_k\,\text{WOB}\,D/3$ | $\text{ROP} = \omega\,\text{WOB}/(2\pi a S)$ |
+| Cutting (Detournay & Defourny) | $S, \zeta, W_f$ | $\text{WOB}\,a/(2\zeta)$ | $\text{ROP} = \omega\,(\text{WOB}-W_f)^+/(2\pi a S)$ |
+| Regenerative cutting | $S, \zeta$ + blades | $\text{WOB}\,a/(2\zeta)$ | depth of cut from the hole bottom left by the previous blade |
 
-A sticking torque must be overcome first; after that the reactive torque is
-linear in WOB.
+In every model TOB is proportional to WOB, and penetration needs rotation.
+The regenerative model adds the delay of one blade passage, which can
+self-excite bit bounce and stick-slip.
 
 For comparison, `along_string_coupling=False` uses independent 1-D axial and
 torsional friction with a static normal force, leaving the bit as the only
@@ -216,8 +219,11 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * off-bottom stick-slip appears only when μ_s > μ_k;
   * ZTorque suppresses the limit cycle that a stiff controller sustains;
   * on-bottom steady state satisfies the ROP law and the torque balance;
-  * the bit breaks out at the sticking torque, sliding TOB is linear in WOB,
-    and the bit drills off WOB at a fixed block position;
+  * the bit breaks out at each model's sticking limit, and the Coulomb bit's
+    sliding TOB is linear in WOB;
+  * steady drilling matches each bit law; the regenerative model converges
+    to the cutting state when damped and self-excites when lightly damped;
+  * every bit model drills off WOB at a fixed block position;
   * the bit lifts off when picked up;
   * pause and resume are exact;
   * an external Python PI reproduces the internal controller.

@@ -101,12 +101,31 @@ def build_drillstring(cfg):
     return Drillstring(comps)
 
 
+LEGACY_BIT_KEYS = ('stick_torque', 'k_rop', 'wob_threshold', 'omega_b')
+
+
+def bit_parameters(b, hole_diameter=None):
+    """BitParameters from a config entry, translating pre-0.1 keys."""
+    b = dict(b)
+    k_rop = b.pop('k_rop', None)
+    w0 = b.pop('wob_threshold', None)
+    for k in LEGACY_BIT_KEYS:
+        b.pop(k, None)
+    if 'drilling_strength' not in b and k_rop and hole_diameter:
+        b['drilling_strength'] = 1.0 / (2 * np.pi * (hole_diameter / 2) * k_rop)
+    if w0 and 'contact_wob' not in b:
+        b['contact_wob'] = w0
+    if b.get('blades') is not None:
+        b['blades'] = int(b['blades'])
+    return BitParameters(**b)
+
+
 def build_parameters(cfg, zeta_p=None, first_mode=None):
     p = cfg['parameters']
     params = ModelParameters(
         friction=FrictionParameters(**p['friction']),
         damping=DampingParameters(**p['damping']),
-        bit=BitParameters(**p['bit']),
+        bit=bit_parameters(p['bit'], _num(cfg['well'].get('hole_diameter'))),
         top_drive=TopDriveParameters(**p['top_drive']),
         autodriller=AutodrillerParameters(**p.get('autodriller', {})),
         cfl=float(p.get('cfl', 0.95)),
@@ -189,6 +208,18 @@ def validate(cfg):
                 errs.append(f"Component {r.get('name', '')!r}: ID must be smaller than OD.")
         if float(cfg['simulation'].get('dx', 10)) <= 0:
             errs.append('Cell size must be positive.')
+        b = cfg['parameters'].get('bit', {})
+        from .kernel import BIT_MODELS
+        if b.get('model', 'coulomb') not in BIT_MODELS:
+            errs.append(f"Bit model must be one of {', '.join(BIT_MODELS)}.")
+        if b.get('model') == 'coulomb' and float(b.get('mu_kinetic', 0)) > float(b.get('mu_static', 1)):
+            errs.append('Bit kinetic friction exceeds static friction.')
+        if float(b.get('drilling_strength', 1) or 0) <= 0:
+            errs.append('Bit drilling strength must be positive.')
+        if b.get('model') in ('cutting', 'regenerative') and float(b.get('zeta', 1) or 0) <= 0:
+            errs.append('Bit ζ must be positive.')
+        if b.get('model') == 'regenerative' and int(b.get('blades', 1) or 0) < 1:
+            errs.append('The regenerative bit needs at least one blade.')
         f = cfg['parameters']['friction']
         for loc in ('cased', 'open'):
             if float(f[f'mu_kinetic_{loc}']) > float(f[f'mu_static_{loc}']):

@@ -32,8 +32,9 @@ S_VBLK = 15       # block velocity (m/s, + down)
 S_HKLD = 16       # hookload (N, effective tension at surface)
 S_AD_INT = 17     # autodriller integrator
 S_BLKPOS = 18     # block travel since start (m, + down)
-S_BITSTUCK = 19   # 1 if bit rotationally stuck
-N_SCALARS = 20
+S_BITSTUCK = 19   # 1 if bit rotationally sticking
+S_PHIB = 20       # bit rotation angle (rad), regenerative model
+N_SCALARS = 21
 
 # indices into the float parameter vector ``pf``
 P_DT = 0
@@ -50,12 +51,12 @@ P_TLP = 10
 P_TEN = 11
 P_TAUMAX = 12
 P_RAMP = 13
-P_RBIT = 14
-P_MUBS = 15
-P_MUBK = 16
-P_TSTICK = 17     # bit sticking torque at zero WOB (N m)
-P_KROP = 18
-P_W0 = 19
+P_LEVS = 14       # bit torque per unit WOB while sticking (m): TOB <= P_LEVS * WOB
+P_LEVK = 15       # bit torque per unit WOB while sliding (m):  TOB  = P_LEVK * WOB
+P_KCUT = 16       # regenerative: axial cutting force per unit summed blade depth, S*a (N/m)
+P_BLADES = 17     # regenerative: number of blades
+P_KROP = 18       # quasi-static: ROP = P_KROP * max(WOB - P_W0, 0) * |omega|  (m/(N rad))
+P_W0 = 19         # quasi-static: contact (threshold) WOB (N)
 P_QS_TOP = 20      # static compression at the top face (N)
 P_AD_KP = 21       # autodriller gains (m/s per N)
 P_AD_KI = 22
@@ -68,7 +69,9 @@ I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribe
 I_AXIAL = 1        # 0 prescribed block velocity, 1 autodriller (WOB)
 I_COUPLE = 2       # 1: 2-D Coulomb friction on (v, omega r) with live-tension F_N (default)
                    # 0: independent axial/torsional friction with static F_N
-N_PI = 3
+I_BIT = 3          # 0 Coulomb, 1 cutting (quasi-static), 2 regenerative cutting
+N_PI = 4
+BIT_MODELS = ('coulomb', 'cutting', 'regenerative')
 
 # recorded channels
 REC_CHANNELS = ('time', 'omega_td', 'motor_torque', 'pipe_torque', 'omega_bit',
@@ -96,23 +99,23 @@ def _sign(x):
 @njit(cache=True)
 def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
     """
-    Bit boundary: the axial-torsional coupling point.
+    Quasi-static bit boundary (Coulomb and cutting models).
 
-    Coulomb-type bit-rock interaction:
-      * stuck (|omega_b| <= omega_c):  |TOB| <= T_s0 + mu_bs * r_b * WOB
-      * sliding:                       TOB = mu_bk * r_b * WOB * sign(omega_b)
-    Penetration: ROP = k_r * max(WOB - W_0, 0) * |omega_b|, unilateral contact.
+    Torque:  sticking (|omega_b| <= omega_c):  |TOB| <= LEVS * WOB
+             sliding:                          TOB  =  LEVK * WOB * sign(omega_b)
+    Penetration (depth of cut per revolution = 2 pi v / omega):
+             ROP = KROP * max(WOB - W0, 0) * |omega_b|
+    with the characteristic relations omega_b = alpha_t - TOB/Zt and
+    v_b = alpha_a - WOB/Za, and unilateral contact (WOB >= 0).
 
-    Returns (omega_b, tob, v_b, wob, stuck).
+    Returns (omega_b, tob, v_b, wob, sticking).
     """
     if (not on_bottom) or alpha_a <= 0.0:
         # off bottom, or the string is lifting the bit
         return alpha_t, 0.0, alpha_a, 0.0, 0.0
 
-    r_b = pf[P_RBIT]
-    mus = pf[P_MUBS]
-    muk = pf[P_MUBK]
-    ts0 = pf[P_TSTICK]
+    lev_s = pf[P_LEVS]
+    lev_k = pf[P_LEVK]
     kr = pf[P_KROP]
     w0 = pf[P_W0]
     wc = pf[P_WC]
@@ -123,7 +126,7 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
     tob = 0.0
     stuck = 0.0
     for _ in range(8):
-        # axial: penetration law and characteristic relation v_b = alpha_a - WOB/Za
+        # axial: penetration law and v_b = alpha_a - WOB/Za
         q_lin = Za * alpha_a                     # WOB if the bit does not advance
         aw = abs(w)
         if q_lin <= w0 or kr * aw == 0.0:
@@ -132,14 +135,14 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
         else:
             wob = (alpha_a + kr * w0 * aw) / (1.0 / Za + kr * aw)
             v = kr * (wob - w0) * aw
-        # torsional: Coulomb bit friction; omega_b = alpha_t - TOB/Zt
+        # torsional: TOB proportional to WOB, with sticking
         tau_stop = Zt * alpha_t                  # TOB that holds the bit at rest
-        if (abs(w_prev) <= wc or stuck_prev > 0.5) and abs(tau_stop) <= ts0 + mus * r_b * wob:
+        if (abs(w_prev) <= wc or stuck_prev > 0.5) and abs(tau_stop) <= lev_s * wob:
             tob = tau_stop
             w_new = 0.0
             stuck = 1.0
         else:
-            tob = _sign(alpha_t) * min(muk * r_b * wob, abs(tau_stop))
+            tob = _sign(alpha_t) * min(lev_k * wob, abs(tau_stop))
             w_new = alpha_t - tob / Zt
             stuck = 0.0
         if abs(w_new - w) < 1e-12:
@@ -147,6 +150,89 @@ def _bit(alpha_t, alpha_a, Zt, Za, on_bottom, w_prev, stuck_prev, pf):
             break
         w = w_new
     return w, tob, v, wob, stuck
+
+
+@njit(cache=True)
+def _bit_regen(alpha_t, alpha_a, Zt, Za, u, dt, w_prev, stuck_prev, phi, surf, pf):
+    """
+    Regenerative cutting bit (Richard, Germay & Detournay 2007 type).
+
+    The hole bottom under the bit is stored as a profile ``surf`` over M
+    angular bins.  ``n`` blades sit at phi + 2 pi j / n.  The depth of cut of
+    blade j is d_j = max(u - surf[bin_j], 0): the material left by the
+    previous blade to pass that angle, so the depth of cut carries the delay
+    of one blade passage (the regenerative effect).
+
+        WOB = S a sum_j d_j        (axial cutting force; zero when lifted off)
+        TOB = WOB a / (2 zeta)     (cutting torque; sticking when stalled)
+
+    The axial contact is solved implicitly for the new bit depth.
+    Returns (omega_b, tob, v_b, wob, sticking).
+    """
+    kc = pf[P_KCUT]
+    n = int(pf[P_BLADES])
+    lev = pf[P_LEVK]
+    wc = pf[P_WC]
+    M = surf.shape[0]
+    dth = 2.0 * np.pi / M
+
+    # surface under each blade
+    s_bl = np.empty(n)
+    for j in range(n):
+        ang = phi + 2.0 * np.pi * j / n
+        b = int(np.floor(ang / dth)) % M
+        s_bl[j] = surf[b]
+
+    # implicit axial contact: u1 = u + dt (alpha_a - WOB/Za), WOB = kc sum (u1 - s_j)+
+    u_free = u + dt * alpha_a
+    u1 = u_free
+    for _ in range(n + 2):
+        m = 0
+        ssum = 0.0
+        for j in range(n):
+            if s_bl[j] < u1:
+                m += 1
+                ssum += s_bl[j]
+        if m == 0:
+            u_new = u_free
+        else:
+            g = dt * kc / Za
+            u_new = (u_free + g * ssum) / (1.0 + g * m)
+        if abs(u_new - u1) < 1e-15:
+            u1 = u_new
+            break
+        u1 = u_new
+    wob = 0.0
+    for j in range(n):
+        if u1 > s_bl[j]:
+            wob += kc * (u1 - s_bl[j])
+    v = (u1 - u) / dt
+
+    # torque: cutting torque proportional to WOB, sticking when stalled
+    tau_stop = Zt * alpha_t
+    if (abs(w_prev) <= wc or stuck_prev > 0.5) and abs(tau_stop) <= lev * wob:
+        return 0.0, tau_stop, v, wob, 1.0
+    tob = _sign(alpha_t) * min(lev * wob, abs(tau_stop))
+    return alpha_t - tob / Zt, tob, v, wob, 0.0
+
+
+@njit(cache=True)
+def _sweep(phi_old, phi_new, u, surf, n):
+    """Blades moving forward from phi_old to phi_new leave the surface at depth u."""
+    if phi_new <= phi_old:
+        return
+    M = surf.shape[0]
+    dth = 2.0 * np.pi / M
+    for j in range(n):
+        off = 2.0 * np.pi * j / n
+        b0 = int(np.floor((phi_old + off) / dth))
+        b1 = int(np.floor((phi_new + off) / dth))
+        # bins the blade has left behind this step (it cuts the bin it occupies when it leaves)
+        last = min(b1, b0 + M)
+        for b in range(b0, last):
+            k = b % M
+            if u > surf[k]:
+                surf[k] = u
 
 
 @njit(cache=True)
@@ -204,7 +290,9 @@ def advance(nsteps, sc, pf, pi,
             # recording
             rec, rec_idx, rec_every, rec_phase,
             # scratch
-            wf, tf, vf, qf):
+            wf, tf, vf, qf,
+            # regenerative bit: hole-bottom profile over angular bins
+            surf):
     """
     Advance the model ``nsteps`` time steps.  State arrays are updated in
     place.  Every ``rec_every`` steps a row is written into ``rec`` starting at
@@ -220,6 +308,8 @@ def advance(nsteps, sc, pf, pi,
     ctrl = pi[I_CTRL]
     axial_mode = pi[I_AXIAL]
     coupled = pi[I_COUPLE] == 1
+    bit_model = pi[I_BIT]
+    n_blades = int(pf[P_BLADES])
 
     # filter coefficients (exact discretisation of first-order lags)
     a_en = np.exp(-dt / pf[P_TEN]) if pf[P_TEN] > 0.0 else 0.0
@@ -304,9 +394,13 @@ def advance(nsteps, sc, pf, pi,
         # ---------------------------------------------------------- bit face
         alpha_t = w[n - 1] + tau[n - 1] / Zt[n - 1]
         alpha_a = v[n - 1] + qd[n - 1] / Za[n - 1]
-        on_bottom = sc[S_BITD] >= sc[S_HOLED] - 1e-9
-        wb_, tob, vb_, wob, stuck = _bit(alpha_t, alpha_a, Zt[n - 1], Za[n - 1],
-                                         on_bottom, sc[S_WBIT], sc[S_BITSTUCK], pf)
+        if bit_model == 2:
+            wb_, tob, vb_, wob, stuck = _bit_regen(alpha_t, alpha_a, Zt[n - 1], Za[n - 1], sc[S_BITD], dt,
+                                                   sc[S_WBIT], sc[S_BITSTUCK], sc[S_PHIB], surf, pf)
+        else:
+            on_bottom = sc[S_BITD] >= sc[S_HOLED] - 1e-9
+            wb_, tob, vb_, wob, stuck = _bit(alpha_t, alpha_a, Zt[n - 1], Za[n - 1],
+                                             on_bottom, sc[S_WBIT], sc[S_BITSTUCK], pf)
         wf[n] = wb_
         tf[n] = tob
         vf[n] = vb_
@@ -373,7 +467,14 @@ def advance(nsteps, sc, pf, pi,
         sc[S_T] += dt
         sc[S_BITD] += sc[S_VBIT] * dt
         sc[S_BLKPOS] += sc[S_VBLK] * dt
-        if sc[S_BITD] > sc[S_HOLED]:
+        if bit_model == 2:
+            phi_new = sc[S_PHIB] + sc[S_WBIT] * dt
+            _sweep(sc[S_PHIB], phi_new, sc[S_BITD], surf, n_blades)
+            # keep the angle bounded without disturbing bin alignment
+            sc[S_PHIB] = phi_new - 2.0 * np.pi * np.floor(phi_new / (2.0 * np.pi)) if phi_new > 1e6 else phi_new
+            if sc[S_BITD] > sc[S_HOLED]:
+                sc[S_HOLED] = sc[S_BITD]
+        elif sc[S_BITD] > sc[S_HOLED]:
             sc[S_HOLED] = sc[S_BITD]
 
         rec_phase += 1
