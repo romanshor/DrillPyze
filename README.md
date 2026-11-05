@@ -117,6 +117,22 @@ Other model components:
   only hold the string up, so hookload is never negative.
 * **Wellbore temperature and pressure:** the drift-flux model of Wang et al.
   (2023), coupled every 2 s of simulated time.
+* **Damping** (derivation §5.6): no tuning knob is needed; the coefficients
+  come from the mud report and the string.
+  * **F1, mud:** steady laminar Couette drag on the full velocity, plus a
+    Stokes boundary layer $\sqrt{\rho_f\mu\omega_1/2}$ on the inner and outer
+    pipe walls. The Stokes term acts on the oscillatory part of the velocity
+    and is evaluated at the first axial and torsional modes.
+  * **F2, mud yield stress:** a Bingham yield drag $\tau_y\pi d_o$ added to
+    the Coulomb capacity, by default only with the pumps off.
+  * **M1, steel:** Rayleigh / Kelvin–Voigt damping fitted to $\zeta = \eta/2$
+    at the first mode and at 10 Hz, solved implicitly.
+  * **Calibration:** $k_t, k_a$ remain as optional extra rates.
+  * **Limitation:** the model resolves and damps vibrations **up to 10 Hz**.
+    Above the first mode, fluid damping is under-predicted by
+    $\sqrt{f/f_1}$. For torsional content above about 2 Hz, the grid
+    spacing should be reduced (about 2.5 m for 10 Hz) so numerical
+    dissipation stays below the physical damping.
 * **Gravity:** handled by a well-balanced static/dynamic split.
 * **Numerics:** a Godunov finite-volume scheme (upwind on the invariants,
   exact at section changes) with a CFL-limited time step. Coulomb friction is
@@ -254,6 +270,13 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * steady drilling matches each bit law; the regenerative model converges
     to the cutting state when damped and self-excites when lightly damped;
   * every bit model drills off WOB at a fixed block position;
+* Damping:
+  * measured free-decay damping ratios of the first axial and torsional modes
+    match the predictions within 2% (lumped, fluid, material, combined);
+  * steady rotation sees only the Couette drag;
+  * the yield drag applies with the pumps off only;
+  * the Kelvin–Voigt solve conserves momentum;
+  * pause and resume are exact.
 * Rock strength and temperature:
   * drained and undrained CCS, the porosity blend, the thermal-weakening fit,
     and the thermal stress and skin ratio;

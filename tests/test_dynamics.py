@@ -13,12 +13,12 @@ from fixtures import well_a, vertical_well, uniform_string, standard_string
 def frictionless():
     return ModelParameters(
         friction=FrictionParameters(0.0, 0.0, 0.0, 0.0),
-        damping=DampingParameters(0.0, 0.0))
+        damping=DampingParameters(0.0, 0.0, fluid=False, loss_factor=0.0))
 
 
 def friction(mus_c, muk_c, mus_o, muk_o, k_t=0.05, k_a=0.05, **kw):
     return ModelParameters(friction=FrictionParameters(mus_c, muk_c, mus_o, muk_o, **kw),
-                           damping=DampingParameters(k_t, k_a))
+                           damping=DampingParameters(k_t, k_a, fluid=False, loss_factor=0.0))
 
 
 def crossing_time(t, y, level):
@@ -205,7 +205,7 @@ def test_off_bottom_stick_slip_needs_static_kinetic_difference():
 # ------------------------------------------------------------------ drilling
 def drilling_sim(model, rpm=100.0, rop_mh=20.0, kt=0.5, T=60.0, **bit):
     p = frictionless()
-    p.damping = DampingParameters(kt, kt)
+    p.damping = DampingParameters(kt, kt, fluid=False, loss_factor=0.0)
     p.bit = BitParameters(model=model, **bit)
     sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
     sim.initialize(2000.0, hole_depth=2000.0, dx=10.0, record_rate=200)
@@ -274,7 +274,7 @@ def test_regenerative_hole_bottom_follows_the_bit():
 
 def test_bit_lifts_off_when_picked_up():
     p = frictionless()
-    p.damping = DampingParameters(0.5, 0.5)
+    p.damping = DampingParameters(0.5, 0.5, fluid=False, loss_factor=0.0)
     sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
     sim.initialize(2000.0, hole_depth=2000.0)
     sim.step(5.0, v_block=0.01)
@@ -348,7 +348,7 @@ def test_ztorque_suppresses_off_bottom_stick_slip():
 def loaded_bit_sim(model='coulomb', **bit):
     """Vertical, frictionless string standing on bottom with WOB applied, not rotating."""
     p = frictionless()
-    p.damping = DampingParameters(0.5, 0.5)
+    p.damping = DampingParameters(0.5, 0.5, fluid=False, loss_factor=0.0)
     p.bit = BitParameters(model=model, **bit)
     sim = Simulation(vertical_well(), uniform_string(), Fluid(1000.0), p)
     sim.initialize(2000.0, hole_depth=2000.0, dx=10.0, record_rate=1000)

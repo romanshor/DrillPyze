@@ -92,6 +92,8 @@ class Simulation:
         self.tau = np.zeros(n)
         self.v = np.zeros(n)
         self.qd = np.zeros(n)
+        self.wbar = np.zeros(n)      # low-passed velocities for the Stokes-layer damping
+        self.vbar = np.zeros(n)
         self._scratch = [np.zeros(n + 1) for _ in range(4)]
 
         self.sc = np.zeros(K.N_SCALARS)
@@ -189,6 +191,145 @@ class Simulation:
             raise ValueError("friction weakening must be 'step' or 'exponential'")
         pf[K.P_WEAK] = 1.0 if f.weakening == 'exponential' else 0.0
         pf[K.P_BLK_ACC] = p.drawworks.block_acceleration
+        self._pack_damping()
+
+    # ------------------------------------------------------------- damping
+    def modal_frequencies(self):
+        """
+        First axial and torsional natural frequencies (Hz) of the string held
+        at the top and free at the bit: f_1 = 1 / (4 T), T the wave travel time.
+        """
+        g = self.grid
+        return (1.0 / (4.0 * float(np.sum(g.dx / g.c_axial))),
+                1.0 / (4.0 * float(np.sum(g.dx / g.c_torsional))))
+
+    def _pack_damping(self):
+        """
+        Per-cell damping coefficients (docs/derivation/README.md sec. 5.6).
+
+        F1  Couette (steady, laminar annulus) + Stokes layer at f_ref on the
+            inner and outer walls, as rates per unit cell inertia (1/s);
+        M1  Kelvin-Voigt face conductances eta_v E A / dx_face, eta_v = eta / omega_ref;
+        F2  Bingham yield drag tau_y pi OD per length (N/m).
+        """
+        d = self.params.damping
+        g = self.grid
+        fl = self.fluid
+        n = g.n
+        f_a1, f_t1 = self.modal_frequencies()
+        f_a = d.reference_frequency_axial or f_a1
+        f_t = d.reference_frequency_torsional or f_t1
+        w_a, w_t = 2 * np.pi * f_a, 2 * np.pi * f_t
+        self.damping_reference = dict(f_axial=f_a, f_torsional=f_t, f_axial_1=f_a1, f_torsional_1=f_t1)
+
+        ro, ri = g.od / 2.0, g.id / 2.0
+        k0t = np.full(n, float(d.k_t))
+        k0a = np.full(n, float(d.k_a))
+        k1t = np.zeros(n)
+        k1a = np.zeros(n)
+        mu = fl.plastic_viscosity if fl.plastic_viscosity is not None else fl.viscosity
+        rho = fl.density
+        if d.fluid and mu and mu > 0.0:
+            # hole (or casing) radius at each cell
+            md = getattr(self, 'cell_md', g.x)
+            R = np.full(n, self.wellbore.hole_diameter / 2.0)
+            if self.wellbore.casing_id is not None:
+                R = np.where(self.wellbore.is_cased(md), self.wellbore.casing_id / 2.0, R)
+            R = np.maximum(R, 1.05 * ro)
+            # steady laminar Couette in the annulus
+            c0a = 2.0 * np.pi * mu / np.log(R / ro)                       # N s / m^2
+            c0t = 4.0 * np.pi * mu * ro ** 2 * R ** 2 / (R ** 2 - ro ** 2)  # N m s / m
+            # oscillatory Stokes layer on both walls
+            sa = np.sqrt(rho * mu * w_a / 2.0)
+            st = np.sqrt(rho * mu * w_t / 2.0)
+            c1a = sa * 2.0 * np.pi * (ro + ri)
+            c1t = st * 2.0 * np.pi * (ro ** 3 + ri ** 3)
+            k0a = k0a + c0a / self.ma
+            k0t = k0t + c0t / self.mt
+            k1a = c1a / self.ma
+            k1t = c1t / self.mt
+        self.k0t, self.k0a, self.k1t, self.k1a = k0t, k0a, k1t, k1a
+        fc = d.high_pass_fraction
+        dt = self.dt
+        self.pf[K.P_HP_T] = 1.0 - np.exp(-dt * fc * w_t) if fc > 0 else 1.0
+        self.pf[K.P_HP_A] = 1.0 - np.exp(-dt * fc * w_a) if fc > 0 else 1.0
+
+        # material damping: Rayleigh pair fitted to zeta = eta/2 at f_ref and at
+        # max_frequency (zeta <= eta/2 in between).  The mass-proportional part acts
+        # on the oscillatory velocity (like the Stokes term), the stiffness-
+        # proportional part is Kelvin-Voigt with face conductances (zero at the
+        # top drive and bit faces).
+        kvt = np.zeros(n + 1)
+        kva = np.zeros(n + 1)
+        self.rayleigh = dict(alpha_t=0.0, beta_t=0.0, alpha_a=0.0, beta_a=0.0)
+        if d.loss_factor and d.loss_factor > 0.0:
+            z = 0.5 * d.loss_factor
+            w2 = 2 * np.pi * d.max_frequency
+            for key, w1 in (('t', w_t), ('a', w_a)):
+                if w2 > w1:
+                    alpha, beta = 2 * z * w1 * w2 / (w1 + w2), 2 * z / (w1 + w2)
+                else:
+                    alpha, beta = 0.0, 2 * z / w1
+                self.rayleigh['alpha_' + key] = alpha
+                self.rayleigh['beta_' + key] = beta
+            k1t = k1t + self.rayleigh['alpha_t']
+            k1a = k1a + self.rayleigh['alpha_a']
+            self.k1t, self.k1a = k1t, k1a
+            if n > 1:
+                hf = 0.5 * (g.dx[:-1] + g.dx[1:])
+                kvt[1:-1] = self.rayleigh['beta_t'] * 0.5 * (self.Kt[:-1] + self.Kt[1:]) / hf
+                kva[1:-1] = self.rayleigh['beta_a'] * 0.5 * (self.Ka[:-1] + self.Ka[1:]) / hf
+        self.kvt, self.kva = kvt, kva
+        self.pf[K.P_KV] = 1.0 if d.loss_factor and d.loss_factor > 0.0 else 0.0
+
+        # Bingham yield-stress drag on the outer wall
+        if d.yield_drag not in ('always', 'pumps_off', 'off'):
+            raise ValueError("damping.yield_drag must be 'always', 'pumps_off' or 'off'")
+        ty = fl.yield_point or 0.0
+        self._fy_full = ty * np.pi * g.od if (ty > 0 and d.yield_drag != 'off') else np.zeros(n)
+        self._fy_zero = np.zeros(n)
+
+    def _yield_drag_now(self):
+        d = self.params.damping
+        if d.yield_drag == 'always':
+            return self._fy_full
+        if d.yield_drag == 'pumps_off' and self.inputs.get('flow_rate', 0.0) <= 0.0:
+            return self._fy_full
+        return self._fy_zero
+
+    def damping_summary(self, frequency=None):
+        """
+        Predicted modal damping ratios per component and direction, at the
+        reference frequency (default) or at ``frequency`` (Hz):
+
+            zeta_fluid     = (k0 + k1_stokes H) / (2 omega) * s,   H = 1/(1 + (f_c/f)^2)
+            zeta_material  = alpha H / (2 omega) + beta omega / 2   (Rayleigh / Kelvin-Voigt)
+            zeta_numerical = pi f dx (1 - nu) / c                   (first-order Godunov)
+
+        with s = 1 at f_ref (the model's frequency-independent Stokes
+        coefficient).  ``zeta_fluid_true`` scales the Stokes part by
+        sqrt(f/f_ref) as the physical layer would.
+        """
+        g = self.grid
+        d = self.params.damping
+        r = self.damping_reference
+        rows = []
+        for c in np.unique(g.component):
+            j = int(np.where(g.component == c)[0][0])
+            for mode, fr, k0, k1, cw, key in (('axial', r['f_axial'], self.k0a, self.k1a, g.c_axial, 'a'),
+                                               ('torsional', r['f_torsional'], self.k0t, self.k1t, g.c_torsional, 't')):
+                f = frequency or fr
+                w_ = 2 * np.pi * f
+                H = 1.0 / (1.0 + (d.high_pass_fraction * fr / f) ** 2)
+                alpha, beta = self.rayleigh['alpha_' + key], self.rayleigh['beta_' + key]
+                k1s = k1[j] - alpha
+                nu = self.dt * cw[j] / g.dx[j]
+                rows.append(dict(component=self.drillstring.components[c].name, mode=mode, f=f,
+                                 zeta_fluid=(k0[j] + k1s * H) / (2 * w_),
+                                 zeta_fluid_true=(k0[j] + k1s * H * np.sqrt(f / fr)) / (2 * w_),
+                                 zeta_material=alpha * H / (2 * w_) + beta * w_ / 2,
+                                 zeta_numerical=np.pi * f * g.dx[j] * (1 - nu) / cw[j]))
+        return pd.DataFrame(rows)
 
     def _set_drilling_strength(self, S):
         """Update the drilling strength S used by the bit model (Pa)."""
@@ -374,7 +515,9 @@ class Simulation:
             self.w, self.tau, self.v, self.qd,
             i['omega_sp'], i['v_block'], i['motor_torque'], i['omega_td'], i['wob_sp'],
             rec, 0, self.rec_every, self._rec_phase,
-            wf, tf, vf, qf, self.surf)
+            wf, tf, vf, qf, self.surf,
+            self.k0t, self.k0a, self.k1t, self.k1a, self.wbar, self.vbar,
+            self.kvt, self.kva, self._yield_drag_now())
         if idx:
             self._records.append(rec[:idx])
         self._steps_total += nsteps

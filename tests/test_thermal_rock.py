@@ -167,7 +167,7 @@ def test_formation_strength_sets_bit_drilling_strength():
     ds = Drillstring([Component('DP', 100.0, od=5.0 * units.IN, id=4.276 * units.IN)])
     fm = Formation(layers=[FormationLayer(0, ucs=80e6, friction_angle=36.0, porosity=0.005)],
                    thermal_stress_efficiency=0.0)
-    p = ModelParameters(friction=FrictionParameters(0, 0, 0, 0), damping=DampingParameters(0.5, 0.5),
+    p = ModelParameters(friction=FrictionParameters(0, 0, 0, 0), damping=DampingParameters(0.5, 0.5, fluid=False, loss_factor=0.0),
                         bit=BitParameters(model='cutting', zeta=0.8, strength_source='formation', cutting_efficiency=1.0))
     p.thermal.enabled = False
     sim = Simulation(wb, ds, Fluid(1000.0), p, formation=fm)

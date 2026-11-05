@@ -39,8 +39,8 @@ N_SCALARS = 22
 
 # indices into the float parameter vector ``pf``
 P_DT = 0
-P_KT = 1
-P_KA = 2
+P_KT = 1           # unused (damping is per cell, see advance())
+P_KA = 2           # unused
 P_WC = 3
 P_VC = 4
 P_ITD = 5
@@ -66,7 +66,10 @@ P_HKLD_REF = 24    # off-bottom reference hookload for autodriller (N)
 P_AXC = 25         # axial static contrast c: mu_s,axial = mu_k + c (mu_s - mu_k)
 P_WEAK = 26        # 0: step static->kinetic, 1: exponential weakening mu_k + (mu_s - mu_k) exp(-s)
 P_BLK_ACC = 27     # block acceleration limit (m/s^2), 0 = unlimited
-N_PF = 28
+P_HP_T = 28        # high-pass filter coefficient for the torsional Stokes damping (per step)
+P_HP_A = 29        # same, axial
+P_KV = 30          # 1 if Kelvin-Voigt material damping is active
+N_PF = 31
 
 # indices into the integer parameter vector ``pi``
 I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed
@@ -282,6 +285,36 @@ def _coulomb_2d(va, vt, m_a, m_t, c):
     return va * m_a * s / (m_a * s + c), vt * m_t * s / (m_t * s + c)
 
 
+@njit(cache=True)
+def _kv_solve(x, m, h, k, dt, cp, dp):
+    """
+    Backward-Euler Kelvin-Voigt step, in place (Thomas algorithm):
+
+        m_j h_j (x_j' - x_j) / dt = k_{j+1} (x_{j+1}' - x_j') - k_j (x_j' - x_{j-1}')
+
+    with face conductances k (length n+1, k_0 = k_n = 0: no viscous flux
+    through the top drive / bit faces).  Unconditionally stable and
+    momentum-conserving; dissipates sum k (dx)^2 >= 0.
+    """
+    n = x.shape[0]
+    for j in range(n):
+        mh = m[j] * h[j] / dt
+        a = -k[j]                    # sub-diagonal
+        b = mh + k[j] + k[j + 1]     # diagonal
+        c = -k[j + 1]                # super-diagonal
+        d = mh * x[j]
+        if j == 0:
+            cp[j] = c / b
+            dp[j] = d / b
+        else:
+            den = b - a * cp[j - 1]
+            cp[j] = c / den
+            dp[j] = (d - a * dp[j - 1]) / den
+    x[n - 1] = dp[n - 1]
+    for j in range(n - 2, -1, -1):
+        x[j] = dp[j] - cp[j] * x[j + 1]
+
+
 @njit(cache=True, fastmath=True)
 def advance(nsteps, sc, pf, pi,
             # grid
@@ -296,16 +329,30 @@ def advance(nsteps, sc, pf, pi,
             # scratch
             wf, tf, vf, qf,
             # regenerative bit: hole-bottom profile over angular bins
-            surf):
+            surf,
+            # damping (per cell / per face), see docs/derivation sec. 5.6
+            k0t, k0a, k1t, k1a, wbar, vbar, kvt, kva, fy):
     """
     Advance the model ``nsteps`` time steps.  State arrays are updated in
-    place.  Every ``rec_every`` steps a row is written into ``rec`` starting at
+    place.
+
+    Damping: k0* (1/s) act on the full velocity (Couette + calibration),
+    k1* (1/s) on the oscillatory part w - wbar (Stokes layer; wbar is a
+    per-cell low-pass state), kv* (N s/m resp. N m s) are Kelvin-Voigt face
+    conductances (n+1, zero at the ends), fy (N/m) the yield-stress drag.  Every ``rec_every`` steps a row is written into ``rec`` starting at
     ``rec_idx``; returns (new rec_idx, new rec_phase).
     """
     n = h.shape[0]
     dt = pf[P_DT]
-    kt = pf[P_KT]
-    ka = pf[P_KA]
+    a_hp_t = pf[P_HP_T]
+    a_hp_a = pf[P_HP_A]
+    use_kv = pf[P_KV] > 0.5
+    w_old_a = np.empty(n)
+    v_old_a = np.empty(n)
+    wst = np.empty(n)
+    vst = np.empty(n)
+    cpr = np.empty(n)
+    dpr = np.empty(n)
     wc = pf[P_WC]
     vc = pf[P_VC]
     I = pf[P_ITD]
@@ -429,16 +476,29 @@ def advance(nsteps, sc, pf, pi,
 
         # -------------------------------------------- cell update + sources
         for j in range(n):
-            w_old = w[j]
-            v_old = v[j]
+            w_old_a[j] = w[j]
+            v_old_a[j] = v[j]
             # flux update
             tau[j] -= dt * Kt[j] / h[j] * (wf[j + 1] - wf[j])
             ws = w[j] - dt / (mt[j] * h[j]) * (tf[j + 1] - tf[j])
             qd[j] -= dt * Ka[j] / h[j] * (vf[j + 1] - vf[j])
             vs = v[j] - dt / (ma[j] * h[j]) * (qf[j + 1] - qf[j])
-            # implicit viscous damping
-            ws /= (1.0 + dt * kt)
-            vs /= (1.0 + dt * ka)
+            # implicit linear fluid damping: Couette (+ calibration) on the full
+            # velocity, Stokes layer on the part above the high-pass corner
+            wst[j] = (ws + dt * k1t[j] * wbar[j]) / (1.0 + dt * (k0t[j] + k1t[j]))
+            vst[j] = (vs + dt * k1a[j] * vbar[j]) / (1.0 + dt * (k0a[j] + k1a[j]))
+
+        # implicit Kelvin-Voigt material damping: one tridiagonal solve each
+        if use_kv:
+            _kv_solve(wst, mt, h, kvt, dt, cpr, dpr)
+            _kv_solve(vst, ma, h, kva, dt, cpr, dpr)
+
+        for j in range(n):
+            w_old = w_old_a[j]
+            v_old = v_old_a[j]
+            ws = wst[j]
+            vs = vst[j]
+            fyj = fy[j]
             r = rc[j]
             if coupled:
                 # ---- 2-D Coulomb inclusion on the sliding velocity (v, omega r)
@@ -451,27 +511,30 @@ def advance(nsteps, sc, pf, pi,
                 mu_st = mus[j]
                 vt_s = ws * r
                 spd = np.sqrt(vs * vs + vt_s * vt_s)
-                if spd > 0.0:
-                    ea = vs / spd
-                    et = vt_s / spd
-                    mu_sd = 1.0 / np.sqrt((ea / mu_sa) ** 2 + (et / mu_st) ** 2) if mu_sa > 0.0 and mu_st > 0.0 else 0.0
-                else:
-                    mu_sd = mu_st
+                ea = vs / spd if spd > 0.0 else 0.0
+                et = vt_s / spd if spd > 0.0 else 1.0
                 s_old = np.sqrt((v_old / vc) ** 2 + (w_old / wc) ** 2)
+                # resisting force capacities (N/m): wall friction + mud yield stress
+                fa_s = mu_sa * fn + fyj
+                ft_s = mu_st * fn + fyj
+                if spd > 0.0 and fa_s > 0.0 and ft_s > 0.0:
+                    f_sd = 1.0 / np.sqrt((ea / fa_s) ** 2 + (et / ft_s) ** 2)
+                else:
+                    f_sd = ft_s
                 if s_old <= 1.0:
                     # near rest: stick if the static ellipse can hold the cell
-                    pa = ma[j] * vs / (dt * fn * mu_sa) if fn > 0.0 and mu_sa > 0.0 else 1e30
-                    pt = mt[j] * ws / (r * dt * fn * mu_st) if fn > 0.0 and mu_st > 0.0 else 1e30
+                    pa = ma[j] * vs / (dt * fa_s) if fa_s > 0.0 else 1e30
+                    pt = mt[j] * ws / (r * dt * ft_s) if ft_s > 0.0 else 1e30
                     if pa * pa + pt * pt <= 1.0:
                         v[j] = 0.0
                         w[j] = 0.0
                         continue
-                    mu = mu_sd
+                    f_res = f_sd
                 elif weak_exp:
-                    mu = muk[j] + (mu_sd - muk[j]) * np.exp(-s_old)
+                    f_res = muk[j] * fn + fyj + (f_sd - muk[j] * fn - fyj) * np.exp(-s_old)
                 else:
-                    mu = muk[j]
-                va, vt = _coulomb_2d(vs, vt_s, ma[j], mt[j] / (r * r), dt * mu * fn)
+                    f_res = muk[j] * fn + fyj
+                va, vt = _coulomb_2d(vs, vt_s, ma[j], mt[j] / (r * r), dt * f_res)
                 v[j] = va
                 w[j] = vt / r
             else:
@@ -480,11 +543,11 @@ def advance(nsteps, sc, pf, pi,
                 # torsion: torque per length needed to stop the cell this step
                 t_stop = mt[j] * ws / dt
                 if abs(w_old) <= wc:
-                    cap = mus[j] * fn * r
+                    cap = (mus[j] * fn + fyj) * r
                 elif weak_exp:
-                    cap = (muk[j] + (mus[j] - muk[j]) * np.exp(-abs(w_old) / wc)) * fn * r
+                    cap = ((muk[j] + (mus[j] - muk[j]) * np.exp(-abs(w_old) / wc)) * fn + fyj) * r
                 else:
-                    cap = muk[j] * fn * r
+                    cap = (muk[j] * fn + fyj) * r
                 if t_stop > cap:
                     t_stop = cap
                 elif t_stop < -cap:
@@ -494,16 +557,21 @@ def advance(nsteps, sc, pf, pi,
                 f_stop = ma[j] * vs / dt
                 mu_sa = muk[j] + axc * (mus[j] - muk[j])
                 if abs(v_old) <= vc:
-                    cap = mu_sa * fn
+                    cap = mu_sa * fn + fyj
                 elif weak_exp:
-                    cap = (muk[j] + (mu_sa - muk[j]) * np.exp(-abs(v_old) / vc)) * fn
+                    cap = (muk[j] + (mu_sa - muk[j]) * np.exp(-abs(v_old) / vc)) * fn + fyj
                 else:
-                    cap = muk[j] * fn
+                    cap = muk[j] * fn + fyj
                 if f_stop > cap:
                     f_stop = cap
                 elif f_stop < -cap:
                     f_stop = -cap
                 v[j] = vs - dt * f_stop / ma[j]
+
+        # mean (low-passed) velocities seen by the Stokes-layer damping
+        for j in range(n):
+            wbar[j] += a_hp_t * (w[j] - wbar[j])
+            vbar[j] += a_hp_a * (v[j] - vbar[j])
 
         # -------------------------------------------------- bookkeeping
         sc[S_T] += dt

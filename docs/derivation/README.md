@@ -32,10 +32,18 @@ All quantities are SI. Notation is collected in §11.
    collars, …). Tool-joint mass is included through an effective density
    $\rho = m/A$, where $m$ is the mass per unit length and $A$ the body area.
 4. Small strains, so axial and torsional wave speeds are independent of load.
-5. Drilling fluid enters through buoyancy (weight) and a linear viscous damping
-   term. Hydraulics do not otherwise enter the mechanics.
+5. Drilling fluid enters through buoyancy (weight), linear viscous damping
+   (steady Couette drag plus an oscillatory Stokes boundary layer) and, with
+   the pumps off, a Bingham yield-stress drag (§5.6). Steel damping enters
+   through a Rayleigh / Kelvin–Voigt term (§5.6). Hydraulics do not otherwise
+   enter the mechanics.
 6. Contact with the borehole is Coulomb friction with distinct static and
    kinetic coefficients, separately for cased and open hole.
+7. **Frequency range.** The damping models are fitted at the first mode and at
+   $f_\max = 10$ Hz. Together with the numerical dissipation of the
+   first-order scheme, this limits the model to vibrations below 10 Hz
+   (§5.6.6). High-frequency torsional oscillations (HFTO, 50–500 Hz) and bit
+   bounce harmonics are out of scope.
 
 ---
 
@@ -96,7 +104,8 @@ $$
 \rho J\,\frac{\partial \omega}{\partial t} + \frac{\partial \tau}{\partial x} = -k_t\,\rho J\,\omega - \mathcal{F}_t(t,x), \tag{3.1}
 $$
 
-where $k_t$ (1/s) is the viscous damping rate due to the drilling fluid, and
+where $k_t$ (1/s) stands for the linear damping operators of §5.6 (fluid and
+material; in the original model a single constant rate), and
 $\mathcal{F}_t$ is the frictional torque per unit length (an inclusion, §5).
 
 ### 3.2 Axial
@@ -373,7 +382,7 @@ speed after 40 s; the bit is off bottom.
 | axial contrast 0.25 | 4–605 | 6–32 | −805 to 0 | yes |
 | exponential weakening $\mu_k + (\mu_s-\mu_k)e^{-s}$ | 5–644 | 5–28 | −1267 to 1 | yes |
 | block acceleration ≤ 0.5 m/s² | 5–658 | 5–28 | −1115 to −2 | yes |
-| raise axial damping $k_a$ to 1–5 /s | 190–206 | – | – | yes, but not physical: viscous mud drag is about 10⁻³ /s |
+| raise axial damping $k_a$ to 1–5 /s | 190–206 | – | – | yes, but not physical: steady Couette mud drag is about 10⁻² /s and the oscillatory Stokes layer about 0.1 /s (§5.6) |
 | **axial contrast 0** (new default) | **170–225**, settling to ±5 within 100 s | **6–33** | **−233 to −172** | **yes** |
 
 **Default.** Static friction now acts on an **ellipse** in force space:
@@ -391,7 +400,236 @@ remain available for research, for example to study axial breakover after
 connections.
 
 The ±10% start-up ringing that remains is the first axial mode (0.42 Hz),
-excited by the step change in block speed. It decays with the axial damping.
+excited by the step change in block speed. It decays with the axial damping,
+which §5.6 now derives from the mud and the steel rather than setting by hand.
+
+### 5.6 Distributed damping: fluid and material
+
+The lumped rates $k_t, k_a$ of (3.1)–(3.2) had no physical basis and damped
+every mode at the same rate. They are replaced by three mechanisms with
+parameters from the mud report and the string. The constant rates remain as
+optional calibration terms (`DampingParameters.k_t`, `k_a`, default 0).
+
+**Choice of mechanisms.** Five candidates were considered:
+* steady laminar (Couette) annular shear;
+* the oscillatory Stokes boundary layer;
+* the yield stress of a Bingham or Herschel–Bulkley mud;
+* surge/swab piston flow;
+* material damping of steel and tool joints.
+
+For 5" drill pipe in an 8½" hole with a 20 cP mud:
+* **Couette** drag is $c_0 \approx 0.24$ N s/m², so $k \approx 0.008$ /s.
+* **Stokes layer** at the 0.4 Hz first axial mode ($\delta \approx 3.6$ mm) gives $c_1 \approx 4$ N s/m², so $k \approx 0.1$ /s and $\zeta \approx 0.02$–0.03.
+* **Surge/swab** through the DP annulus is $\approx 0.06$ N s/m² per metre. It matters only across tight BHA annuli and is left to a future lumped BHA term.
+* **Steel:** the measured loss factor of a steel member is $\eta \approx 0.014$, and jointed metal structures are higher (Orban 2011). This gives $\zeta = \eta/2 \approx 0.005$ for the string.
+
+The oscillatory fluid layer therefore dominates, as Moharrami et al. (2024) and
+Jansen & van den Steen (1995) assume with lumped coefficients. The
+confined-annulus added mass of Chen et al. (1976) and Dolfo et al. (2020)
+applies to lateral motion and is not used here.
+
+#### 5.6.1 F1 — fluid: steady Couette drag
+
+Laminar flow between the pipe (radius $r_o$) and the hole or casing (radius
+$R$), with viscosity $\mu$ (the Bingham plastic viscosity if given), gives
+drag per unit length
+
+$$
+f_{a,0} = \frac{2\pi\mu}{\ln(R/r_o)}\, v,
+\qquad
+m_{t,0} = \frac{4\pi\mu\, r_o^2 R^2}{R^2 - r_o^2}\,\omega. \tag{5.6}
+$$
+
+These act on the full velocity and are the only viscous loads in steady
+rotation or tripping, so they enter torque-and-drag directly.
+
+#### 5.6.2 F1 — fluid: oscillatory Stokes layer
+
+A wall oscillating tangentially at frequency $\omega_f$ in a viscous fluid
+drives a boundary layer of thickness $\delta = \sqrt{2\nu/\omega_f}$, with
+$\nu = \mu/\rho_f$ (Stokes' second problem). The in-phase (dissipative) part
+of the wall shear stress is
+
+$$
+\tau_w = \sqrt{\rho_f\mu\,\omega_f/2}\; u_w .
+$$
+
+For $\delta \ll r_i$ and $\delta \ll R - r_o$ (both hold for $f \gtrsim 0.1$
+Hz), each wall acts as a flat plate. Summing the inner and outer walls of the
+pipe, and integrating the moment $\tau_w r$ for torsion, gives the drag per
+unit length
+
+$$
+f_{a,1} = \underbrace{\sqrt{\tfrac{\rho_f\mu\omega_a}{2}}\;2\pi(r_o + r_i)}_{c_{a,1}}\; \tilde v,
+\qquad
+m_{t,1} = \underbrace{\sqrt{\tfrac{\rho_f\mu\omega_t}{2}}\;2\pi(r_o^3 + r_i^3)}_{c_{t,1}}\; \tilde\omega . \tag{5.7}
+$$
+
+The mud inside the pipe is not entrained, consistent with the steel-only mass
+$\rho A$. The coefficient grows as $\sqrt{\omega_f}$, which is a fractional
+(half-order) time derivative. It is evaluated once at a reference frequency:
+by default the first (quarter-wave) mode of the string held at the top,
+
+$$
+f_{a,1} = \frac{1}{4\sum_j h_j/c_{a,j}}, \qquad f_{t,1} = \frac{1}{4\sum_j h_j/c_{t,j}} . \tag{5.8}
+$$
+
+This is the mode that dominates stick-slip and the tripping transients.
+
+$\tilde v, \tilde\omega$ are the **oscillatory** parts of the velocities. A
+uniformly moving pipe has no Stokes layer, only (5.6). Each cell therefore
+carries a low-pass state
+
+$$
+\dot{\bar v} = \omega_c(v - \bar v), \qquad \tilde v = v - \bar v, \qquad \omega_c = \phi\,\omega_{a,1},
+$$
+
+with $\phi$ = `high_pass_fraction` = 0.25. At the reference frequency the
+filter passes $1/(1+\phi^2) = 94\%$ of the Stokes damping; at steady state it
+passes none.
+
+#### 5.6.3 F2 — fluid: yield-stress drag
+
+A Bingham mud with yield point $\tau_y$ resists the start of motion of a gelled
+column with a velocity-independent wall stress. Following the
+Herschel–Bulkley drag form $F_d = A_d\tau_y + k_f A_d(V/\Delta)^n$
+(Lyons & Plisga 2005, as used in the Swansea thesis), the yield part per unit
+length,
+
+$$
+f_y = \tau_y\,\pi d_o, \tag{5.9}
+$$
+
+is added to the Coulomb capacity of §5.2 for both directions:
+$\mu F_N \to \mu F_N + f_y$, in the static ellipse and while sliding. It is
+applied with the sliding velocity at the contact radius, which is a
+simplification when $r_c \ne r_o$. While the mud circulates, it is already
+yielded in the annulus, so by default (5.9) applies only with the pumps off
+(`yield_drag='pumps_off'`; also `'always'`, `'off'`).
+
+#### 5.6.4 M1 — material: Rayleigh / Kelvin–Voigt
+
+For a linear viscoelastic (Kelvin–Voigt) rod, $\sigma = E(\varepsilon + \beta\dot\varepsilon)$.
+The strain rate is $\dot\varepsilon = \partial_x v$, which adds
+
+$$
+\rho A\,\partial_t v \mathrel{+}= \partial_x\!\left(\beta EA\,\partial_x v\right),
+\qquad
+\rho J\,\partial_t \omega \mathrel{+}= \partial_x\!\left(\beta GJ\,\partial_x \omega\right) \tag{5.10}
+$$
+
+to the momentum equations, with modal damping ratio $\zeta_n = \beta\omega_n/2$.
+Steel and its connections dissipate a nearly frequency-independent fraction
+of energy per cycle (hysteretic damping, $\zeta = \eta/2$). That law is not
+causal in the time domain, so it is approximated by a Rayleigh pair, adding a
+mass-proportional rate $\alpha$ that acts on $\tilde v, \tilde\omega$ like the
+Stokes term:
+
+$$
+\zeta(\omega) = \frac{\alpha}{2\omega} + \frac{\beta\omega}{2},
+\qquad
+\alpha = \frac{\eta\,\omega_1\omega_2}{\omega_1+\omega_2},
+\quad
+\beta = \frac{\eta}{\omega_1+\omega_2}, \tag{5.11}
+$$
+
+which gives $\zeta = \eta/2$ exactly at the first mode $\omega_1$ and at
+$\omega_2 = 2\pi f_\max$, and $\zeta < \eta/2$ in between. Moharrami et al.
+(2024) fit Rayleigh damping over modes 1–10 in the same way. A Kelvin–Voigt
+term tuned only at the first mode ($\beta = \eta/\omega_1$) was rejected: its
+$\zeta \propto f$ over-damps 10 Hz content by roughly 40×. The default is
+$\eta = 0.01$.
+
+#### 5.6.5 Discretisation
+
+Each step, after the Godunov flux update (§8.1):
+
+1. **Linear fluid and $\alpha$ terms, implicitly per cell:**
+
+$$
+\omega^{**} = \frac{\omega^* + \Delta t\,k_{t,1}\bar\omega}{1 + \Delta t(k_{t,0} + k_{t,1})},
+\qquad
+k_{t,0} = \frac{c_{t,0}}{\rho J} + k_t,\quad k_{t,1} = \frac{c_{t,1}}{\rho J} + \alpha_t,
+$$
+
+   and likewise for $v$.
+
+2. **Kelvin–Voigt, implicitly, by one tridiagonal (Thomas) solve per
+   direction:**
+
+$$
+\frac{m_j h_j}{\Delta t}(x_j' - x_j) = \kappa_{j+\frac12}(x'_{j+1} - x'_j) - \kappa_{j-\frac12}(x'_j - x'_{j-1}),
+\qquad
+\kappa_{j+\frac12} = \beta\,\frac{\overline{EA}}{\bar h},
+$$
+
+   with $\kappa = 0$ at the top-drive and bit faces. An explicit step would be
+   unstable: on a 10 m grid the diffusion limit $h^2/(2\beta c^2)$ is far below
+   the CFL step. The implicit step:
+   * conserves momentum $\sum m_j h_j x_j$;
+   * dissipates $\sum\kappa\,(\Delta x')^2 \ge 0$;
+   * costs $O(N)$.
+
+3. **Friction** (§8.3), with capacity $\mu F_N + f_y$.
+
+4. **Low-pass update:** $\bar x \leftarrow \bar x + (1 - e^{-\omega_c\Delta t})(x - \bar x)$.
+
+The low-pass states are part of the simulation state, so pausing stays exact
+(§8.5).
+
+#### 5.6.6 Damping ratios, numerical dissipation and the 10 Hz limit
+
+For a mode of frequency $f$ ($\omega = 2\pi f$), the model gives
+
+$$
+\zeta_\text{fluid} = \frac{k_0 + k_{1,S}H}{2\omega},\quad
+\zeta_\text{mat} = \frac{\alpha H}{2\omega} + \frac{\beta\omega}{2},\quad
+\zeta_\text{num} = \frac{\pi f h (1-\nu)}{c},\quad H = \frac{1}{1 + (\phi f_1/f)^2}, \tag{5.12}
+$$
+
+where $\zeta_\text{num}$ is the amplitude loss of first-order upwinding.
+Upwinding has modified-equation diffusion $c h(1-\nu)/2$, with $\nu$ the
+Courant number of that wave. `Simulation.damping_summary(f)` tabulates these
+per component.
+
+For Well A drill pipe ($f_{a,1}$ = 0.51 Hz, $f_{t,1}$ = 0.32 Hz), the first
+modes have $\zeta_\text{fluid}$ = 0.027 (axial) and 0.037 (torsional), with
+$\zeta_\text{mat}$ = 0.0047. Previously the default $k$ = 0.1 /s gave 0.016
+and 0.025.
+
+**Limitations (stated validity: $f \le 10$ Hz).**
+
+* The Stokes coefficient is fixed at $f_1$. Above it, fluid damping is
+  under-predicted by $\sqrt{f/f_1}$: 4–6× at 10 Hz, an absolute shortfall of
+  $\zeta \approx 0.005$.
+* Frequency-dependent Stokes damping would need a fractional-derivative
+  (Prony / auxiliary-state) form; it is deferred.
+* Material damping follows (5.11) within the band and over-damps above $f_\max$.
+* Numerical dissipation grows as $f\,h$. With $h$ = 10 m, the torsional
+  $\zeta_\text{num}$ reaches 0.04 at 10 Hz and exceeds the physical damping
+  above about 2 Hz; the axial $\zeta_\text{num}$ stays below 0.003. For
+  torsional content up to 10 Hz, use $h \lesssim 2.5$ m ($\zeta_\text{num}
+  \approx 0.01$), at about 4× the run time.
+* Herschel–Bulkley shear thinning in the Stokes layer, which depends on
+  amplitude, and the gel-strength build-up with time are not modelled.
+
+**Verification** (`tests/test_damping.py`, `docs/derivation/damping_verification.py`).
+Free decay of the first mode of 3000 m of 5" DP gives measured
+vs (5.12)-predicted damping ratios:
+
+| model | axial measured / predicted | torsional measured / predicted |
+|---|---|---|
+| lumped $k$ = 0.1 /s | 0.0187 / 0.0187 | 0.0310 / 0.0311 |
+| F1 fluid | 0.0290 / 0.0293 | 0.0414 / 0.0415 |
+| M1 material, $\eta$ = 0.02 | 0.0095 / 0.0096 | 0.0105 / 0.0105 |
+| F1 + M1, $\eta$ = 0.01 | 0.0335 / 0.0340 | 0.0461 / 0.0462 |
+
+For Well A tripping in at 200 m/h and 0 rpm, the bit-speed range after 30 s
+narrows from 154–248 m/h (lumped $k$ = 0.1 /s) to 172–230 m/h (F1 + M1).
+
+Figures: `docs/figures/damping_free_decay.png`, `damping_vs_frequency.png`,
+`damping_trip_well_a.png`.
+
 
 ## 6. Boundary conditions
 
@@ -620,9 +858,9 @@ negligible amplitude loss for the low modes that dominate stick-slip (§10).
 
 After the flux update, each cell applies its sources:
 
-1. **Damping, implicitly:**
-   $\omega^{**} = \omega^*/(1 + k_t\Delta t)$ and
-   $v^{**} = v^*/(1 + k_a\Delta t)$.
+1. **Damping, implicitly:** the fluid and Rayleigh-$\alpha$ rates per cell,
+   then the Kelvin–Voigt tridiagonal solve (§5.6.5). With only the
+   calibration rates this reduces to $\omega^{**} = \omega^*/(1 + k_t\Delta t)$.
 2. **Friction, implicitly (coupled model).** Let
    $\mathbf V^{*} = (v^{**},\ \omega^{**} r_c)$ be the predicted sliding
    velocity and $M = \operatorname{diag}(m_a, m_\theta)$ the mass per length in
@@ -762,6 +1000,10 @@ $$
 | ZTorque suppresses the stiff-controller limit cycle | yes |
 | bit breakout torque, TOB/WOB slope, drill-off at constant block | exact / 1% |
 | pause–resume, external Python PI vs internal PI | exact / 2% |
+| free decay of first axial / torsional mode vs (5.12): lumped, F1, M1, F1+M1 | within 2% (8 cases) |
+| steady rotation with F1+M1: surface torque = Couette (5.6) only | within 2% |
+| yield drag (5.9) with pumps off; absent with pumps on | within 5% |
+| Kelvin–Voigt solve conserves momentum, dissipates energy | to $10^{-12}$ |
 
 ---
 
@@ -782,7 +1024,12 @@ $$
 | $F_N$ | normal force per length | N/m |
 | $\mu_s, \mu_k$ | static, kinetic friction factors (cased/open) | – |
 | $\omega_c, v_c$ | static → kinetic thresholds | rad/s, m/s |
-| $k_t, k_a$ | viscous damping rates | 1/s |
+| $k_t, k_a$ | additional (calibration) viscous damping rates | 1/s |
+| $c_{\cdot,0}, c_{\cdot,1}$ | Couette, Stokes-layer damping coefficients per length | N s/m², N m s |
+| $\delta = \sqrt{2\nu/\omega}$ | Stokes layer thickness | m |
+| $\eta;\ \alpha, \beta$ | material loss factor; Rayleigh coefficients | –; 1/s, s |
+| $\tau_y, f_y$ | mud yield point, yield drag per length | Pa, N/m |
+| $f_1, f_\max$ | first-mode and maximum modelled frequency | Hz |
 | $I_{TD}, \tau_m, \tau_0$ | top-drive inertia, motor torque, pipe torque at top | kg m², N m, N m |
 | $a = D/2$ | bit radius | m |
 | $S = \zeta\varepsilon$ | drilling strength (axial cutting force per unit cut area) | Pa |
@@ -796,5 +1043,12 @@ $$
 * Aarsnes, U.J.F. and Shor, R.J., 2018. Torsional vibrations with bit off bottom: Modeling, characterization and field data validation. *J. Petroleum Science and Engineering*, 163, 712–721.
 * Aarsnes, U.J.F., di Meglio, F. and Shor, R.J., 2018. Benchmarking of industrial stick-slip mitigation controllers. *IFAC-PapersOnLine*, 51(8), 233–238.
 * Auriol, J., Boussaada, I., Shor, R.J., Mounier, H. and Niculescu, S.-I., 2022. Comparing advanced control strategies to eliminate stick-slip oscillations in drillstrings. *IEEE Access*, 10, 10949–10969.
+* Chen, S.S., Wambsganss, M.W. and Jendrzejczyk, J.A., 1976. Added mass and damping of a vibrating rod in confined viscous fluids. *J. Applied Mechanics*, 43(2), 325–329.
+* Dolfo, G., Vigué, J. and Lhuillier, D., 2020. Motion of a cylinder oscillating in a confined viscous fluid. arXiv:2011.12000.
+* Jansen, J.D. and van den Steen, L., 1995. Active damping of self-excited torsional vibrations in oil well drillstrings. *J. Sound and Vibration*, 179(4), 647–668.
+* Lyons, W.C. and Plisga, G.J., 2005. *Standard Handbook of Petroleum and Natural Gas Engineering*, 2nd ed. Gulf Professional Publishing.
+* Moharrami, M.J., Shiri, H. and Martins, C.A., 2024. Vibration (MDPI), 7(4), 56. https://www.mdpi.com/2571-631X/7/4/56
+* Orban, F., 2011. Damping of materials and members in structures. *J. Physics: Conference Series*, 268, 012022.
+* Stokes, G.G., 1851. On the effect of the internal friction of fluids on the motion of pendulums. *Trans. Cambridge Phil. Soc.*, 9, 8–106.
 * Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. *JPT*, 36, 987–992.
 * Shor, R.J. and Aarsnes, U.J.F. Coupled axial-torsional vibrations in a drillstring: modelling and validation. Draft manuscript.

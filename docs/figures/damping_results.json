@@ -1,0 +1,98 @@
+{
+ "lumped k=0.1/s | axial": {
+  "f": 0.427926417866764,
+  "measured": 0.018704814208069753,
+  "predicted": 0.01872696392911216
+ },
+ "lumped k=0.1/s | torsional": {
+  "f": 0.2648625276024426,
+  "measured": 0.030952005145704606,
+  "predicted": 0.03112344233961075
+ },
+ "F1 fluid | axial": {
+  "f": 0.427926417866764,
+  "measured": 0.02899347450875225,
+  "predicted": 0.029326555881267938
+ },
+ "F1 fluid | torsional": {
+  "f": 0.2648625276024426,
+  "measured": 0.041368430486161546,
+  "predicted": 0.04151026596074521
+ },
+ "M1 material (eta=0.02) | axial": {
+  "f": 0.427926417866764,
+  "measured": 0.00954959288777889,
+  "predicted": 0.00956680356342651
+ },
+ "M1 material (eta=0.02) | torsional": {
+  "f": 0.2648625276024426,
+  "measured": 0.010465890149154281,
+  "predicted": 0.010505564472278222
+ },
+ "F1+M1 (eta=0.01) | axial": {
+  "f": 0.427926417866764,
+  "measured": 0.033466186791666304,
+  "predicted": 0.034044507816031404
+ },
+ "F1+M1 (eta=0.01) | torsional": {
+  "f": 0.2648625276024426,
+  "measured": 0.04610030526298685,
+  "predicted": 0.04622373738204487
+ },
+ "well_a_reference": {
+  "f_axial": 0.5135117014401167,
+  "f_torsional": 0.3178350331229311,
+  "f_axial_1": 0.5135117014401167,
+  "f_torsional_1": 0.3178350331229311
+ },
+ "well_a_summary": [
+  {
+   "component": "Collars",
+   "mode": "axial",
+   "f": 0.51351,
+   "zeta_fluid": 0.0067,
+   "zeta_fluid_true": 0.0067,
+   "zeta_material": 0.00472,
+   "zeta_numerical": 0.00016
+  },
+  {
+   "component": "Collars",
+   "mode": "torsional",
+   "f": 0.31784,
+   "zeta_fluid": 0.01141,
+   "zeta_fluid_true": 0.01141,
+   "zeta_material": 0.00471,
+   "zeta_numerical": 0.00129
+  },
+  {
+   "component": "DP",
+   "mode": "axial",
+   "f": 0.51351,
+   "zeta_fluid": 0.02652,
+   "zeta_fluid_true": 0.02652,
+   "zeta_material": 0.00472,
+   "zeta_numerical": 0.00016
+  },
+  {
+   "component": "DP",
+   "mode": "torsional",
+   "f": 0.31784,
+   "zeta_fluid": 0.03651,
+   "zeta_fluid_true": 0.03651,
+   "zeta_material": 0.00471,
+   "zeta_numerical": 0.00129
+  }
+ ],
+ "trip lumped k=0.1/s (previous default)": {
+  "v_bit_range_after_30s_mph": [
+   154.22816600332303,
+   247.893090313724
+  ]
+ },
+ "trip F1+M1 (new default)": {
+  "v_bit_range_after_30s_mph": [
+   172.42628522386983,
+   230.01821544266625
+  ]
+ }
+}

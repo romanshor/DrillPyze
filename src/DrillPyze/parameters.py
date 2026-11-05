@@ -36,8 +36,38 @@ class FrictionParameters:
 
 @dataclass
 class DampingParameters:
-    k_t: float = 0.05           # torsional viscous damping rate (1/s)
-    k_a: float = 0.05           # axial viscous damping rate (1/s)
+    """
+    Distributed damping (docs/derivation/README.md, sec. 5.6).
+
+    Fluid (F1, from the mud and the string/hole geometry, no free parameter):
+        steady annular Couette drag on the full velocity, plus Stokes-layer
+        drag sqrt(rho mu omega_ref / 2) on the inner and outer walls acting on
+        the oscillatory part of the velocity (high-passed below
+        ``high_pass_fraction * omega_ref``).  omega_ref defaults to the first
+        (quarter-wave) mode of the string, axial and torsional separately.
+    Fluid (F2): Bingham yield-stress drag tau_y * pi * OD per length, added to the
+        Coulomb wall friction; applied per ``yield_drag``.
+    Material (M1): Rayleigh damping zeta(f) = alpha/(2 omega) + beta omega/2 fitted so
+        zeta = loss_factor/2 at f_ref and at max_frequency (and below it in
+        between); beta is Kelvin-Voigt strain-rate damping sigma = E (eps + beta deps/dt),
+        alpha acts on the oscillatory velocity.
+    Calibration: k_t, k_a are additional mass-proportional rates (1/s) on the
+        full velocity (the original lumped model), default 0.
+
+    Validity: the fluid terms are evaluated at a single reference frequency, so
+    modes above it are under-damped by sqrt(f / f_ref); together with the
+    numerical dissipation of the first-order scheme this limits the model to
+    vibrations below ``max_frequency`` (10 Hz).
+    """
+    k_t: float = 0.0            # additional torsional viscous damping rate (1/s)
+    k_a: float = 0.0            # additional axial viscous damping rate (1/s)
+    fluid: bool = True          # F1: Couette + Stokes-layer mud damping
+    loss_factor: float = 0.01   # M1: material loss factor eta (zeta = eta/2 at f_ref and max_frequency); 0 = off
+    reference_frequency_axial: float = None       # Hz; None = first axial mode
+    reference_frequency_torsional: float = None   # Hz; None = first torsional mode
+    high_pass_fraction: float = 0.25   # Stokes term acts above this fraction of f_ref
+    yield_drag: str = 'pumps_off'      # F2: 'always' | 'pumps_off' | 'off'
+    max_frequency: float = 10.0        # Hz, validity limit; upper fit point of the material damping
 
 
 @dataclass

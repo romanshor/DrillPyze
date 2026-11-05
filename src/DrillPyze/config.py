@@ -62,7 +62,7 @@ def well_a():
         'parameters': {
             'friction': asdict(FrictionParameters(mu_static_cased=0.40, mu_kinetic_cased=0.22,
                                                   mu_static_open=0.45, mu_kinetic_open=0.25)),
-            'damping': asdict(DampingParameters(k_t=0.1, k_a=0.1)),
+            'damping': asdict(DampingParameters()),
             'bit': asdict(BitParameters(model='cutting', strength_source='formation')),
             'top_drive': asdict(TopDriveParameters()),
             'controller': {'type': 'stiff', 'f_c': None, 't_hp': 10.0, 't_lp': 0.001,

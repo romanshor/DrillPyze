@@ -23,7 +23,7 @@ const UNITS = {
     linear_mass: ['kg/m', 1], force: ['kN', 1e3], torque: ['kN·m', 1e3], rop: ['m/h', 1 / 3600],
     slow_speed: ['mm/s', 1e-3], inertia: ['kg·m²', 1], k_rop: ['(m/h)/(kN·rpm)', (1 / 3600) / (1e3 * RPM)], stress: ['MPa', 1e6],
     modulus: ['GPa', 1e9], pgrad: ['kPa/m', 1e3], flow: ['L/min', 1 / 60000], tgrad: ['°C/km', 1e-3], per_temp: ['1/°C', 1],
-    temp: ['°C', 1], dtemp: ['°C', 1],
+    temp: ['°C', 1], dtemp: ['°C', 1], yp: ['Pa', 1],
     kp: ['N·m·s', 1], ki: ['N·m', 1],
   },
   field: {
@@ -31,7 +31,7 @@ const UNITS = {
     linear_mass: ['lb/ft', 1.48816394], force: ['klbf', 4448.2216], torque: ['kft·lbf', 1355.8179],
     rop: ['ft/h', 0.3048 / 3600], slow_speed: ['in/s', 0.0254], inertia: ['lbm·ft²', 0.0421401],
     k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], stress: ['psi', 6894.7573], modulus: ['Mpsi', 6894757.3], pgrad: ['psi/ft', 6894.7573 / 0.3048],
-    flow: ['gpm', 6.30901964e-5], tgrad: ['°F/100 ft', (5 / 9) / 30.48], per_temp: ['1/°F', 1.8], temp: ['°F', 5 / 9], dtemp: ['°F', 5 / 9], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
+    flow: ['gpm', 6.30901964e-5], tgrad: ['°F/100 ft', (5 / 9) / 30.48], per_temp: ['1/°F', 1.8], temp: ['°F', 5 / 9], dtemp: ['°F', 5 / 9], yp: ['lbf/100 ft²', 0.4788026], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
   },
 };
 // kinds whose unit does not change between systems: [label, SI per display unit]
@@ -91,8 +91,12 @@ const SECTIONS = [
     ] },
   { title: 'Damping',
     fields: [
-      ['parameters.damping.k_t', 'Torsional', 'per_s'],
-      ['parameters.damping.k_a', 'Axial', 'per_s'],
+      ['parameters.damping.fluid', 'Mud damping (Couette + Stokes layer)', 'bool'],
+      ['parameters.damping.loss_factor', 'Steel loss factor η', 'none', { hint: 'Material damping ratio η/2 at the first mode and at the maximum frequency (Rayleigh). 0 = off' }],
+      ['parameters.damping.yield_drag', 'Mud yield-stress drag', 'select', { options: [['pumps_off', 'Pumps off only'], ['always', 'Always'], ['off', 'Off']] }],
+      ['parameters.damping.max_frequency', 'Maximum modelled frequency', 'hz', { hint: 'Model valid below this frequency (default 10 Hz)' }],
+      ['parameters.damping.k_t', 'Extra torsional damping', 'per_s', { hint: 'Calibration term on top of the physical damping; default 0' }],
+      ['parameters.damping.k_a', 'Extra axial damping', 'per_s', { hint: 'Calibration term on top of the physical damping; default 0' }],
     ] },
   { title: 'Bit',
     note: () => ({
@@ -143,6 +147,8 @@ const SECTIONS = [
       ['parameters.thermal.flow_rate', 'Pump rate at start', 'flow'],
       ['parameters.thermal.inlet_temperature', 'Inlet temperature at start', 'temp'],
       ['fluid.viscosity', 'Mud viscosity', 'visc'],
+      ['fluid.plastic_viscosity', 'Plastic viscosity (PV)', 'visc', { blank: 'use mud viscosity', hint: 'Bingham PV; used for the mud damping when given' }],
+      ['fluid.yield_point', 'Yield point (YP)', 'yp', { blank: 'none', hint: 'Bingham YP; gives a yield-stress drag on the string (see Damping)' }],
       ['fluid.heat_capacity', 'Mud heat capacity', 'cp'],
       ['fluid.thermal_conductivity', 'Mud conductivity', 'cond'],
       ['fluid.thermal_expansion', 'Mud thermal expansion', 'per_temp'],
