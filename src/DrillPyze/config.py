@@ -25,6 +25,8 @@ from .wellbore import Wellbore, Fluid
 from .parameters import (ModelParameters, FrictionParameters, DampingParameters, BitParameters,
                          TopDriveParameters, AutodrillerParameters)
 from .simulation import Simulation
+from .formation import Formation, FormationLayer
+from .thermal import ThermalParameters
 
 CONTROLLER_TYPES = ('stiff', 'soft_torque', 'z_torque', 'custom')
 
@@ -49,7 +51,8 @@ def well_a():
             'casing_shoe': 1000.0,
             'hole_diameter': 8.5 * units.IN,
         },
-        'fluid': {'density': 1200.0},
+        'fluid': asdict(Fluid(density=1200.0)),
+        'formation': asdict(Formation()),            # Utah FORGE granitoid defaults
         'drillstring': [                       # bit first; last row is stretched to surface
             {'name': 'Collars', 'length': 230.0, 'od': 5.75 * units.IN, 'id': 2.8125 * units.IN,
              'linear_mass': None, 'contact_od': None},
@@ -60,11 +63,12 @@ def well_a():
             'friction': asdict(FrictionParameters(mu_static_cased=0.40, mu_kinetic_cased=0.22,
                                                   mu_static_open=0.45, mu_kinetic_open=0.25)),
             'damping': asdict(DampingParameters(k_t=0.1, k_a=0.1)),
-            'bit': asdict(BitParameters()),
+            'bit': asdict(BitParameters(model='cutting', strength_source='formation')),
             'top_drive': asdict(TopDriveParameters()),
             'controller': {'type': 'stiff', 'f_c': None, 't_hp': 10.0, 't_lp': 0.001,
                            't_en': 0.001, 'kp': None, 'ki': None, 'impedance': None},
             'autodriller': asdict(AutodrillerParameters()),
+            'thermal': asdict(ThermalParameters(flow_rate=2000 / 60000, inlet_temperature=30.0)),
             'cfl': 0.95,
         },
         'simulation': {'bit_depth': 2500.0, 'hole_depth': 2505.0, 'dx': 10.0, 'record_rate': 50.0},
@@ -128,6 +132,7 @@ def build_parameters(cfg, zeta_p=None, first_mode=None):
         bit=bit_parameters(p['bit'], _num(cfg['well'].get('hole_diameter'))),
         top_drive=TopDriveParameters(**p['top_drive']),
         autodriller=AutodrillerParameters(**p.get('autodriller', {})),
+        thermal=ThermalParameters(**p['thermal']) if p.get('thermal') else ThermalParameters(enabled=False),
         cfl=float(p.get('cfl', 0.95)),
     )
     c = p.get('controller', {'type': 'stiff'})
@@ -161,6 +166,27 @@ def make_controller(c, zeta_p, inertia, first_mode=None):
     return ctrl
 
 
+def build_fluid(cfg):
+    f = dict(cfg.get('fluid', {}))
+    known = Fluid.__dataclass_fields__
+    return Fluid(**{k: (_num(v) if k not in ('plastic_viscosity', 'yield_point') or v is not None else None)
+                    for k, v in f.items() if k in known})
+
+
+def build_formation(cfg):
+    """Formation from the config, or None when the case has no formation section."""
+    f = cfg.get('formation')
+    if not f:
+        return None
+    f = dict(f)
+    layers = [FormationLayer(**{k: (v if k == 'name' else float(v)) for k, v in l.items()})
+              for l in f.pop('layers', [])]
+    fm = Formation(**{k: float(v) for k, v in f.items() if k in Formation.__dataclass_fields__})
+    if layers:
+        fm.layers = layers
+    return fm
+
+
 def first_torsional_mode(sim):
     """Estimate of the first torsional mode (Hz): 1 / (4 * one-way travel time)."""
     g = sim.grid
@@ -171,9 +197,10 @@ def build(cfg, initialize=True):
     """Build (and by default initialise) a :class:`Simulation` from a config dict."""
     well = build_well(cfg)
     string = build_drillstring(cfg)
-    fluid = Fluid(density=_num(cfg['fluid']['density'], 1000.0))
+    fluid = build_fluid(cfg)
     params = build_parameters(cfg)
-    sim = Simulation(well, string, fluid, params, name=cfg.get('name', 'simulation'))
+    formation = build_formation(cfg)
+    sim = Simulation(well, string, fluid, params, name=cfg.get('name', 'simulation'), formation=formation)
     if not initialize:
         return sim
     s = cfg['simulation']
@@ -220,6 +247,15 @@ def validate(cfg):
             errs.append('Bit ζ must be positive.')
         if b.get('model') == 'regenerative' and int(b.get('blades', 1) or 0) < 1:
             errs.append('The regenerative bit needs at least one blade.')
+        if b.get('strength_source', 'constant') == 'formation' and not cfg.get('formation'):
+            errs.append('The bit takes its strength from the formation, but the case has no formation.')
+        for l in (cfg.get('formation') or {}).get('layers', []):
+            if float(l.get('ucs', 1)) <= 0:
+                errs.append('Formation UCS must be positive.')
+            if not 0 <= float(l.get('porosity', 0)) < 1:
+                errs.append('Formation porosity must be between 0 and 1.')
+            if not 0 < float(l.get('friction_angle', 30)) < 90:
+                errs.append('Formation friction angle must be between 0 and 90 degrees.')
         f = cfg['parameters']['friction']
         for loc in ('cased', 'open'):
             if float(f[f'mu_kinetic_{loc}']) > float(f[f'mu_static_{loc}']):

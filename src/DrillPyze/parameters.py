@@ -5,6 +5,8 @@ and damping are meant to be calibrated against field data.
 
 from dataclasses import dataclass, field, asdict, replace
 
+from .thermal import ThermalParameters
+
 
 @dataclass
 class FrictionParameters:
@@ -59,8 +61,12 @@ class BitParameters:
     drilling_strength: float = 50e6 # all models, S = zeta * epsilon (Pa)
     zeta: float = 0.8               # cutting, regenerative
     contact_wob: float = 0.0        # cutting, W_f (N)
-    blades: int = 5                 # regenerative
+    blades: int = 5                 # regenerative (also sets the time between blade passes for T2)
     radius: float = None            # coulomb torque lever; None = D/3
+    # 'constant': S = drilling_strength.  'formation': S = zeta * CCS_eff / cutting_efficiency,
+    # with CCS_eff from the formation at the bit (P1 + T1 + T2, see DrillPyze.formation).
+    strength_source: str = 'constant'
+    cutting_efficiency: float = 1.0 # eta: epsilon = CCS_eff / eta (1 for a sharp cutter)
 
 
 @dataclass
@@ -100,6 +106,8 @@ class ModelParameters:
     top_drive: TopDriveParameters = field(default_factory=TopDriveParameters)
     controller: ControllerParameters = None
     autodriller: AutodrillerParameters = field(default_factory=AutodrillerParameters)
+    thermal: ThermalParameters = field(default_factory=ThermalParameters)
+    thermal_update_period: float = 2.0   # s between thermal / rock-strength updates
     cfl: float = 0.95           # Courant number on the axial wave speed
 
     def to_dict(self):

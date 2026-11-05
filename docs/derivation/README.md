@@ -413,6 +413,14 @@ wave with the same sign.
 $\text{WOB} \ge 0$. If $\alpha_a \le 0$ (the string is pulling the bit up),
 the bit lifts off: $\text{WOB} = 0$ and $v_b = \alpha_a$.
 
+**Rock strength.** The drilling strength $S$ is either a constant or, with
+`strength_source='formation'`, $S = \zeta\,\text{CCS}_\text{eff}/\eta$. In the
+second case $S$ is computed from the formation, pore pressure, bottomhole
+pressure and temperatures at the bit. See
+[`rock-strength-and-temperature.md`](rock-strength-and-temperature.md), which
+also derives the wellbore temperature model (Wang et al. 2023,
+SPE-214836-MS).
+
 **Bit–rock law.** Three reduced models are available
 (`BitParameters.model`). Their derivation from the Bit Model Library is in
 [`bit-models.md`](bit-models.md). With $a = D/2$ and the drilling strength

@@ -139,11 +139,15 @@ class Survey:
         interpolated tangent along the minimum-curvature path.
         """
         md = np.atleast_1d(np.asarray(md, dtype=float))
-        grid = np.union1d(self.md, np.linspace(0, max(self.md[-1], md.max()), 4000))
-        t = self.tangent(grid)
-        d = 0.5 * (t[1:] + t[:-1]) * np.diff(grid)[:, None]
-        pos = np.vstack([np.zeros(3), np.cumsum(d, axis=0)])
-        return tuple(np.interp(md, grid, pos[:, k]) for k in range(3))
+        need = max(self.md[-1], md.max())
+        if getattr(self, '_pos_md', None) is None or self._pos_md[-1] < need:
+            # cached position table (extended tangentially beyond the last station)
+            grid = np.union1d(self.md, np.linspace(0, need * 1.25 + 100.0, 6000))
+            t = self.tangent(grid)
+            d = 0.5 * (t[1:] + t[:-1]) * np.diff(grid)[:, None]
+            self._pos_md = grid
+            self._pos = np.vstack([np.zeros(3), np.cumsum(d, axis=0)])
+        return tuple(np.interp(md, self._pos_md, self._pos[:, k]) for k in range(3))
 
     def tvd_at(self, md):
         """True vertical depth (m) at measured depths (numerical arc integration)."""

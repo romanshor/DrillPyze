@@ -198,6 +198,12 @@ $$
 * **Fitting:** the same $S$ and $\zeta$ as Model 2. The steady states agree, so
   **no extra fitting** is needed. $n$ comes from the bit specification.
 
+### Rock strength
+
+In all three models, $S$ can be fixed or computed from the formation at the
+bit. That calculation covers confinement, pore pressure, temperature and mud
+cooling; see [`rock-strength-and-temperature.md`](rock-strength-and-temperature.md).
+
 ### Choosing between them
 
 | Situation | Model |

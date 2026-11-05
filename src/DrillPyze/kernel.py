@@ -34,7 +34,8 @@ S_AD_INT = 17     # autodriller integrator
 S_BLKPOS = 18     # block travel since start (m, + down)
 S_BITSTUCK = 19   # 1 if bit rotationally sticking
 S_PHIB = 20       # bit rotation angle (rad), regenerative model
-N_SCALARS = 21
+S_WINT = 21       # integral of |omega_bit| dt (rad), for averages over slow updates
+N_SCALARS = 22
 
 # indices into the float parameter vector ``pf``
 P_DT = 0
@@ -467,6 +468,7 @@ def advance(nsteps, sc, pf, pi,
         sc[S_T] += dt
         sc[S_BITD] += sc[S_VBIT] * dt
         sc[S_BLKPOS] += sc[S_VBLK] * dt
+        sc[S_WINT] += abs(sc[S_WBIT]) * dt
         if bit_model == 2:
             phi_new = sc[S_PHIB] + sc[S_WBIT] * dt
             _sweep(sc[S_PHIB], phi_new, sc[S_BITD], surf, n_blades)

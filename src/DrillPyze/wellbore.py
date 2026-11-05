@@ -13,18 +13,31 @@ class Fluid:
     """
     Drilling fluid.
 
-    Parameters
-    ----------
-    density : float
-        Mud density (kg/m^3).
-    plastic_viscosity : float, optional
-        Bingham plastic viscosity (Pa s); not used by the mechanics model yet.
-    yield_point : float, optional
-        Bingham yield point (Pa); not used by the mechanics model yet.
+    Mechanical:
+        density            mud density at the reference temperature and surface (kg/m^3)
+        plastic_viscosity  Bingham PV (Pa s); not used by the mechanics yet
+        yield_point        Bingham YP (Pa); not used yet
+    Thermal and hydraulic (Wang et al. 2023, SPE-214836-MS, Table 2 defaults):
+        viscosity              effective viscosity for hydraulics and heat transfer (Pa s)
+        heat_capacity          J/(kg K)
+        thermal_conductivity   W/(m K)
+        thermal_expansion      volumetric expansion coefficient (1/K), eq. 2
+        sound_speed            m/s, sets compressibility in eq. 2
+        reference_temperature  C, temperature at which ``density`` applies
     """
     density: float = 1000.0
     plastic_viscosity: float = None
     yield_point: float = None
+    viscosity: float = 0.020
+    heat_capacity: float = 3750.0
+    thermal_conductivity: float = 0.75
+    thermal_expansion: float = 1e-4
+    sound_speed: float = 1500.0
+    reference_temperature: float = 20.0
+
+    def density_at(self, T, p):
+        """Mud density at temperature T (C) and gauge pressure p (Pa), Wang et al. (2023) eq. 2."""
+        return (1.0 - (T - self.reference_temperature) * self.thermal_expansion) * self.density + p / self.sound_speed ** 2
 
 
 class Wellbore:

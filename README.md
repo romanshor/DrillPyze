@@ -79,6 +79,23 @@ $a = D/2$ and the drilling strength $S = \zeta\varepsilon$:
 | Regenerative cutting | $S, \zeta$ + blades | $\text{WOB}\,a/(2\zeta)$ | depth of cut from the hole bottom left by the previous blade |
 
 In every model TOB is proportional to WOB, and penetration needs rotation.
+
+**Rock strength, pore pressure and temperature.** With
+`strength_source='formation'` the drilling strength is taken from the rock at
+the bit: $S = \zeta\,\text{CCS}_\text{eff}/\eta$. The effective CCS combines
+three terms:
+* Mohr–Coulomb confinement by the overbalance. Low-porosity,
+  low-permeability rock such as granite uses an undrained (Skempton) pore
+  pressure (Caicedo, Calhoun & Ewy 2005).
+* Thermal weakening above a threshold, fitted to granite data.
+* Weakening of the cooled skin at the hole bottom by thermoelastic stress.
+
+The mud temperature at the bit, and the bottomhole pressure, come from the
+growing-wellbore drift-flux model of **Wang, Khaled, Luu, Ashok & van Oort
+(2023), SPE-214836-MS**, implemented for single-phase mud. It reproduces their
+Utah FORGE case: downhole temperature falls from about 310 °F to 210 °F in
+30 min at 550 gpm, and drilling adds 1.3–2.2 °F, linear in ROP. See
+[`docs/derivation/rock-strength-and-temperature.md`](docs/derivation/rock-strength-and-temperature.md).
 The regenerative model adds the delay of one blade passage, which can
 self-excite bit bounce and stick-slip.
 
@@ -91,6 +108,8 @@ Other model components:
 * **Top drive:** an inertia driven by a stiff, SoftTorque or ZTorque
   controller, by an external torque, or by a prescribed speed.
 * **Drawworks:** a prescribed block velocity, or an autodriller.
+* **Wellbore temperature and pressure:** the drift-flux model of Wang et al.
+  (2023), coupled every 2 s of simulated time.
 * **Gravity:** handled by a well-balanced static/dynamic split.
 * **Numerics:** a Godunov finite-volume scheme (upwind on the invariants,
   exact at section changes) with a CFL-limited time step. Coulomb friction is
@@ -114,7 +133,8 @@ pip install -e ".[ui]"
 drillpyze-ui            # opens http://127.0.0.1:8050 in your browser
 ```
 
-The UI starts with the Well A example case preloaded. The **SI / Field**
+The UI starts with the Well A example case preloaded: the Aarsnes & Shor
+geometry in FORGE-like granite, with the wellbore temperature model on. The **SI / Field**
 switch at the top of the input panel changes every input, readout, plot axis
 and CSV import between SI (m, mm, kN, kN·m, kg/m³, m/h) and field units (ft,
 in, klbf, kft·lbf, ppg, ft/h). The case itself is always stored in SI, so
@@ -132,12 +152,15 @@ switching never changes it, and the choice is remembered in the browser.
     play; the right arrow steps one frame.
 * **Change rig inputs while running** in the transport bar:
   * top drive: controller set point, or a prescribed speed;
-  * drawworks: block speed, or an autodriller WOB set point.
+  * drawworks: block speed, or an autodriller WOB set point;
+  * circulation: pump rate and mud inlet temperature.
 * **Watch the string**:
   * the well path, with the casing, drill pipe, BHA and bit positions;
   * rpm, torque and tension against depth, compared with torque-and-drag
     references;
-  * time histories with 60 s, 10 min, 60 min and full-run windows.
+  * drillstring, annulus and formation temperature against depth;
+  * time histories with 60 s, 10 min, 60 min and full-run windows, including
+    mud and rock temperature at the bit and the effective CCS.
 * **Scrub back** through earlier frames with the replay slider.
 * **Download** the recorded channels as CSV.
 
@@ -224,6 +247,16 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * steady drilling matches each bit law; the regenerative model converges
     to the cutting state when damped and self-excites when lightly damped;
   * every bit model drills off WOB at a fixed block position;
+* Rock strength and temperature:
+  * drained and undrained CCS, the porosity blend, the thermal-weakening fit,
+    and the thermal stress and skin ratio;
+  * a static well stays at the geothermal profile;
+  * the energy balance closes within 3% while circulating;
+  * the SPE-214836 FORGE cooling curve and the linear rise of downhole
+    temperature with ROP are reproduced;
+  * ROP → 0 converges to the static wellbore;
+  * the formation-driven drilling strength reproduces the cutting law;
+  * pause and resume stay exact with the slow models running;
   * the bit lifts off when picked up;
   * pause and resume are exact;
   * an external Python PI reproduces the internal controller.

@@ -4,7 +4,7 @@ torque & drag model and controller test bench.  SI units throughout.
 """
 
 from . import units, survey, drillstring, wellbore, geometry, statics, kernel
-from . import parameters, controllers, simulation, hydraulics
+from . import parameters, controllers, simulation, hydraulics, formation, thermal, config
 from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
@@ -13,6 +13,8 @@ from .parameters import (ModelParameters, FrictionParameters, DampingParameters,
                          AutodrillerParameters)
 from .simulation import Simulation
 from .statics import torque_drag
+from .formation import Formation, FormationLayer
+from .thermal import WellboreThermal, ThermalParameters
 
 __version__ = "0.1.0.dev0"
 __author__ = 'Roman J. Shor'

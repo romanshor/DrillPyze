@@ -28,6 +28,30 @@ DrillPyze.kernel module
    :undoc-members:
    :show-inheritance:
 
+DrillPyze.formation module
+--------------------------
+
+.. automodule:: DrillPyze.formation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.thermal module
+------------------------
+
+.. automodule:: DrillPyze.thermal
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+DrillPyze.config module
+-----------------------
+
+.. automodule:: DrillPyze.config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 DrillPyze.statics module
 ------------------------
 

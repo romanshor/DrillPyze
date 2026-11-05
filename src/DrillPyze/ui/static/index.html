@@ -104,6 +104,12 @@
           <input type="range" id="dw-slider" min="-60" max="60" step="0.5" value="0" aria-label="Drawworks input">
           <input type="number" id="dw" value="0" step="any" class="num"><span class="unit" id="dw-unit">m/h</span>
         </div>
+        <div class="live-row circ">
+          <label for="flow">Pump rate</label>
+          <input type="number" id="flow" step="any" class="num"><span class="unit" data-kind="flow"></span>
+          <label for="t-in">Mud in</label>
+          <input type="number" id="t-in" step="any" class="num"><span class="unit" data-kind="temp"></span>
+        </div>
       </div>
     </section>
 
@@ -118,6 +124,8 @@
       <div class="ro ax"><span class="ro-label">WOB</span><span class="ro-val" id="ro-wob">–</span><span class="ro-unit" data-kind="force"></span></div>
       <div class="ro ax"><span class="ro-label">ROP</span><span class="ro-val" id="ro-rop">–</span><span class="ro-unit" data-kind="rop"></span></div>
       <div class="ro"><span class="ro-label">Bit depth</span><span class="ro-val" id="ro-depth">–</span><span class="ro-unit" data-kind="depth"></span></div>
+      <div class="ro tmp"><span class="ro-label">Mud at bit</span><span class="ro-val" id="ro-tbit">–</span><span class="ro-unit" data-kind="temp"></span></div>
+      <div class="ro tmp"><span class="ro-label">Rock CCS at bit</span><span class="ro-val" id="ro-ccs">–</span><span class="ro-unit" data-kind="stress"></span></div>
     </section>
 
     <section class="string-views" aria-label="Along-string state">
@@ -125,6 +133,7 @@
       <div class="plot" id="p-rpm"></div>
       <div class="plot" id="p-torque"></div>
       <div class="plot" id="p-tension"></div>
+      <div class="plot" id="p-temp"></div>
     </section>
 
     <section class="scrub" aria-label="Replay">
@@ -147,6 +156,7 @@
       <div class="plot trace" id="t-rpm"></div>
       <div class="plot trace" id="t-torque"></div>
       <div class="plot trace" id="t-axial"></div>
+      <div class="plot trace" id="t-rock"></div>
     </section>
   </main>
 </div>

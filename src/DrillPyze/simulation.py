@@ -38,12 +38,15 @@ class Simulation:
     name : str
     """
 
-    def __init__(self, wellbore, drillstring, fluid=None, params=None, name='simulation'):
+    def __init__(self, wellbore, drillstring, fluid=None, params=None, name='simulation', formation=None):
         self.name = name
         self.wellbore = wellbore
         self.drillstring = drillstring
         self.fluid = fluid if fluid is not None else Fluid()
         self.params = params if params is not None else ModelParameters()
+        self.formation = formation
+        self.thermal = None
+        self.rock = None
         self._initialized = False
 
     # ================================================================ setup
@@ -110,7 +113,20 @@ class Simulation:
         self.pf[K.P_HKLD_REF] = -self._qs_top
 
         # inputs (held between calls)
-        self.inputs = dict(omega_sp=0.0, v_block=0.0, motor_torque=0.0, omega_td=0.0, wob_sp=0.0)
+        self.inputs = dict(omega_sp=0.0, v_block=0.0, motor_torque=0.0, omega_td=0.0, wob_sp=0.0,
+                           flow_rate=p.thermal.flow_rate, inlet_temperature=p.thermal.inlet_temperature)
+
+        # slow models: wellbore temperature (Wang et al. 2023) and rock strength at the bit
+        self._slow_every = max(1, int(1.0 / self.dt))                         # one slow tick per <= 1 s
+        self._thermal_every = max(1, int(round(p.thermal_update_period)))    # ticks between thermal updates
+        self._slow_ticks = 0
+        self._slow_records = []
+        self._last_slow = dict(t=0.0, hole=self.sc[K.S_HOLED], wint=0.0)
+        if self.formation is not None and p.thermal.enabled:
+            from .thermal import WellboreThermal
+            self.thermal = WellboreThermal(self.wellbore, self.drillstring, self.fluid, self.formation,
+                                           p.thermal, bit_depth, self.sc[K.S_HOLED])
+        self._update_rock(rop=0.0, omega=0.0)
 
         # recording
         self.record_rate = record_rate
@@ -145,7 +161,7 @@ class Simulation:
         pf[K.P_RAMP] = td.setpoint_ramp
         D = self.wellbore.hole_diameter
         a = D / 2.0
-        S = float(b.drilling_strength)
+        S = self._S if (b.strength_source == 'formation' and getattr(self, '_S', None)) else float(b.drilling_strength)
         if b.model not in K.BIT_MODELS:
             raise ValueError(f'unknown bit model {b.model!r}; expected one of {K.BIT_MODELS}')
         self.pi[K.I_BIT] = K.BIT_MODELS.index(b.model)
@@ -169,6 +185,58 @@ class Simulation:
         pf[K.P_AD_VMAX] = p.autodriller.v_max
         self.pi[K.I_COUPLE] = 1 if f.along_string_coupling else 0
 
+    def _set_drilling_strength(self, S):
+        """Update the drilling strength S used by the bit model (Pa)."""
+        self._S = float(S)
+        a = self.wellbore.hole_diameter / 2.0
+        self.pf[K.P_KROP] = 1.0 / (2.0 * np.pi * a * self._S)
+        self.pf[K.P_KCUT] = self._S * a
+
+    def _update_rock(self, rop, omega):
+        """Rock strength at the bit from the formation, pressure and temperature (slow update)."""
+        if self.formation is None:
+            return
+        b = self.params.bit
+        hole = self.sc[K.S_HOLED]
+        tvd = float(self.wellbore.survey.tvd_at([hole])[0])
+        if self.thermal is not None:
+            ts = self.thermal.state()
+            p_bh, t_mud = ts['p_bh'], ts['t_bit']
+        else:
+            p_bh, t_mud = self.fluid.density * 9.80665 * tvd, None
+        self.rock = self.formation.strength(hole, tvd, p_bh, t_mud=t_mud, rop=rop, omega=omega, blades=b.blades)
+        self.rock['p_bh'] = p_bh
+        self.rock['S'] = b.zeta * self.rock['ccs_eff'] / b.cutting_efficiency
+        if b.strength_source == 'formation':
+            self._set_drilling_strength(self.rock['S'])
+
+    def _slow_tick(self):
+        """Called every ~1 s of simulated time at fixed step counts (pause/resume exact)."""
+        self._slow_ticks += 1
+        self._refresh_geometry()
+        if self._slow_ticks % self._thermal_every:
+            return
+        t, hole, wint = self.sc[K.S_T], self.sc[K.S_HOLED], self.sc[K.S_WINT]
+        dt = t - self._last_slow['t']
+        if dt <= 0:
+            return
+        rop = max(hole - self._last_slow['hole'], 0.0) / dt
+        omega = (wint - self._last_slow['wint']) / dt
+        self._last_slow = dict(t=t, hole=hole, wint=wint)
+        ts = None
+        if self.thermal is not None:
+            ts = self.thermal.advance(dt, flow_rate=self.inputs['flow_rate'],
+                                      inlet_temperature=self.inputs['inlet_temperature'],
+                                      bit_depth=self.sc[K.S_BITD], hole_depth=hole, rop=rop)
+        self._update_rock(rop, omega)
+        rec = dict(time=t, rop=rop, omega_bit_avg=omega)
+        if ts is not None:
+            rec.update({k: ts[k] for k in ('t_bit', 't_ds_bit', 't_out', 't_in', 'flow_rate', 'ecd')})
+        if self.rock is not None:
+            rec.update({k: self.rock[k] for k in ('t_rock', 'p_bh', 'ucs_t', 'ccs', 'ccs_eff', 'sigma_th',
+                                                    'skin_ratio', 'w_drained', 'S')})
+        self._slow_records.append(rec)
+
     def update_parameters(self, params=None, **_):
         """
         Replace model parameters mid-simulation (e.g. friction factors from an
@@ -178,6 +246,7 @@ class Simulation:
             self.params = params
         self._refresh_geometry(force=True)
         self._pack_parameters()
+        self._update_rock(0.0, 0.0)
 
     def _refresh_geometry(self, force=False):
         """Re-evaluate cell geometry, friction zones and static tension."""
@@ -227,7 +296,7 @@ class Simulation:
 
     # ================================================================ step
     def step(self, duration, omega_sp=None, v_block=None, motor_torque=None,
-             omega_td=None, wob_sp=None):
+             omega_td=None, wob_sp=None, flow_rate=None, inlet_temperature=None):
         """
         Advance the simulation by ``duration`` seconds with inputs held
         constant.  Inputs not given keep their previous values.
@@ -240,6 +309,10 @@ class Simulation:
         Drawworks (choose one):
           ``v_block``       block velocity (m/s, positive lowering)
           ``wob_sp``        WOB set point (N) for the autodriller
+
+        Circulation (used by the wellbore temperature model):
+          ``flow_rate``          pump rate (m^3/s)
+          ``inlet_temperature``  mud temperature entering the drillstring (C)
 
         Returns a dict of the latest scalar values.
         """
@@ -260,18 +333,26 @@ class Simulation:
         if wob_sp is not None:
             self.inputs['wob_sp'] = float(wob_sp)
             self.pi[K.I_AXIAL] = 1
+        if flow_rate is not None:
+            self.inputs['flow_rate'] = float(flow_rate)
+        if inlet_temperature is not None:
+            self.inputs['inlet_temperature'] = float(inlet_temperature)
 
         # integer step bookkeeping avoids drift over many short calls
         self._t_requested += duration
         target = int(round(self._t_requested / self.dt))
         remaining = target - self._steps_total
-        # chunk so the geometry can follow the moving string
-        max_chunk = max(1, int(1.0 / self.dt))
+        # chunks end on fixed multiples of the slow-update interval, so slow updates
+        # (geometry, temperature, rock strength) happen at the same simulated times
+        # however the run is split into step() calls
+        K_ = self._slow_every
         while remaining > 0:
-            nsteps = min(remaining, max_chunk)
+            to_boundary = K_ - (self._steps_total % K_)
+            nsteps = min(remaining, to_boundary)
             self._run(nsteps)
             remaining -= nsteps
-            self._refresh_geometry()
+            if self._steps_total % K_ == 0:
+                self._slow_tick()
         return self.latest()
 
     def _run(self, nsteps):
@@ -306,6 +387,15 @@ class Simulation:
                     v_block=s[K.S_VBLK], hookload=s[K.S_HKLD], v_bit=s[K.S_VBIT],
                     wob=s[K.S_WOB], bit_depth=s[K.S_BITD], hole_depth=s[K.S_HOLED],
                     omega_sp=s[K.S_WSP])
+
+    def slow_results(self):
+        """
+        Channels from the slow models (one row per thermal update): mud
+        temperatures (C), bottomhole pressure (Pa), ECD (kg/m3), rock
+        temperature, UCS(T), CCS, effective CCS, thermal stress (Pa), drilling
+        strength S (Pa), average ROP (m/s) and bit speed (rad/s).
+        """
+        return pd.DataFrame(self._slow_records)
 
     def results(self):
         """All recorded scalar channels as a DataFrame (SI units)."""

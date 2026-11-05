@@ -22,37 +22,42 @@ const UNITS = {
     length: ['m', 1], depth: ['m', 1], diameter: ['mm', 1e-3], density: ['kg/m³', 1],
     linear_mass: ['kg/m', 1], force: ['kN', 1e3], torque: ['kN·m', 1e3], rop: ['m/h', 1 / 3600],
     slow_speed: ['mm/s', 1e-3], inertia: ['kg·m²', 1], k_rop: ['(m/h)/(kN·rpm)', (1 / 3600) / (1e3 * RPM)], stress: ['MPa', 1e6],
+    modulus: ['GPa', 1e9], pgrad: ['kPa/m', 1e3], flow: ['L/min', 1 / 60000], tgrad: ['°C/km', 1e-3], per_temp: ['1/°C', 1],
+    temp: ['°C', 1], dtemp: ['°C', 1],
     kp: ['N·m·s', 1], ki: ['N·m', 1],
   },
   field: {
     length: ['ft', 0.3048], depth: ['ft', 0.3048], diameter: ['in', 0.0254], density: ['ppg', 119.826427],
     linear_mass: ['lb/ft', 1.48816394], force: ['klbf', 4448.2216], torque: ['kft·lbf', 1355.8179],
     rop: ['ft/h', 0.3048 / 3600], slow_speed: ['in/s', 0.0254], inertia: ['lbm·ft²', 0.0421401],
-    k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], stress: ['psi', 6894.7573], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
+    k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], stress: ['psi', 6894.7573], modulus: ['Mpsi', 6894757.3], pgrad: ['psi/ft', 6894.7573 / 0.3048],
+    flow: ['gpm', 6.30901964e-5], tgrad: ['°F/100 ft', (5 / 9) / 30.48], per_temp: ['1/°F', 1.8], temp: ['°F', 5 / 9], dtemp: ['°F', 5 / 9], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
   },
 };
 // kinds whose unit does not change between systems: [label, SI per display unit]
-const FIXED = { none: ['–', 1], deg: ['°', 1], rpm: ['rpm', RPM], rpm_s: ['rpm/s', RPM], per_s: ['1/s', 1],
+const FIXED = { cond: ['W/(m·K)', 1], cp: ['J/(kg·K)', 1], visc: ['mPa·s', 1e-3], none: ['–', 1], deg: ['°', 1], rpm: ['rpm', RPM], rpm_s: ['rpm/s', RPM], per_s: ['1/s', 1],
                 hz: ['Hz', 1], s: ['s', 1] };
-const SERVER = { force: 1e3, torque: 1e3, length: 1, depth: 1, rop: 1 / 3600 };   // SI per unit the server sends
+const SERVER = { force: 1e3, torque: 1e3, length: 1, depth: 1, rop: 1 / 3600, temp: 1, stress: 1 };   // SI per unit the server sends
 
 let SYSTEM = 'si';
 try { SYSTEM = localStorage.getItem('drillpyze-units') || 'si'; } catch (e) { /* storage unavailable */ }
 
 function unitOf(kind) { return (FIXED[kind] || UNITS[SYSTEM][kind])[0]; }
 function perDisp(kind) { return (FIXED[kind] || UNITS[SYSTEM][kind])[1]; }
-const toDisp = (kind, si) => (si == null ? null : si / perDisp(kind));
-const fromDisp = (kind, d) => (d == null ? null : d * perDisp(kind));
+// temperatures are stored in deg C; the field display (deg F) needs an offset
+const OFFSET = { temp: () => (SYSTEM === 'field' ? 32 : 0) };
+const toDisp = (kind, si) => (si == null ? null : si / perDisp(kind) + (OFFSET[kind] ? OFFSET[kind]() : 0));
+const fromDisp = (kind, d) => (d == null ? null : (d - (OFFSET[kind] ? OFFSET[kind]() : 0)) * perDisp(kind));
 // convert an array (or number) the server sent in its fixed units into display units
 function srv(kind, a) {
-  const k = SERVER[kind] / perDisp(kind);
-  return Array.isArray(a) ? a.map(v => (v == null ? null : v * k)) : (a == null ? a : a * k);
+  const k = SERVER[kind] / perDisp(kind), off = OFFSET[kind] ? OFFSET[kind]() : 0;
+  return Array.isArray(a) ? a.map(v => (v == null ? null : v * k + off)) : (a == null ? a : a * k + off);
 }
 
 const $ = (id) => document.getElementById(id);
 const state = {
   cfg: null, defaults: null, session: null, info: null, reference: null, path: null,
-  frames: [], traces: null, playing: false, busy: false, scrub: null, windowS: 60,
+  frames: [], traces: null, slow: null, playing: false, busy: false, scrub: null, windowS: 60,
   dirty: false, rpmMax: 200, tqMax: 1, tqMin: 0,
 };
 
@@ -92,16 +97,54 @@ const SECTIONS = [
       coulomb: 'Friction-dominated bit. Sliding: TOB = μk·WOB·D/3; sticking up to μs·WOB·D/3. ROP = ω·WOB / (2π·a·S).',
       cutting: 'Detournay & Defourny cutting. WOB = W_f + S·a·d, TOB = WOB·a/(2ζ), with d the depth of cut per revolution. No velocity weakening.',
       regenerative: 'Cutting with the depth of cut set by the hole bottom left by the previous blade. WOB = S·a·Σd_j, TOB = WOB·a/(2ζ).',
-    })[get(state.cfg, 'parameters.bit.model') || 'coulomb'],
+    })[get(state.cfg, 'parameters.bit.model') || 'coulomb'] + (get(state.cfg, 'parameters.bit.strength_source') === 'formation'
+      ? ' Drilling strength S = ζ·CCS/η from the formation at the bit.' : ''),
     fields: [
       ['parameters.bit.model', 'Model', 'select',
         { options: [['coulomb', 'Coulomb (friction)'], ['cutting', 'Cutting (Detournay)'], ['regenerative', 'Regenerative cutting']], rebuild: true }],
+      ['parameters.bit.strength_source', 'Rock strength', 'select',
+        { options: [['formation', 'From the formation (CCS)'], ['constant', 'Fixed drilling strength']], rebuild: true }],
       ['parameters.bit.mu_static', 'Static friction μs', 'none', { models: ['coulomb'] }],
       ['parameters.bit.mu_kinetic', 'Kinetic friction μk', 'none', { models: ['coulomb'] }],
-      ['parameters.bit.drilling_strength', 'Drilling strength S', 'stress', { hint: 'S = ζ·ε, the axial cutting force per unit cut area' }],
-      ['parameters.bit.zeta', 'Force ratio ζ', 'none', { models: ['cutting', 'regenerative'], hint: 'Normal / tangential cutting force' }],
+      ['parameters.bit.drilling_strength', 'Drilling strength S', 'stress', { source: 'constant', hint: 'S = ζ·ε, the axial cutting force per unit cut area' }],
+      ['parameters.bit.zeta', 'Force ratio ζ', 'none', { models: ['cutting', 'regenerative'], orSource: 'formation', hint: 'Normal / tangential cutting force' }],
+      ['parameters.bit.cutting_efficiency', 'Cutting efficiency η', 'none', { source: 'formation', hint: 'ε = CCS/η; 1 for a sharp cutter' }],
       ['parameters.bit.contact_wob', 'Contact WOB W_f', 'force', { models: ['cutting'], hint: 'WOB carried by wear flats before cutting starts' }],
-      ['parameters.bit.blades', 'Blades', 'none', { models: ['regenerative'] }],
+      ['parameters.bit.blades', 'Blades', 'none', { models: ['regenerative'], orSource: 'formation' }],
+    ] },
+  { title: 'Formation', when: () => !!state.cfg.formation,
+    note: () => 'Layers by top depth. CCS = UCS(T) + Δp·(1+sin φ)/(1−sin φ). Low-porosity rock (≤ 5 %) uses the undrained (Skempton) pore pressure; ≥ 20 % uses the drained one; linear blend between.',
+    fields: [
+      ['formation.pore_pressure_gradient', 'Pore pressure gradient', 'pgrad'],
+      ['formation.overburden_gradient', 'Overburden gradient', 'pgrad'],
+      ['formation.skempton_b', 'Skempton B', 'none'],
+    ], table: 'layers' },
+  { title: 'Rock temperature', when: () => !!state.cfg.formation,
+    note: () => 'Thermal weakening above T*, and cooling by the mud at the hole bottom (thermal stress α·E·ΔT/(1−ν), scaled by κ).',
+    fields: [
+      ['formation.surface_temperature', 'Surface temperature', 'temp'],
+      ['formation.geothermal_gradient', 'Geothermal gradient', 'tgrad'],
+      ['formation.weakening_threshold', 'Weakening starts at T*', 'temp'],
+      ['formation.weakening_rate', 'Weakening rate β', 'per_temp', { hint: 'Fractional UCS loss per degree above T*' }],
+      ['formation.thermal_stress_efficiency', 'Thermal-stress efficiency κ', 'none'],
+      ['formation.thermal_expansion', 'Thermal expansion α', 'per_temp'],
+      ['formation.youngs_modulus', 'Young\'s modulus E', 'modulus'],
+      ['formation.poisson_ratio', 'Poisson\'s ratio ν', 'none'],
+      ['formation.rock_conductivity', 'Rock conductivity', 'cond'],
+      ['formation.rock_heat_capacity', 'Rock heat capacity', 'cp'],
+      ['formation.rock_density', 'Rock density', 'density'],
+    ] },
+  { title: 'Mud and circulation',
+    note: () => 'Wellbore temperature: drift-flux model of Wang et al. (2023, SPE-214836-MS). Pump rate and inlet temperature can be changed live in the control bar.',
+    fields: [
+      ['parameters.thermal.enabled', 'Model wellbore temperature', 'bool'],
+      ['parameters.thermal.flow_rate', 'Pump rate at start', 'flow'],
+      ['parameters.thermal.inlet_temperature', 'Inlet temperature at start', 'temp'],
+      ['fluid.viscosity', 'Mud viscosity', 'visc'],
+      ['fluid.heat_capacity', 'Mud heat capacity', 'cp'],
+      ['fluid.thermal_conductivity', 'Mud conductivity', 'cond'],
+      ['fluid.thermal_expansion', 'Mud thermal expansion', 'per_temp'],
+      ['parameters.thermal.dx', 'Thermal cell length', 'length'],
     ] },
   { title: 'Top drive and controller',
     fields: [
@@ -125,6 +168,8 @@ const SECTIONS = [
 
 // [key, column label, quantity kind ('text' for strings)]
 const SURVEY_COLS = [['md', 'MD', 'depth'], ['inc', 'Inc', 'deg'], ['azi', 'Azi', 'deg']];
+const LAYER_COLS = [['name', 'Name', 'text'], ['top_md', 'Top MD', 'depth'], ['ucs', 'UCS', 'stress'],
+                    ['friction_angle', 'φ', 'deg'], ['porosity', 'Porosity', 'none']];
 const STRING_COLS = [['name', 'Name', 'text'], ['length', 'Length', 'length'], ['od', 'OD', 'diameter'],
                      ['id', 'ID', 'diameter'], ['linear_mass', 'Mass', 'linear_mass'], ['contact_od', 'Contact OD', 'diameter']];
 
@@ -195,8 +240,8 @@ function fieldRow(spec) {
 }
 
 function tableEditor(kind) {
-  const cols = kind === 'survey' ? SURVEY_COLS : STRING_COLS;
-  const rows = () => (kind === 'survey' ? state.cfg.well.survey : state.cfg.drillstring);
+  const cols = { survey: SURVEY_COLS, string: STRING_COLS, layers: LAYER_COLS }[kind];
+  const rows = () => ({ survey: state.cfg.well.survey, string: state.cfg.drillstring, layers: state.cfg.formation.layers }[kind]);
   const wrap = document.createElement('div');
   const draw = () => {
     wrap.innerHTML = '';
@@ -230,7 +275,8 @@ function tableEditor(kind) {
     add.addEventListener('click', () => {
       const last = rows()[rows().length - 1] || {};
       rows().push(kind === 'survey' ? { md: (last.md || 0) + fromDisp('depth', 100), inc: last.inc || 0, azi: last.azi || 0 }
-                                    : { ...last, name: 'New component' });
+                : kind === 'layers' ? { ...last, name: 'New layer', top_md: (last.top_md || 0) + fromDisp('depth', 100) }
+                : { ...last, name: 'New component' });
       markDirty(); draw();
     });
     const imp = document.createElement('label'); imp.className = 'btn quiet file';
@@ -239,7 +285,9 @@ function tableEditor(kind) {
     fi.addEventListener('change', async () => {
       try {
         const parsed = parseCSV(await fi.files[0].text(), cols);
-        if (kind === 'survey') state.cfg.well.survey = parsed; else state.cfg.drillstring = parsed;
+        if (kind === 'survey') state.cfg.well.survey = parsed;
+        else if (kind === 'layers') state.cfg.formation.layers = parsed;
+        else state.cfg.drillstring = parsed;
         markDirty(); draw(); message(`Imported ${parsed.length} rows (read as ${SYSTEM === 'field' ? 'field' : 'SI'} units).`, 'info');
       } catch (e) { message(e.message); }
       fi.value = '';
@@ -256,7 +304,7 @@ function parseCSV(text, cols) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   const head = lines.shift().split(',').map(h => h.trim().toLowerCase().replace(/\s*\(.*\)\s*$/, ''));
   const idx = cols.map(([key]) => head.indexOf(key));
-  const optional = ['linear_mass', 'contact_od', 'azi', 'name'];
+  const optional = ['linear_mass', 'contact_od', 'azi', 'name', 'friction_angle', 'porosity'];
   const need = cols.filter(([key], k) => idx[k] < 0 && !optional.includes(key));
   if (need.length) throw new Error(`The CSV is missing column(s): ${need.map(c => c[0]).join(', ')}. Expected headers: ${cols.map(([k, , kind]) => (kind === 'text' ? k : `${k} (${unitOf(kind)})`)).join(', ')}.`);
   return lines.map(l => {
@@ -274,14 +322,18 @@ function buildForm() {
   const wasOpen = [...form.querySelectorAll('details.sec')].map(d => d.open);
   form.innerHTML = '';
   for (const [k, sec] of SECTIONS.entries()) {
+    if (sec.when && !sec.when()) continue;
     const d = document.createElement('details'); d.className = 'sec'; d.open = wasOpen.length ? wasOpen[k] : !!sec.open;
     d.innerHTML = `<summary>${sec.title}</summary>`;
     const body = document.createElement('div'); body.className = 'sec-body';
     if (sec.note) { const p = document.createElement('p'); p.className = 'sec-note'; p.textContent = sec.note(); body.appendChild(p); }
     const bitModel = get(state.cfg, 'parameters.bit.model') || 'coulomb';
+    const source = get(state.cfg, 'parameters.bit.strength_source') || 'constant';
     for (const f of sec.fields) {
       const opt = f[3] || {};
-      if (opt.models && !opt.models.includes(bitModel)) continue;
+      const byModel = !opt.models || opt.models.includes(bitModel);
+      const bySource = opt.orSource ? (byModel || opt.orSource === source) : byModel && (!opt.source || opt.source === source);
+      if (!bySource) continue;
       body.appendChild(fieldRow(f));
     }
     if (sec.table) body.appendChild(tableEditor(sec.table));
@@ -341,6 +393,21 @@ function drawStringViews(fr) {
     legend: LEGEND_TOP, margin: { l: 14, r: 14, t: 74, b: 40 },
     xaxis: axis(uF), yaxis: depthAxis(false) }), PCONF);
 
+  // ---- wellbore temperature (Wang et al. 2023 drift-flux model)
+  const th = fr.thermal;
+  if (th) {
+    const tmd = srv('depth', th.md), uT = unitOf('temp');
+    Plotly.react('p-temp', [
+      { x: srv('temp', th.t_far), y: tmd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Formation', hoverinfo: 'skip' },
+      { x: srv('temp', th.t_ds), y: tmd, mode: 'lines', line: { color: COLORS.rot, width: 2 }, name: 'Drillstring', hovertemplate: `%{x:.0f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
+      { x: srv('temp', th.t_ann), y: tmd, mode: 'lines', line: { color: '#a3402a', width: 2 }, name: 'Annulus', hovertemplate: `%{x:.0f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
+    ], baseLayout({ title: TITLE('Temperature'), showlegend: true, legend: LEGEND_TOP, margin: { l: 14, r: 14, t: 74, b: 40 },
+      xaxis: axis(uT), yaxis: depthAxis(false) }), PCONF);
+  } else {
+    Plotly.react('p-temp', [], baseLayout({ title: TITLE('Temperature'), xaxis: axis(''), yaxis: depthAxis(false),
+      annotations: [{ text: 'Wellbore temperature model is off', showarrow: false, xref: 'paper', yref: 'paper', x: 0.5, y: 0.5 }] }), PCONF);
+  }
+
   // ---- well path with the drill pipe, BHA and bit positions
   const path = state.path;
   const cased = path.md.map((m, i) => (m <= path.shoe_md ? i : -1)).filter(i => i >= 0);
@@ -370,6 +437,8 @@ function emptyTraces() {
            hookload_kn: [], wob_kn: [], rop_mh: [], block_mh: [], bit_depth: [], hole_depth: [] };
 }
 function appendTrace(t) { for (const k in state.traces) { const a = t[k]; if (a) for (let i = 0; i < a.length; i++) state.traces[k].push(a[i]); } }
+function emptySlow() { return { time: [], t_bit: [], t_out: [], t_in: [], t_rock: [], ccs_eff: [], ccs: [], S: [], ecd: [], p_bh: [] }; }
+function appendSlow(sl) { if (!sl) return; for (const k in state.slow) { const a = sl[k]; if (a) for (let i = 0; i < a.length; i++) state.slow[k].push(a[i]); } }
 
 function timeRange(tNow) {
   const W = state.windowS;
@@ -401,8 +470,17 @@ function drawTraces(cursor) {
   Plotly.react('t-axial', [
     sg(srv('force', T.hookload_kn), 'Hookload', COLORS.ax),
     sg(srv('force', T.wob_kn), 'WOB', COLORS.ink, { yaxis: 'y2' }),
-  ], lay('Axial', `Hookload (${uF})`, { xaxis: axis('Time (s)', { range }),
+  ], lay('Axial', `Hookload (${uF})`, { xaxis: axis('', { range }),
     yaxis2: axis(`WOB (${uF})`, { overlaying: 'y', side: 'right', showgrid: false, rangemode: 'tozero' }) }), PCONF);
+  const L = state.slow, uTe = unitOf('temp'), uS = unitOf('stress');
+  const sl = (y, name, color, extra = {}) => Object.assign({ x: L.time, y, name, type: 'scatter', mode: 'lines', line: { color, width: 1.6 } }, extra);
+  Plotly.react('t-rock', [
+    sl(srv('temp', L.t_rock), 'Rock at bit', COLORS.ref, { line: { color: COLORS.ref, dash: 'dash', width: 1.4 } }),
+    sl(srv('temp', L.t_bit), 'Mud at bit', '#a3402a'),
+    sl(srv('temp', L.t_out), 'Mud out', COLORS.steel),
+    sl(srv('stress', L.ccs_eff), 'Effective CCS', COLORS.ink, { yaxis: 'y2' }),
+  ], lay('Bit and rock', `Temperature (${uTe})`, { xaxis: axis('Time (s)', { range }),
+    yaxis2: axis(`CCS (${uS})`, { overlaying: 'y', side: 'right', showgrid: false }) }), PCONF);
 }
 
 function showReadouts(L) {
@@ -414,6 +492,8 @@ function showReadouts(L) {
   $('ro-wob').textContent = fixed(srv('force', L.wob_kn), 1);
   $('ro-rop').textContent = fixed(srv('rop', L.rop_mh), 1);
   $('ro-depth').textContent = fixed(toDisp('depth', L.bit_depth), 2);
+  $('ro-tbit').textContent = fixed(srv('temp', L.t_bit), 0);
+  $('ro-ccs').textContent = fixed(srv('stress', L.ccs_eff), 0);
   for (const el of document.querySelectorAll('[data-kind]')) el.textContent = unitOf(el.dataset.kind);
 }
 
@@ -429,7 +509,10 @@ function inputs() {
   // the server takes block speed in m/h and WOB in kN
   const dw = Number($('dw').value) || 0;
   const vel = $('dw-mode').value === 'velocity';
+  const flow = $('flow').value === '' ? null : fromDisp('flow', Number($('flow').value));
+  const tin = $('t-in').value === '' ? null : fromDisp('temp', Number($('t-in').value));
   return { td_mode: $('td-mode').value, rpm: Number($('rpm').value) || 0,
+           flow_m3s: flow, inlet_c: tin,
            dw_mode: $('dw-mode').value,
            v_block_mh: vel ? fromDisp('rop', dw) * 3600 : 0,
            wob_kn: vel ? 0 : fromDisp('force', dw) / 1e3 };
@@ -442,9 +525,10 @@ async function initialise() {
   try {
     const r = await api('/api/init', { config: state.cfg, previous: state.session });
     Object.assign(state, { session: r.session, info: r.info, reference: r.reference, path: r.path,
-                           frames: [], traces: emptyTraces(), scrub: null, rpmMax: Math.max(60, Number($('rpm').value) * 1.5),
+                           frames: [], traces: emptyTraces(), slow: emptySlow(), scrub: null, rpmMax: Math.max(60, Number($('rpm').value) * 1.5),
                            tqMax: 1, tqMin: 0, dirty: false });
     $('dirty-hint').hidden = true;
+    setCirculation(get(state.cfg, 'parameters.thermal.flow_rate'), get(state.cfg, 'parameters.thermal.inlet_temperature'));
     pushFrame(r.frame);
     render(r.frame);
     const i = r.info;
@@ -459,6 +543,7 @@ async function initialise() {
 
 function pushFrame(fr) {
   appendTrace(fr.trace);
+  appendSlow(fr.slow);
   state.frames.push({ time: fr.time, latest: fr.latest, profile: fr.profile });
   if (state.frames.length > MAX_FRAMES) state.frames.splice(0, state.frames.length - MAX_FRAMES);
   const s = $('scrub'); s.max = state.frames.length - 1; if (state.scrub == null) s.value = s.max;
@@ -552,6 +637,14 @@ function applyDwUnits(valueSI) {
   $('dw').value = fmt(v, 1); $('dw').step = Number(step.toPrecision(1)); s.value = v;
 }
 function dwModeChanged() { applyDwUnits(0); }
+function setCirculation(flowSI, tinSI) {
+  if (flowSI != null) $('flow').value = sig(toDisp('flow', flowSI), 4);
+  if (tinSI != null) $('t-in').value = sig(toDisp('temp', tinSI), 4);
+}
+function circulationSI() {
+  return [$('flow').value === '' ? null : fromDisp('flow', Number($('flow').value)),
+          $('t-in').value === '' ? null : fromDisp('temp', Number($('t-in').value))];
+}
 
 // ------------------------------------------------------------ unit system
 function setSystem(sys) {
@@ -559,11 +652,14 @@ function setSystem(sys) {
   // keep the live drawworks input physically the same across the switch
   const L = dwLimits();
   const dwSI = fromDisp(L.kind, Number($('dw').value) || 0);
+  const circ = circulationSI();
   SYSTEM = sys;
   try { localStorage.setItem('drillpyze-units', sys); } catch (e) { /* storage unavailable */ }
   for (const b of document.querySelectorAll('#units button')) b.setAttribute('aria-checked', String(b.dataset.sys === sys));
   $('dw-mode').options[0].text = `Block speed (+ lowering)`;
   applyDwUnits(dwSI);
+  setCirculation(circ[0], circ[1]);
+  for (const el of document.querySelectorAll('[data-kind]')) el.textContent = unitOf(el.dataset.kind);
   if (state.cfg) buildForm();
   const fr = state.scrub == null ? state.frames[state.frames.length - 1] : state.frames[state.scrub];
   if (fr) render(fr, state.scrub == null);

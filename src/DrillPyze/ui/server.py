@@ -55,6 +55,7 @@ class Session:
         self.sim = C.build(cfg)
         self.lock = threading.Lock()
         self.sent_chunks = 0
+        self.sent_slow = 0
         self.wall = 0.0
         self.touched = time.time()
         self._reference()
@@ -104,6 +105,10 @@ class Session:
             kw['wob_sp'] = float(inp.get('wob_kn', 0.0)) * 1e3
         else:
             kw['v_block'] = float(inp.get('v_block_mh', 0.0)) / 3600.0
+        if inp.get('flow_m3s') is not None:
+            kw['flow_rate'] = max(float(inp['flow_m3s']), 0.0)
+        if inp.get('inlet_c') is not None:
+            kw['inlet_temperature'] = float(inp['inlet_c'])
         return kw
 
     def step(self, duration, inputs):
@@ -147,6 +152,18 @@ class Session:
         sv = sim.wellbore.survey
         n, e, z = sv.positions(np.clip(prof.md.values, 0, None))
         az = self.vs_azimuth
+        # slow channels (temperature, rock strength) since the last frame
+        slow_rows = sim._slow_records[self.sent_slow:]
+        self.sent_slow = len(sim._slow_records)
+        slow = {k: [round(float(r.get(k, np.nan)), 4) if r.get(k) is not None else None for r in slow_rows]
+                for k in ('time', 't_bit', 't_out', 't_in', 't_rock', 'ccs_eff', 'ccs', 'S', 'ecd', 'p_bh')}
+        thermal = None
+        if sim.thermal is not None:
+            tp = sim.thermal.profiles()
+            thermal = {'md': _r(tp.md, 1), 't_ds': [round(float(v), 2) if hp else None for v, hp in zip(tp.t_ds, tp.has_pipe)],
+                       't_ann': _r(tp.t_ann, 2), 't_wall': _r(tp.t_wall, 2), 't_far': _r(tp.t_far, 2)}
+        rock = sim.rock or {}
+        ts = sim.thermal.state() if sim.thermal is not None else {}
         L = sim.latest()
         on_bottom = L['bit_depth'] >= L['hole_depth'] - 1e-6
         rop = max(L['v_bit'], 0.0) if on_bottom else 0.0
@@ -159,7 +176,12 @@ class Session:
                 'tob_knm': L['tob'] / 1e3, 'hookload_kn': L['hookload'] / 1e3, 'wob_kn': L['wob'] / 1e3,
                 'rop_mh': rop * 3600.0, 'bit_axial_mh': L['v_bit'] * 3600.0,
                 'bit_depth': L['bit_depth'], 'hole_depth': L['hole_depth'], 'on_bottom': bool(on_bottom),
+                't_bit': ts.get('t_bit'), 't_out': ts.get('t_out'), 'ecd': ts.get('ecd'),
+                't_rock': rock.get('t_rock'), 'ccs_eff': rock.get('ccs_eff'), 'ccs': rock.get('ccs'),
+                'S': rock.get('S'), 'p_bh': rock.get('p_bh'),
             },
+            'thermal': thermal,
+            'slow': slow,
             'profile': {
                 'md': _r(prof.md, 2),
                 'rpm': _r(units.rads_to_rpm(prof.omega), 2),
