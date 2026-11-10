@@ -15,74 +15,74 @@ handle oilfield units at input and output.
 
 ## Mathematical model
 
-The string is a slender elastic rod with $x \in [0, L]$ measured from the top
+The string is a slender elastic rod with $`x \in [0, L]`$ measured from the top
 drive to the bit. Torsion follows Aarsnes & Shor (2018). The axial direction
-uses the **identical** formulation, with Young's modulus $E$ and area $A$ in
-place of $G$ and $J$:
+uses the **identical** formulation, with Young's modulus $`E`$ and area $`A`$ in
+place of $`G`$ and $`J`$:
 
-$$
+```math
 \begin{aligned}
 &\partial_t \tau + JG\,\partial_x\omega = 0, &\qquad
 &\rho J\,\partial_t\omega + \partial_x\tau = -k_t\rho J\omega - \mathcal F_t,\\
 &\partial_t q + EA\,\partial_x v = 0, &\qquad
 &\rho A\,\partial_t v + \partial_x q = w_b\cos\theta - k_a\rho A v - \mathcal F_a,
 \end{aligned}
-$$
+```
 
 where:
-* $\omega, \tau$ are angular velocity and torque;
-* $v, q$ are axial velocity and compressive force (tension $T = -q$);
-* $w_b$ is the buoyed weight per length;
-* $\mathcal F_t, \mathcal F_a$ are Coulomb friction inclusions with static and
+* $`\omega, \tau`$ are angular velocity and torque;
+* $`v, q`$ are axial velocity and compressive force (tension $`T = -q`$);
+* $`w_b`$ is the buoyed weight per length;
+* $`\mathcal F_t, \mathcal F_a`$ are Coulomb friction inclusions with static and
   kinetic factors, separately for cased and open hole.
 
-In Riemann invariants $\alpha = \omega + \tau/Z_t$ and
-$\beta = \omega - \tau/Z_t$, with impedance $Z_t = J\sqrt{G\rho}$ (axially
-$Z_a = A\sqrt{E\rho}$), each direction is a pair of transport equations at
-$\pm c$, with $c_t = \sqrt{G/\rho}$ and $c_a = \sqrt{E/\rho}$.
+In Riemann invariants $`\alpha = \omega + \tau/Z_t`$ and
+$`\beta = \omega - \tau/Z_t`$, with impedance $`Z_t = J\sqrt{G\rho}`$ (axially
+$`Z_a = A\sqrt{E\rho}`$), each direction is a pair of transport equations at
+$`\pm c`$, with $`c_t = \sqrt{G/\rho}`$ and $`c_a = \sqrt{E/\rho}`$.
 
 **The two directions are cross-coupled in two places.**
 
 *Along the string*, friction is a single 2-D Coulomb force on the sliding
-velocity $\mathbf V = (v,\ \omega r_c)$:
+velocity $`\mathbf V = (v,\ \omega r_c)`$:
 
-$$
+```math
 \boldsymbol{\mathcal F} = \mu_k F_N\,\frac{\mathbf V}{\|\mathbf V\|}\ \ \text{(sliding)},
 \qquad
 \|\boldsymbol{\mathcal F}\| \le \mu_s F_N\ \ \text{(sticking)},
 \qquad
 \mathcal F_t = r_c\,\mathcal F_\theta,
-$$
+```
 
-and the soft-string normal force $F_N$ follows the live tension. As a result:
+and the soft-string normal force $`F_N`$ follows the live tension. As a result:
 * rotation reduces drag, and axial motion reduces rotary torque (velocity
   split);
-* axial load changes torque through $F_N$;
+* axial load changes torque through $`F_N`$;
 * combined axial and torsional loads overcome static friction sooner than either alone.
 
 *At the bit*, the characteristic relations
 
-$$
+```math
 \omega_b = \alpha_t - \text{TOB}/Z_t, \qquad v_b = \alpha_a - \text{WOB}/Z_a,
-$$
+```
 
 are closed by one of three reduced bit–rock laws. Each has two or three
 parameters and was derived from the
 [Bit Model Library](https://github.com/Kartikay100/Bit-Model-Library); see
 [`docs/derivation/bit-models.md`](docs/derivation/bit-models.md). With
-$a = D/2$ and the drilling strength $S = \zeta\varepsilon$:
+$`a = D/2`$ and the drilling strength $`S = \zeta\varepsilon`$:
 
 | model | parameters | torque on bit | penetration |
 |---|---|---|---|
-| Coulomb (friction-dominated) | $\mu_s, \mu_k, S$ | sticking $\le \mu_s\,\text{WOB}\,D/3$, sliding $\mu_k\,\text{WOB}\,D/3$ | $\text{ROP} = \omega\,\text{WOB}/(2\pi a S)$ |
-| Cutting (Detournay & Defourny) | $S, \zeta, W_f$ | $\text{WOB}\,a/(2\zeta)$ | $\text{ROP} = \omega\,(\text{WOB}-W_f)^+/(2\pi a S)$ |
-| Regenerative cutting | $S, \zeta$ + blades | $\text{WOB}\,a/(2\zeta)$ | depth of cut from the hole bottom left by the previous blade |
+| Coulomb (friction-dominated) | $`\mu_s, \mu_k, S`$ | sticking $`\le \mu_s\,\text{WOB}\,D/3`$, sliding $`\mu_k\,\text{WOB}\,D/3`$ | $`\text{ROP} = \omega\,\text{WOB}/(2\pi a S)`$ |
+| Cutting (Detournay & Defourny) | $`S, \zeta, W_f`$ | $`\text{WOB}\,a/(2\zeta)`$ | $`\text{ROP} = \omega\,(\text{WOB}-W_f)^+/(2\pi a S)`$ |
+| Regenerative cutting | $`S, \zeta`$ + blades | $`\text{WOB}\,a/(2\zeta)`$ | depth of cut from the hole bottom left by the previous blade |
 
 In every model TOB is proportional to WOB, and penetration needs rotation.
 
 **Rock strength, pore pressure and temperature.** With
 `strength_source='formation'` the drilling strength is taken from the rock at
-the bit: $S = \zeta\,\text{CCS}_\text{eff}/\eta$. The effective CCS combines
+the bit: $`S = \zeta\,\text{CCS}_\text{eff}/\eta`$. The effective CCS combines
 three terms:
 * Mohr–Coulomb confinement by the overbalance. Low-porosity,
   low-permeability rock such as granite uses an undrained (Skempton) pore
@@ -135,17 +135,17 @@ Other model components:
 * **Damping** (derivation §5.6): no tuning knob is needed; the coefficients
   come from the mud report and the string.
   * **F1, mud:** steady laminar Couette drag on the full velocity, plus a
-    Stokes boundary layer $\sqrt{\rho_f\mu\omega_1/2}$ on the inner and outer
+    Stokes boundary layer $`\sqrt{\rho_f\mu\omega_1/2}`$ on the inner and outer
     pipe walls. The Stokes term acts on the oscillatory part of the velocity
     and is evaluated at the first axial and torsional modes.
-  * **F2, mud yield stress:** a Bingham yield drag $\tau_y\pi d_o$ added to
+  * **F2, mud yield stress:** a Bingham yield drag $`\tau_y\pi d_o`$ added to
     the Coulomb capacity, by default only with the pumps off.
-  * **M1, steel:** Rayleigh / Kelvin–Voigt damping fitted to $\zeta = \eta/2$
+  * **M1, steel:** Rayleigh / Kelvin–Voigt damping fitted to $`\zeta = \eta/2`$
     at the first mode and at 10 Hz, solved implicitly.
-  * **Calibration:** $k_t, k_a$ remain as optional extra rates.
+  * **Calibration:** $`k_t, k_a`$ remain as optional extra rates.
   * **Limitation:** the model resolves and damps vibrations **up to 10 Hz**.
     Above the first mode, fluid damping is under-predicted by
-    $\sqrt{f/f_1}$. For torsional content above about 2 Hz, the grid
+    $`\sqrt{f/f_1}`$. For torsional content above about 2 Hz, the grid
     spacing should be reduced (about 2.5 m for 10 Hz) so numerical
     dissipation stays below the physical damping.
 * **Gravity:** handled by a well-balanced static/dynamic split.
