@@ -106,13 +106,55 @@ class BitParameters:
     # with CCS_eff from the formation at the bit (P1 + T1 + T2, see DrillPyze.formation).
     strength_source: str = 'constant'
     cutting_efficiency: float = 1.0 # eta: epsilon = CCS_eff / eta (1 for a sharp cutter)
+    # hydraulics: total flow area of the nozzles (m^2; default 5 x 12/32 in) and discharge coefficient
+    nozzle_area: float = 3.5628e-4
+    discharge_coefficient: float = 0.95
 
 
 @dataclass
 class TopDriveParameters:
     inertia: float = 2000.0     # kg m^2 (including gearbox, reflected to the quill)
     max_torque: float = 0.0     # N m, 0 = unlimited
-    setpoint_ramp: float = 60.0 * 2 * 3.141592653589793 / 60.0  # rad/s per s (60 rpm/s)
+
+
+@dataclass
+class RampParameters:
+    """
+    Ramp times (s) for set-point changes.  A new set point is approached
+    linearly from the current value over its ramp time, so no input changes
+    instantly (0 = instant).  Ramps are evaluated inside the time stepping,
+    so pausing and resuming stays exact.
+    """
+    omega_sp: float = 5.0           # top-drive speed set point (controller)
+    omega_td: float = 1.0           # prescribed top-drive speed (1 s = linear between 1 s samples)
+    motor_torque: float = 0.0       # external motor torque command (an actuator signal, not a set point)
+    v_block: float = 2.0            # block velocity
+    wob_sp: float = 10.0            # autodriller WOB set point
+    flow_rate: float = 30.0         # pump rate
+    inlet_temperature: float = 60.0 # mud inlet temperature
+
+    @classmethod
+    def instant(cls):
+        """All ramps off (inputs change in one time step)."""
+        return cls(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+
+@dataclass
+class HydraulicsParameters:
+    """
+    Circulating-system hydraulics (DrillPyze.hydraulics; docs/derivation/hydraulics.md).
+    Steady losses per Shor, Introduction to Drilling Engineering, ch. 7; transients from
+    the single-phase drift-flux model of Wang et al. (2023, SPE-214836-MS).
+    """
+    enabled: bool = True
+    dx: float = 30.0                   # m, cell length (both flow paths)
+    cut_factor: float = 1.5            # bottom cells split above this multiple of dx
+    cfl: float = 0.8                   # acoustic Courant number
+    iterations: int = 2                # Picard iterations on the implicit face friction
+    back_pressure: float = 0.0         # Pa (gauge) at the flowline / choke
+    surface_loss_coefficient: float = 0.0   # c in dp_surf = c Q^m (Pa per (m^3/s)^m)
+    surface_loss_exponent: float = 1.8      # m
+    clinging_constant: float = 0.45    # fraction of pipe velocity dragging the annular mud (surge/swab)
 
 
 @dataclass
@@ -132,7 +174,7 @@ class ControllerParameters:
 
 @dataclass
 class DrawworksParameters:
-    block_acceleration: float = 0.0   # m/s^2, 0 = block speed changes instantly
+    block_acceleration: float = 0.0   # m/s^2, optional extra limit on top of the ramp, 0 = none
 
 
 @dataclass
@@ -151,6 +193,8 @@ class ModelParameters:
     controller: ControllerParameters = None
     autodriller: AutodrillerParameters = field(default_factory=AutodrillerParameters)
     drawworks: DrawworksParameters = field(default_factory=DrawworksParameters)
+    ramps: RampParameters = field(default_factory=RampParameters)
+    hydraulics: HydraulicsParameters = field(default_factory=HydraulicsParameters)
     thermal: ThermalParameters = field(default_factory=ThermalParameters)
     thermal_update_period: float = 2.0   # s between thermal / rock-strength updates
     cfl: float = 0.95           # Courant number on the axial wave speed

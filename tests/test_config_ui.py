@@ -63,9 +63,9 @@ def test_ui_server_init_step_and_csv(ui_url):
     init = _post(ui_url + '/api/init', {'config': d['config']})
     sid = init['session']
     assert init['info']['cells'] > 0 and len(init['reference']['md']) == init['info']['cells'] + 1
-    fr = _post(ui_url + '/api/step', {'session': sid, 'duration': 2.0,
+    fr = _post(ui_url + '/api/step', {'session': sid, 'duration': 6.0,
                                       'inputs': {'td_mode': 'setpoint', 'rpm': 60, 'dw_mode': 'velocity', 'v_block_mh': 0}})
-    assert fr['time'] == pytest.approx(2.0, abs=0.01)
+    assert fr['time'] == pytest.approx(6.0, abs=0.01)
     assert len(fr['profile']['md']) == init['info']['cells']
     assert 0 < len(fr['trace']['time']) <= server.MAX_TRACE_ROWS
     assert fr['latest']['rpm_td'] > 30

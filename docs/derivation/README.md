@@ -685,6 +685,18 @@ $v(0) = \beta_{a,1} + q_d(0)/Z_a$. For example, with the bit on bottom at
 0 rpm, WOB levels off at the buoyed string weight less friction, instead of
 growing without limit.
 
+**Set-point ramps.** Every input approaches a new value linearly over its
+ramp time (`ModelParameters.ramps`). The ramp is evaluated inside the time
+stepping from a table of (start value, start time, ramp time, target). This
+holds for the speed set point, the prescribed top-drive speed, the block
+velocity, the WOB set point, the pump rate and the inlet temperature. A set
+point that takes over from another mode starts from the present physical
+value. See [`hydraulics.md`](hydraulics.md) §6.
+
+**Hydraulics.** Standpipe pressure, bottomhole pressure and ECD come from
+[`hydraulics.md`](hydraulics.md): chapter 7 steady losses, plus single-phase
+drift-flux transients after Wang et al. (2023).
+
 An optional block-acceleration limit (`DrawworksParameters.block_acceleration`)
 rate-limits changes in $v_\text{blk}$.
 
@@ -780,7 +792,7 @@ friction coupling of §5.2.
 
 ## 7. Top-drive controllers (Aarsnes, di Meglio & Shor 2018)
 
-All three industrial controllers fit one block diagram. A rate-limited set
+All three industrial controllers fit one block diagram. A ramped set
 point $\omega_{SP}$, a filtered measured speed $\hat\omega_0$ (time constant
 $t_{en}$) and an optional impedance feedback of band-pass filtered pipe torque
 give

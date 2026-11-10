@@ -1,0 +1,324 @@
+# Hydraulics: steady losses and drift-flux transients
+
+`DrillPyze.hydraulics` computes standpipe pressure (SPP), bottomhole pressure
+(BHP) and ECD for the circulating system.
+
+* **Steady state.** Pressure losses follow the borehole-hydraulics chapter of
+  Shor, *Introduction to Drilling Engineering*, ch. 7
+  ([online](https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html)).
+* **Transients.** Pump start and stop, water hammer, surge and swab come from
+  the single-phase limit of the drift-flux model of Wang, Khaled, Luu, Ashok &
+  van Oort (2023, SPE-214836-MS). That model builds on Evje & Fjelde (2002).
+  The transient model reduces exactly to the steady model when nothing changes
+  (§5).
+
+All quantities are SI. Pressures are gauge.
+
+---
+
+## 1. Rheology and steady pressure losses (chapter 7)
+
+**Rheology.** The mud is Bingham plastic, $\tau = \text{PV}\,\dot\gamma + \tau_y$,
+when a yield point is given. Otherwise it is Newtonian, $\tau = \mu\dot\gamma$
+($\tau_y = 0$, $\text{PV} = \mu$).
+
+**Velocity and flow regime.** The mean velocity is $v = Q/A$. With $D$ the
+pipe inner diameter and $h = D_2 - D_1$ (hole or casing ID minus pipe OD), the
+apparent viscosity and Reynolds number are
+
+| | apparent viscosity | Reynolds number |
+|---|---|---|
+| pipe | $\mu_a = \text{PV} + \dfrac{\tau_y D}{6v}$ | $\text{Re} = \dfrac{\rho v D}{\mu_a}$ |
+| annulus | $\mu_a = \text{PV} + \dfrac{\tau_y h}{8v}$ | $\text{Re} = \dfrac{\rho v\,(0.816\,h)}{\mu_a}$ |
+
+Flow is laminar for $\text{Re} < 2100$. Above that it is treated as turbulent;
+the chapter treats the transition range the same way.
+
+**Laminar losses.** The annulus is treated as a slot of gap $h/2$:
+
+$$
+\left(\frac{dp}{dL}\right)_\text{pipe} = \frac{32\,\text{PV}\,v}{D^2} + \frac{16\,\tau_y}{3D},
+\qquad
+\left(\frac{dp}{dL}\right)_\text{ann} = \frac{48\,\text{PV}\,v}{h^2} + \frac{6\,\tau_y}{h}. \tag{1.1}
+$$
+
+**Turbulent losses.** Fanning friction with the Blasius factor, using PV and
+the equivalent diameter $D_e = D$ (pipe) or $0.816\,h$ (annulus):
+
+$$
+f = 0.0791\,\text{Re}_\text{PV}^{-1/4},\quad \text{Re}_\text{PV} = \frac{\rho v D_e}{\text{PV}},
+\qquad
+\frac{dp}{dL} = \frac{2 f \rho v^2}{D_e}. \tag{1.2}
+$$
+
+**System totals.** The bit nozzle loss, standpipe pressure, bottomhole
+pressure and ECD are
+
+$$
+\Delta p_\text{bit} = \frac{\rho Q^2}{2 C_d^2 A_n^2},
+\qquad
+\text{SPP} = \Delta p_\text{surf} + \Delta p_\text{string} + \Delta p_\text{bit} + \Delta p_\text{ann},
+$$
+$$
+\text{BHP} = \rho g\,\text{TVD} + \Delta p_\text{ann},
+\qquad
+\text{ECD} = \rho + \frac{\Delta p_\text{ann}}{g\,\text{TVD}}. \tag{1.3}
+$$
+
+Here $A_n$ is the total nozzle area ($\pi(n/64)^2$ in² per $n/32$ in nozzle)
+and $C_d = 0.95$. The chapter gives no correlation for the surface loss, so
+its empirical form $\Delta p_\text{surf} = c\,Q^m$ is used; $c = 0$ by
+default.
+
+These are the chapter's field-unit equations written in SI. For example, its
+$\mu v/(1000\,h^2)$ psi/ft (cP, ft/s, in) is $48\,\mu v/h^2$ Pa/m. They are
+coded in `hydraulics._coeffs` and `hydraulics.steady_state`.
+
+---
+
+## 2. Transient model: single-phase drift flux
+
+Wang et al. (2023) write mass, mixture momentum and energy equations for each
+flow path (drillstring bore, flowing down; annulus, flowing up) on a mesh whose
+cell edges are fixed in measured depth. Each cell's cross section is
+volume-averaged over the string currently in it (their Fig. 1). With no gas,
+the drift relation drops out and the system becomes
+
+$$
+\frac{\partial (\rho A)}{\partial t} + \frac{\partial (\rho A u)}{\partial x} = 0,
+\qquad
+\frac{\partial (\rho A u)}{\partial t} + A\frac{\partial p}{\partial x} = A\left(\rho g\cos\theta - \frac{dp}{dL}\Big|_\text{fric}\right), \tag{2.1}
+$$
+
+with the liquid equation of state of their eq. 2:
+
+$$
+\rho(T, p) = \bigl(1 - (T - T_\text{ref})\,c_\text{exp}\bigr)\,\rho_\text{ref} + \frac{p}{c^2}. \tag{2.2}
+$$
+
+* $x$ is measured depth and $u$ is positive down.
+* The convective flux $\rho A u^2$ is dropped. The Mach number $u/c$ is about
+  $10^{-3}$.
+* The speed of sound $c$ is the effective wave speed in the conduit,
+  `Fluid.sound_speed` (default 1500 m/s).
+* $T$ comes from the wellbore thermal model when it is on (§4).
+
+**Boundary conditions** (Wang et al.):
+
+* a prescribed volume rate at the drillstring inlet (the pump);
+* a constant pressure (`back_pressure`, 0 = open flowline) at the annulus
+  outlet.
+
+**Bit.** The bit nozzles are a face joining the bottom drillstring cell to the
+annulus cell that contains the bit. Below the bit, the rat hole is part of the
+annulus path and is closed at the hole bottom.
+
+### 2.1 Discretisation
+
+The scheme is staggered: mass $m_j$ (kg) in each cell, and mass flux $G_k$
+(kg/s, positive down) on each face. A face between cells $u$ (above) and $d$
+(below) obeys a lumped momentum balance:
+
+$$
+I_k\,\frac{dG_k}{dt} = \underbrace{p_u - p_d + \bar\rho_k\,g\,(z_d - z_u)}_{\text{drive}} - \Delta p_{\text{fric},k}(G_k),
+\qquad
+I_k = \tfrac12\Bigl(\frac{L_u}{A_u} + \frac{L_d}{A_d}\Bigr),
+$$
+$$
+\frac{dm_j}{dt} = G_\text{in} - G_\text{out},
+\qquad
+p_j = c^2\Bigl(\frac{m_j}{V_j} - \rho_{T,j}\Bigr). \tag{2.3}
+$$
+
+$\Delta p_{\text{fric},k}$ is the friction of the two half cells beside the
+face, from §1 and evaluated at their own velocities, plus the nozzle loss on
+the bit face. It is written as
+
+$$
+\Delta p_\text{fric} = R\,(G - G_s) + B\,\operatorname{sign}(G - G_s),
+$$
+
+where $R$ collects the viscous and turbulent parts ($a$ in $dp/dL = a u + b$)
+and $B$ the Bingham yield term ($b$). $G_s$ is the mass flux the moving pipe
+drags along (§2.2).
+
+**Time step.** Each step has two parts:
+
+1. Pressures are explicit, with an acoustic Courant limit
+   $c\,\Delta t \le 0.8\,L_\text{min}$.
+2. Face fluxes are backward Euler, with two Picard iterations on $R$:
+
+$$
+G^{n+1} = \frac{G^n + \frac{\Delta t}{I}\bigl(\text{drive} + R\,G_s - B s\bigr)}{1 + \frac{\Delta t}{I}R},
+\qquad
+G^{n+1} = G_s \ \text{ if } \ \Bigl|G^n + \tfrac{\Delta t}{I}(\text{drive} + R G_s) - (1 + \tfrac{\Delta t}{I} R)\,G_s\Bigr| \le \tfrac{\Delta t}{I} B .
+$$
+
+The second line treats the yield stress as a Coulomb-like inclusion: a gelled
+column holds until the pressure difference breaks it. That reproduces the
+pressure needed to break circulation.
+
+**Discrete steady state.** `WellboreHydraulics.set_steady(Q)` gives the
+exact discrete steady state. Every face carries the same mass flux, and
+drive = friction on every face. It is solved by marching from the outlet down
+the annulus, across the bit, then up the drillstring, with a fixed point on
+the face densities. With $Q = 0$ it gives the hydrostatic column, which is an
+exact equilibrium of the scheme (well balanced).
+
+### 2.2 Moving geometry: surge, swab, growth
+
+**String motion.** Each ~1 s tick, the string's position gives new
+volume-averaged sections for every cell. Two things follow:
+
+* **Displacement.** Within the tick, cell volumes change linearly in time, so
+  the steel moving in displaces mud through (2.3). This is surge when running
+  in and swab when pulling out.
+* **Wall drag.** Friction acts on the velocity relative to the walls.
+  * In the bore, the whole wall moves with the pipe: $u - v_p$.
+  * In the annulus, a clinging constant $K_c$ (Burkhardt 1961; default 0.45)
+    sets the effective pipe-dragged velocity: $u - K_c v_p$.
+  * This sets $G_s = K\,v_p\,\bar\rho A$.
+
+**Growing hole.** The bottom annulus cell lengthens as the hole deepens, and
+the bottom drillstring cell follows the bit. Each is cut in two at 1.5 cell
+lengths, and the bottom drillstring cell is merged with the one above below
+0.5 cell lengths. This is the grow-cut-grow scheme of Wang et al., Fig. 2:
+mass is split by volume and pressure is unchanged.
+
+---
+
+## 3. Outputs
+
+| quantity | definition |
+|---|---|
+| SPP | top-cell pressure, minus the hydrostatic head from the surface to its centre, plus half-cell friction and the surface loss |
+| BHP | bottom annulus cell pressure plus the head to the hole bottom |
+| ECD | BHP / (g · TVD) |
+| $Q_\text{in}$, $Q_\text{out}$ | pump rate, and return rate at the flowline |
+| $Q_\text{bit}$, $\Delta p_\text{bit}$ | nozzle flow and nozzle loss |
+| pit gain | (returned − pumped mass) / ρ, from exact mass counters in the kernel |
+
+`Simulation.hydraulics_results()` returns these channels once per slow tick
+(~1 s). `Simulation.latest()` carries the latest SPP, BHP, ECD and return
+flow.
+
+---
+
+## 4. Coupling to the simulation
+
+* **Advance.** Hydraulics advances at every slow tick, which is at fixed step
+  counts, so pausing and resuming stays exact.
+* **Inputs.** It uses the ramped pump rate (§6), the bit and hole depths, and
+  the average string velocity over the tick.
+* **Temperature.** When the thermal model is on, its bore and annulus
+  temperatures set $\rho_T$ in (2.2). Heating or cooling the mud therefore
+  changes the pressures.
+* **Rock strength.** The circulating BHP from hydraulics is the $p_\text{bh}$
+  used by the rock-strength model (confinement P1). The thermal model's own
+  simplified pressure is no longer used for that.
+* **Cost.** Hydraulics costs about 20% of run time: Well A runs at 83× real
+  time with it and 103× without.
+
+---
+
+## 5. Verification (`tests/test_hydraulics.py`, `docs/derivation/hydraulics_verification.py`)
+
+### 5.1 Textbook cases (chapter 7)
+
+| case | quantity | chapter | DrillPyze |
+|---|---|---|---|
+| Example 7.1 (Bingham, 400 gpm) | velocities DP / DC / DC-OH / DP-OH (ft/s) | 8.94 / 19.77 / 5.27 / 3.17 | 8.94 / 19.77 / 5.27 / 3.17 |
+| | apparent viscosity (cP) | 69.6 / 38.5 / 51.6 / 107.8 | 69.5 / 38.5 / 51.5 / 107.6 |
+| | Reynolds number, regime | 5861 T / 15776 T / 1777 L / 957 L | 5862 T / 15733 T / 1782 L / 961 L |
+| | losses DP / DC / DC-OH / DP-OH (psi) | 571 / 172\* / 34 / 238 | 571 / 192 / 34 / 238 |
+| | bit loss (psi), ECD (ppg) | 1119, 12.01 | 1120, 12.01 |
+| Problem 7.1 (Newtonian, 320 gpm) | losses (psi) | 408 / 228\* / 18.8 / 55.9 | 411 / 248 / 19.6 / 54.5 |
+| | bit loss (psi), ECD (ppg) | 1157, 9.68 | 1156, 9.68 |
+| Problem 7.2 (Bingham, 450 gpm) | losses DP / annulus (psi) | 599\* / 286 | 532 / 286 |
+| | bit loss (psi), ECD (ppg) | 1120, 12.68 | 1118, 12.68 |
+
+\* **Errata in the chapter.** In these three sections the printed powers of
+the turbulent formula are mis-evaluated, for example $19.77^{1.75}$ printed as
+158 instead of 184.5. Re-evaluating the chapter's own formula gives 191, 248
+and 532 psi, which is what DrillPyze computes. The printed SPPs of 2,134,
+1,868 and 2,005 psi carry these errors forward; with the corrected sections
+they are 2,156, 1,889 and 1,936 psi.
+
+### 5.2 Transient model
+
+| check | reference | result |
+|---|---|---|
+| model steady state for Example 7.1 (c = 10⁶ m/s) | textbook SPP 2,156 psi, BHP 6,425 psi | SPP 2,156 psi (0.0%), BHP 6,422 psi (0.05%) |
+| compressible mud, c = 1500 m/s (eq. 2.2) | ρgz(1 + ρgz/(2ρc²)) | within 0.02%; BHP +43 psi, ECD +0.08 ppg |
+| static column, no flow, 20 s | exact | unchanged to 10⁻⁹ |
+| pump start (20 s ramp) → steady state | exact discrete steady state | SPP within 0.1%, BHP within 0.01%, $Q_\text{out} = Q_\text{in}$ |
+| mass balance | Δm = pumped − returned | to round-off |
+| water hammer, 100 gpm step, 1 cP mud | Joukowsky ρcΔQ/A = 1.408 MPa | 1.421 MPa (+0.9%) |
+| pressure front at the bit | L/c = 2.083 s | 2.08 s |
+| surge / swab, ±0.5 m/s, pumps off, Bingham mud | sign; symmetry | +213 / −209 psi (±0.40 ppg EMW) |
+| Well A pump start in the full simulation | discrete steady state | SPP 2,068 vs 2,075 psi after 180 s (thermal still cooling the mud) |
+| set-point ramps | linear in time | exact; a ramp taken over from another mode starts from the present value |
+| pause / resume with hydraulics | bit-identical | exact |
+
+Figures: `docs/figures/hydraulics_water_hammer.png`, `hydraulics_pump_start.png`,
+`hydraulics_surge_swab.png`.
+
+---
+
+## 6. Set-point ramps
+
+Every set point approaches a new value linearly over its ramp time
+(`ModelParameters.ramps`); 0 means instant. Kernel inputs are evaluated at
+every time step inside the kernel, from a table of (start value, start time,
+ramp time, target). Pump rate and inlet temperature are evaluated at each slow
+tick and inside the hydraulic substeps. When a set point takes over from
+another mode, for example `omega_sp` after `omega_td`, its ramp starts from
+the present physical value, which makes the transfer bumpless.
+
+| input | default ramp | note |
+|---|---|---|
+| `omega_sp` (controller speed set point) | 5 s | replaces the former 60 rpm/s rate limit |
+| `omega_td` (prescribed top-drive speed) | 1 s | linear interpolation between 1 s field samples |
+| `v_block` | 2 s | the optional block-acceleration limit still applies on top |
+| `wob_sp` | 10 s | |
+| `flow_rate` | 30 s | the pumps start at t = 0 and ramp to the initial rate |
+| `inlet_temperature` | 60 s | |
+| `motor_torque` | 0 s | an actuator command from an external controller, not a set point |
+
+The verification tests that check step responses against analytic results
+(wave arrival, free decay) use `RampParameters.instant()`.
+
+---
+
+## 7. Limitations
+
+* **Single phase.** Gas kicks, cuttings loading and hole cleaning are not
+  modelled, although the drift-flux structure allows a second phase.
+* **Rheology.** Newtonian or Bingham only, as in chapter 7.
+  * Power-law and Herschel–Bulkley losses are not included.
+  * The regime switch at Re = 2100 is sharp.
+  * Friction is quasi-steady: the steady correlations are used at each
+    instant.
+  * Eccentricity and tool-joint losses are ignored.
+* **Surge and swab.** The averaged string velocity over a ~1 s tick drives
+  them. Axial vibrations faster than about 0.5 Hz do not pump mud in this
+  model.
+* **Yield stress.** The yield point stands in for gel strength: the pressure
+  to break circulation uses YP, not a time-dependent gel strength.
+* **Wave speed and dissipation.** The wave speed is one effective value,
+  ignoring pipe-wall elasticity (Korteweg) and any difference between bore and
+  annulus. The staggered acoustic scheme has little numerical dissipation, so
+  acoustic ripples decay through friction alone (§5.2 figures).
+* **Coupling direction.** Hydraulic pressure does not act back on the string
+  mechanics: there is no pump-open force and no pressure-area effect on WOB.
+
+---
+
+## References
+
+* Shor, R.J., *Introduction to Drilling Engineering*, ch. 7, Borehole Hydraulics. https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html
+* Wang, N., Khaled, M.S., Luu, A., Ashok, P. and van Oort, E., 2023. Downhole temperature estimation of a growing high-temperature wellbore using a modified drift flux modeling approach. SPE-214836-MS. https://doi.org/10.2118/214836-MS
+* Evje, S. and Fjelde, K.K., 2002. Relaxation schemes for the calculation of two-phase flow in pipes. *Mathematical and Computer Modelling*, 36(4–5), 535–567.
+* Bourgoyne, A.T., Millheim, K.K., Chenevert, M.E. and Young, F.S., 1986. *Applied Drilling Engineering*. SPE Textbook Series vol. 2 (origin of the chapter's field-unit constants).
+* Burkhardt, J.A., 1961. Wellbore pressure surges produced by pipe movement. *J. Petroleum Technology*, 13(6), 595–605.
+* Wylie, E.B. and Streeter, V.L., 1993. *Fluid Transients in Systems*. Prentice Hall (Joukowsky relation).

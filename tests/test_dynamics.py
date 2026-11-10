@@ -6,19 +6,21 @@ import numpy as np
 import pytest
 
 from DrillPyze import (Simulation, ModelParameters, FrictionParameters, DampingParameters,
-                       BitParameters, Fluid, units, statics, controllers)
+                       BitParameters, Fluid, units, statics, controllers, RampParameters)
 from fixtures import well_a, vertical_well, uniform_string, standard_string
 
 
 def frictionless():
     return ModelParameters(
         friction=FrictionParameters(0.0, 0.0, 0.0, 0.0),
-        damping=DampingParameters(0.0, 0.0, fluid=False, loss_factor=0.0))
+        damping=DampingParameters(0.0, 0.0, fluid=False, loss_factor=0.0),
+        ramps=RampParameters.instant())   # analytic step responses
 
 
 def friction(mus_c, muk_c, mus_o, muk_o, k_t=0.05, k_a=0.05, **kw):
     return ModelParameters(friction=FrictionParameters(mus_c, muk_c, mus_o, muk_o, **kw),
-                           damping=DampingParameters(k_t, k_a, fluid=False, loss_factor=0.0))
+                           damping=DampingParameters(k_t, k_a, fluid=False, loss_factor=0.0),
+                           ramps=RampParameters.instant())
 
 
 def crossing_time(t, y, level):
@@ -308,7 +310,7 @@ def test_external_controller_matches_internal_pi():
     sim_e = Simulation(well_a(), standard_string(), Fluid(1200.0), friction(0.25, 0.25, 0.25, 0.25))
     sim_e.initialize(2500.0, hole_depth=2510.0)
     sp = 30 * units.RPM
-    sim_i.params.top_drive.setpoint_ramp = 0.0
+    sim_i.params.ramps.omega_sp = 0.0
     sim_i.update_parameters()
     integ = 0.0
     for _ in range(int(5.0 / sim_e.dt)):

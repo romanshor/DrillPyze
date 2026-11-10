@@ -23,7 +23,8 @@ from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
 from .parameters import (ModelParameters, FrictionParameters, DampingParameters, BitParameters,
-                         TopDriveParameters, AutodrillerParameters, DrawworksParameters)
+                         TopDriveParameters, AutodrillerParameters, DrawworksParameters,
+                         RampParameters, HydraulicsParameters)
 from .simulation import Simulation
 from .formation import Formation, FormationLayer
 from .thermal import ThermalParameters
@@ -69,6 +70,8 @@ def well_a():
                            't_en': 0.001, 'kp': None, 'ki': None, 'impedance': None},
             'autodriller': asdict(AutodrillerParameters()),
             'drawworks': asdict(DrawworksParameters()),
+            'ramps': asdict(RampParameters()),
+            'hydraulics': asdict(HydraulicsParameters()),
             'thermal': asdict(ThermalParameters(flow_rate=2000 / 60000, inlet_temperature=30.0)),
             'cfl': 0.95,
         },
@@ -131,9 +134,12 @@ def build_parameters(cfg, zeta_p=None, first_mode=None):
         friction=FrictionParameters(**p['friction']),
         damping=DampingParameters(**p['damping']),
         bit=bit_parameters(p['bit'], _num(cfg['well'].get('hole_diameter'))),
-        top_drive=TopDriveParameters(**p['top_drive']),
+        top_drive=TopDriveParameters(**{k: v for k, v in p['top_drive'].items()
+                                        if k in TopDriveParameters.__dataclass_fields__}),   # drops legacy setpoint_ramp
         autodriller=AutodrillerParameters(**p.get('autodriller', {})),
         drawworks=DrawworksParameters(**p.get('drawworks', {})),
+        ramps=RampParameters(**{k: float(v) for k, v in p.get('ramps', {}).items() if v is not None}),
+        hydraulics=HydraulicsParameters(**p.get('hydraulics', {})),
         thermal=ThermalParameters(**p['thermal']) if p.get('thermal') else ThermalParameters(enabled=False),
         cfl=float(p.get('cfl', 0.95)),
     )
@@ -249,6 +255,17 @@ def validate(cfg):
             errs.append('Bit ζ must be positive.')
         if b.get('model') == 'regenerative' and int(b.get('blades', 1) or 0) < 1:
             errs.append('The regenerative bit needs at least one blade.')
+        h = cfg['parameters'].get('hydraulics', {})
+        if h.get('enabled', True):
+            if float(b.get('nozzle_area', 1) or 0) <= 0:
+                errs.append('Bit nozzle area must be positive.')
+            if not 0 < float(b.get('discharge_coefficient', 0.95) or 0) <= 1:
+                errs.append('Nozzle discharge coefficient must be between 0 and 1.')
+            if float(h.get('dx', 30) or 0) <= 0:
+                errs.append('Hydraulics cell size must be positive.')
+        for k, v in cfg['parameters'].get('ramps', {}).items():
+            if v is not None and float(v) < 0:
+                errs.append(f'Ramp time for {k} must not be negative.')
         if b.get('strength_source', 'constant') == 'formation' and not cfg.get('formation'):
             errs.append('The bit takes its strength from the formation, but the case has no formation.')
         for l in (cfg.get('formation') or {}).get('layers', []):

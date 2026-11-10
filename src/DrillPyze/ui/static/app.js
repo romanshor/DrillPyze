@@ -23,7 +23,7 @@ const UNITS = {
     linear_mass: ['kg/m', 1], force: ['kN', 1e3], torque: ['kN·m', 1e3], rop: ['m/h', 1 / 3600],
     slow_speed: ['mm/s', 1e-3], inertia: ['kg·m²', 1], k_rop: ['(m/h)/(kN·rpm)', (1 / 3600) / (1e3 * RPM)], stress: ['MPa', 1e6],
     modulus: ['GPa', 1e9], pgrad: ['kPa/m', 1e3], flow: ['L/min', 1 / 60000], tgrad: ['°C/km', 1e-3], per_temp: ['1/°C', 1],
-    temp: ['°C', 1], dtemp: ['°C', 1], yp: ['Pa', 1],
+    temp: ['°C', 1], dtemp: ['°C', 1], yp: ['Pa', 1], area: ['mm²', 1e-6], pressure: ['MPa', 1e6], ecd: ['kg/m³', 1],
     kp: ['N·m·s', 1], ki: ['N·m', 1],
   },
   field: {
@@ -31,7 +31,7 @@ const UNITS = {
     linear_mass: ['lb/ft', 1.48816394], force: ['klbf', 4448.2216], torque: ['kft·lbf', 1355.8179],
     rop: ['ft/h', 0.3048 / 3600], slow_speed: ['in/s', 0.0254], inertia: ['lbm·ft²', 0.0421401],
     k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], stress: ['psi', 6894.7573], modulus: ['Mpsi', 6894757.3], pgrad: ['psi/ft', 6894.7573 / 0.3048],
-    flow: ['gpm', 6.30901964e-5], tgrad: ['°F/100 ft', (5 / 9) / 30.48], per_temp: ['1/°F', 1.8], temp: ['°F', 5 / 9], dtemp: ['°F', 5 / 9], yp: ['lbf/100 ft²', 0.4788026], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
+    flow: ['gpm', 6.30901964e-5], tgrad: ['°F/100 ft', (5 / 9) / 30.48], per_temp: ['1/°F', 1.8], temp: ['°F', 5 / 9], dtemp: ['°F', 5 / 9], yp: ['lbf/100 ft²', 0.4788026], area: ['in²', 6.4516e-4], pressure: ['psi', 6894.7573], ecd: ['ppg', 119.826427], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
   },
 };
 // kinds whose unit does not change between systems: [label, SI per display unit]
@@ -117,6 +117,30 @@ const SECTIONS = [
       ['parameters.bit.cutting_efficiency', 'Cutting efficiency η', 'none', { source: 'formation', hint: 'ε = CCS/η; 1 for a sharp cutter' }],
       ['parameters.bit.contact_wob', 'Contact WOB W_f', 'force', { models: ['cutting'], hint: 'WOB carried by wear flats before cutting starts' }],
       ['parameters.bit.blades', 'Blades', 'none', { models: ['regenerative'], orSource: 'formation' }],
+      ['parameters.bit.nozzle_area', 'Nozzle flow area (TFA)', 'area', { hint: 'Sum of nozzle areas; one n/32 in nozzle is π(n/64)² in²' }],
+      ['parameters.bit.discharge_coefficient', 'Nozzle discharge coefficient', 'none', { hint: '0.95 for jets' }],
+    ] },
+  { title: 'Hydraulics',
+    note: () => 'Steady losses per Introduction to Drilling Engineering ch. 7 (Newtonian, or Bingham when a yield point is given). Transients (pump start, surge and swab) from the single-phase drift-flux model of Wang et al. (2023).',
+    fields: [
+      ['parameters.hydraulics.enabled', 'Model hydraulics (SPP, BHP, ECD)', 'bool'],
+      ['parameters.hydraulics.back_pressure', 'Back pressure at the flowline', 'pressure'],
+      ['parameters.hydraulics.surface_loss_coefficient', 'Surface loss c (Δp = c·Q^m, SI)', 'none', { hint: 'Pa per (m³/s)^m; 0 to neglect surface lines' }],
+      ['parameters.hydraulics.surface_loss_exponent', 'Surface loss exponent m', 'none'],
+      ['parameters.hydraulics.clinging_constant', 'Clinging constant (surge/swab)', 'none', { hint: 'Fraction of pipe speed that drags the annular mud' }],
+      ['fluid.sound_speed', 'Speed of sound in mud', 'none', { hint: 'm/s; sets compressibility and the water-hammer speed' }],
+      ['parameters.hydraulics.dx', 'Hydraulics cell length', 'length'],
+    ] },
+  { title: 'Ramp times',
+    note: () => 'Every set-point change is approached linearly over its ramp time (0 = in one time step).',
+    fields: [
+      ['parameters.ramps.omega_sp', 'RPM set point', 's'],
+      ['parameters.ramps.omega_td', 'Prescribed top-drive speed', 's'],
+      ['parameters.ramps.v_block', 'Block speed', 's'],
+      ['parameters.ramps.wob_sp', 'WOB set point', 's'],
+      ['parameters.ramps.flow_rate', 'Pump rate', 's'],
+      ['parameters.ramps.inlet_temperature', 'Inlet temperature', 's'],
+      ['parameters.ramps.motor_torque', 'External motor torque', 's'],
     ] },
   { title: 'Formation', when: () => !!state.cfg.formation,
     note: () => 'Layers by top depth. CCS = UCS(T) + Δp·(1+sin φ)/(1−sin φ). Low-porosity rock (≤ 5 %) uses the undrained (Skempton) pore pressure; ≥ 20 % uses the drained one; linear blend between.',
@@ -164,7 +188,6 @@ const SECTIONS = [
       ['parameters.controller.ki', 'Override Ki', 'ki', { blank: 'auto' }],
       ['parameters.top_drive.inertia', 'Top drive inertia', 'inertia'],
       ['parameters.top_drive.max_torque', 'Torque limit', 'torque', { hint: '0 for no limit' }],
-      ['parameters.top_drive.setpoint_ramp', 'Set point ramp', 'rpm_s'],
       ['parameters.drawworks.block_acceleration', 'Block acceleration limit', 'accel', { hint: '0 for instant changes in block speed' }],
     ] },
   { title: 'Numerics',
@@ -446,6 +469,8 @@ function emptyTraces() {
            hookload_kn: [], wob_kn: [], rop_mh: [], block_mh: [], bit_depth: [], hole_depth: [] };
 }
 function appendTrace(t) { for (const k in state.traces) { const a = t[k]; if (a) for (let i = 0; i < a.length; i++) state.traces[k].push(a[i]); } }
+function emptyHyd() { return { time: [], spp: [], p_bh: [], ecd: [], q_in: [], q_out: [] }; }
+function appendHyd(h) { if (!h) return; for (const k in state.hyd) { const a = h[k]; if (a) for (let i = 0; i < a.length; i++) state.hyd[k].push(a[i]); } }
 function emptySlow() { return { time: [], t_bit: [], t_out: [], t_in: [], t_rock: [], ccs_eff: [], ccs: [], S: [], ecd: [], p_bh: [] }; }
 function appendSlow(sl) { if (!sl) return; for (const k in state.slow) { const a = sl[k]; if (a) for (let i = 0; i < a.length; i++) state.slow[k].push(a[i]); } }
 
@@ -490,6 +515,13 @@ function drawTraces(cursor) {
     sl(srv('stress', L.ccs_eff), 'Effective CCS', COLORS.ink, { yaxis: 'y2' }),
   ], lay('Bit and rock', `Temperature (${uTe})`, { xaxis: axis('Time (s)', { range }),
     yaxis2: axis(`CCS (${uS})`, { overlaying: 'y', side: 'right', showgrid: false }) }), PCONF);
+  const H = state.hyd, uP = unitOf('pressure'), uE = unitOf('ecd'), dsp = (k, a) => a.map(v => toDisp(k, v));
+  const sh = (y, name, color, extra = {}) => Object.assign({ x: H.time, y, name, type: 'scatter', mode: 'lines', line: { color, width: 1.6 } }, extra);
+  Plotly.react('t-hyd', [
+    sh(dsp('pressure', H.spp), 'Standpipe pressure', COLORS.ink),
+    sh(dsp('ecd', H.ecd), 'ECD', COLORS.ax, { yaxis: 'y2' }),
+  ], lay('Hydraulics', `SPP (${uP})`, { xaxis: axis('Time (s)', { range }),
+    yaxis2: axis(`ECD (${uE})`, { overlaying: 'y', side: 'right', showgrid: false }) }), PCONF);
 }
 
 function showReadouts(L) {
@@ -503,6 +535,8 @@ function showReadouts(L) {
   $('ro-depth').textContent = fixed(toDisp('depth', L.bit_depth), 2);
   $('ro-tbit').textContent = fixed(srv('temp', L.t_bit), 0);
   $('ro-ccs').textContent = fixed(srv('stress', L.ccs_eff), 0);
+  $('ro-spp').textContent = fixed(toDisp('pressure', L.spp), SYSTEM === 'field' ? 0 : 2);
+  $('ro-ecd').textContent = fixed(toDisp('ecd', L.ecd_hyd), SYSTEM === 'field' ? 2 : 0);
   for (const el of document.querySelectorAll('[data-kind]')) el.textContent = unitOf(el.dataset.kind);
 }
 
@@ -534,7 +568,7 @@ async function initialise() {
   try {
     const r = await api('/api/init', { config: state.cfg, previous: state.session });
     Object.assign(state, { session: r.session, info: r.info, reference: r.reference, path: r.path,
-                           frames: [], traces: emptyTraces(), slow: emptySlow(), scrub: null, rpmMax: Math.max(60, Number($('rpm').value) * 1.5),
+                           frames: [], traces: emptyTraces(), slow: emptySlow(), hyd: emptyHyd(), scrub: null, rpmMax: Math.max(60, Number($('rpm').value) * 1.5),
                            tqMax: 1, tqMin: 0, dirty: false });
     $('dirty-hint').hidden = true;
     setCirculation(get(state.cfg, 'parameters.thermal.flow_rate'), get(state.cfg, 'parameters.thermal.inlet_temperature'));
@@ -553,6 +587,7 @@ async function initialise() {
 function pushFrame(fr) {
   appendTrace(fr.trace);
   appendSlow(fr.slow);
+  appendHyd(fr.hyd);
   state.frames.push({ time: fr.time, latest: fr.latest, profile: fr.profile });
   if (state.frames.length > MAX_FRAMES) state.frames.splice(0, state.frames.length - MAX_FRAMES);
   const s = $('scrub'); s.max = state.frames.length - 1; if (state.scrub == null) s.value = s.max;

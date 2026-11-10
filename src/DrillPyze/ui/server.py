@@ -56,6 +56,7 @@ class Session:
         self.lock = threading.Lock()
         self.sent_chunks = 0
         self.sent_slow = 0
+        self.sent_hyd = 0
         self.wall = 0.0
         self.touched = time.time()
         self._reference()
@@ -155,6 +156,11 @@ class Session:
         # slow channels (temperature, rock strength) since the last frame
         slow_rows = sim._slow_records[self.sent_slow:]
         self.sent_slow = len(sim._slow_records)
+        # hydraulics channels (SI: Pa, kg/m^3, m^3/s) since the last frame
+        hyd_rows = sim._hyd_records[self.sent_hyd:]
+        self.sent_hyd = len(sim._hyd_records)
+        hyd = {k: [round(float(r[k]), 6) for r in hyd_rows] for k in ('time', 'spp', 'p_bh', 'ecd', 'q_in', 'q_out')}
+        hs = sim.hydraulics.state() if sim.hydraulics is not None else {}
         slow = {k: [round(float(r.get(k, np.nan)), 4) if r.get(k) is not None else None for r in slow_rows]
                 for k in ('time', 't_bit', 't_out', 't_in', 't_rock', 'ccs_eff', 'ccs', 'S', 'ecd', 'p_bh')}
         thermal = None
@@ -179,7 +185,10 @@ class Session:
                 't_bit': ts.get('t_bit'), 't_out': ts.get('t_out'), 'ecd': ts.get('ecd'),
                 't_rock': rock.get('t_rock'), 'ccs_eff': rock.get('ccs_eff'), 'ccs': rock.get('ccs'),
                 'S': rock.get('S'), 'p_bh': rock.get('p_bh'),
+                'spp': hs.get('spp'), 'ecd_hyd': hs.get('ecd'), 'q_out': hs.get('q_out'),
+                'q_in': hs.get('q_in'), 'pit_gain': hs.get('pit_gain'),
             },
+            'hyd': hyd,
             'thermal': thermal,
             'slow': slow,
             'profile': {

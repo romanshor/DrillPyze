@@ -51,7 +51,7 @@ P_THP = 9
 P_TLP = 10
 P_TEN = 11
 P_TAUMAX = 12
-P_RAMP = 13
+P_RAMP = 13        # unused (set points ramp by time, see the ramp table)
 P_LEVS = 14       # bit torque per unit WOB while sticking (m): TOB <= P_LEVS * WOB
 P_LEVK = 15       # bit torque per unit WOB while sliding (m):  TOB  = P_LEVK * WOB
 P_KCUT = 16       # regenerative: axial cutting force per unit summed blade depth, S*a (N/m)
@@ -70,6 +70,10 @@ P_HP_T = 28        # high-pass filter coefficient for the torsional Stokes dampi
 P_HP_A = 29        # same, axial
 P_KV = 30          # 1 if Kelvin-Voigt material damping is active
 N_PF = 31
+
+# set-point ramp table: one row per input, columns (start value, start time, ramp time, target)
+R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB = 0, 1, 2, 3, 4
+N_RAMPS = 5
 
 # indices into the integer parameter vector ``pi``
 I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed
@@ -286,6 +290,22 @@ def _coulomb_2d(va, vt, m_a, m_t, c):
 
 
 @njit(cache=True)
+def _ramp(ramps, k, t):
+    """Value of ramped input k at time t: linear from (v0, t0) to the target over T."""
+    v0 = ramps[k, 0]
+    T = ramps[k, 2]
+    tgt = ramps[k, 3]
+    if T <= 0.0:
+        return tgt
+    f = (t - ramps[k, 1]) / T
+    if f >= 1.0:
+        return tgt
+    if f <= 0.0:
+        return v0
+    return v0 + (tgt - v0) * f
+
+
+@njit(cache=True)
 def _kv_solve(x, m, h, k, dt, cp, dp):
     """
     Backward-Euler Kelvin-Voigt step, in place (Thomas algorithm):
@@ -323,7 +343,7 @@ def advance(nsteps, sc, pf, pi,
             # state
             w, tau, v, qd,
             # inputs (held constant over the call)
-            w_sp_target, v_blk_in, taum_ext, wtd_ext, wob_sp,
+            ramps,
             # recording
             rec, rec_idx, rec_every, rec_phase,
             # scratch
@@ -374,14 +394,15 @@ def advance(nsteps, sc, pf, pi,
     for step in range(nsteps):
         # ---------------------------------------------------- top drive input
         wtd = sc[S_WTD]
+        t_now = sc[S_T] + dt
+        w_sp_target = _ramp(ramps, R_WSP, t_now)
+        v_blk_in = _ramp(ramps, R_VBLK, t_now)
+        taum_ext = _ramp(ramps, R_TAUM, t_now)
+        wtd_ext = _ramp(ramps, R_WTD, t_now)
+        wob_sp = _ramp(ramps, R_WOB, t_now)
         if ctrl == 0:
-            # rate-limited set point
-            dw = w_sp_target - sc[S_WSP]
-            lim = pf[P_RAMP] * dt
-            if pf[P_RAMP] > 0.0 and abs(dw) > lim:
-                sc[S_WSP] += lim * _sign(dw)
-            else:
-                sc[S_WSP] = w_sp_target
+            # set point ramps by time (ramp table)
+            sc[S_WSP] = w_sp_target
             # measurements (speed filter, torque band-pass for ZTorque)
             sc[S_WFILT] = a_en * sc[S_WFILT] + (1.0 - a_en) * wtd
             sc[S_LPTAU] = a_lp * sc[S_LPTAU] + (1.0 - a_lp) * sc[S_TAU0]

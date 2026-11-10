@@ -114,9 +114,14 @@ class Simulation:
         self._pack_parameters()
         self.pf[K.P_HKLD_REF] = -self._qs_top
 
-        # inputs (held between calls)
+        # inputs (targets, held between calls); every set point ramps over its ramp time
         self.inputs = dict(omega_sp=0.0, v_block=0.0, motor_torque=0.0, omega_td=0.0, wob_sp=0.0,
                            flow_rate=p.thermal.flow_rate, inlet_temperature=p.thermal.inlet_temperature)
+        self.ramps = np.zeros((K.N_RAMPS, 4))        # (start value, start time, ramp time, target)
+        # pumps start at t = 0 and ramp to the initial pump rate; inlet temperature starts at its value
+        self._slow_ramps = dict(flow_rate=[0.0, 0.0, p.ramps.flow_rate, p.thermal.flow_rate],
+                                inlet_temperature=[p.thermal.inlet_temperature, 0.0, 0.0,
+                                                   p.thermal.inlet_temperature])
 
         # slow models: wellbore temperature (Wang et al. 2023) and rock strength at the bit
         self._slow_every = max(1, int(1.0 / self.dt))                         # one slow tick per <= 1 s
@@ -128,6 +133,17 @@ class Simulation:
             from .thermal import WellboreThermal
             self.thermal = WellboreThermal(self.wellbore, self.drillstring, self.fluid, self.formation,
                                            p.thermal, bit_depth, self.sc[K.S_HOLED])
+        # circulating-system hydraulics (ch. 7 losses + single-phase drift flux, Wang et al. 2023)
+        self.hydraulics = None
+        self._hyd_records = []
+        self._hyd_last = dict(t=0.0, q=0.0)
+        if p.hydraulics.enabled:
+            from .hydraulics import WellboreHydraulics
+            self.hydraulics = WellboreHydraulics(self.wellbore, g, self.fluid, p.hydraulics,
+                                                 p.bit.nozzle_area, p.bit.discharge_coefficient,
+                                                 bit_depth, self.sc[K.S_HOLED], bit_depth)
+            self._sync_hydraulics_temperature()
+            self.hydraulics.set_static()
         self._update_rock(rop=0.0, omega=0.0)
 
         # recording
@@ -160,7 +176,6 @@ class Simulation:
         pf[K.P_TLP] = c.t_lp
         pf[K.P_TEN] = c.t_en
         pf[K.P_TAUMAX] = td.max_torque
-        pf[K.P_RAMP] = td.setpoint_ramp
         D = self.wellbore.hole_diameter
         a = D / 2.0
         S = self._S if (b.strength_source == 'formation' and getattr(self, '_S', None)) else float(b.drilling_strength)
@@ -293,7 +308,7 @@ class Simulation:
         d = self.params.damping
         if d.yield_drag == 'always':
             return self._fy_full
-        if d.yield_drag == 'pumps_off' and self.inputs.get('flow_rate', 0.0) <= 0.0:
+        if d.yield_drag == 'pumps_off' and self.flow_rate_now() <= 0.0:
             return self._fy_full
         return self._fy_zero
 
@@ -345,21 +360,76 @@ class Simulation:
         b = self.params.bit
         hole = self.sc[K.S_HOLED]
         tvd = float(self.wellbore.survey.tvd_at([hole])[0])
+        t_mud = None
         if self.thermal is not None:
             ts = self.thermal.state()
             p_bh, t_mud = ts['p_bh'], ts['t_bit']
         else:
-            p_bh, t_mud = self.fluid.density * 9.80665 * tvd, None
+            p_bh = self.fluid.density * 9.80665 * tvd
+        if self.hydraulics is not None:
+            p_bh = self.hydraulics.state()['p_bh']
         self.rock = self.formation.strength(hole, tvd, p_bh, t_mud=t_mud, rop=rop, omega=omega, blades=b.blades)
         self.rock['p_bh'] = p_bh
         self.rock['S'] = b.zeta * self.rock['ccs_eff'] / b.cutting_efficiency
         if b.strength_source == 'formation':
             self._set_drilling_strength(self.rock['S'])
 
+    # ------------------------------------------------------------ ramps
+    def _slow_value(self, name, t=None):
+        v0, t0, T, tgt = self._slow_ramps[name]
+        t = self.sc[K.S_T] if t is None else t
+        if T <= 0 or t >= t0 + T:
+            return tgt
+        return v0 + (tgt - v0) * max(0.0, (t - t0) / T)
+
+    def flow_rate_now(self):
+        """Current (ramped) pump rate, m^3/s."""
+        return self._slow_value('flow_rate')
+
+    def _ramp_value(self, k):
+        v0, t0, T, tgt = self.ramps[k]
+        t = self.sc[K.S_T]
+        if T <= 0 or t >= t0 + T:
+            return tgt
+        return v0 + (tgt - v0) * max(0.0, (t - t0) / T)
+
+    def _set_ramp(self, k, target, ramp_time, start=None):
+        """Start a ramp of kernel input k to ``target`` from ``start`` (default: its current value)."""
+        if start is None:
+            if self.ramps[k, 3] == target:
+                return
+            start = self._ramp_value(k)
+        self.ramps[k] = (start, self.sc[K.S_T], ramp_time, target)
+
+    def _set_slow_ramp(self, name, target, ramp_time):
+        if self._slow_ramps[name][3] == target:
+            return
+        self._slow_ramps[name] = [self._slow_value(name), self.sc[K.S_T], ramp_time, target]
+
+    def _sync_hydraulics_temperature(self):
+        if self.hydraulics is None or self.thermal is None:
+            return
+        pr = self.thermal.profiles()
+        ds = pr[pr['has_pipe']]
+        if len(ds) == 0:
+            ds = pr
+        self.hydraulics.set_temperatures(ds['md'].values, ds['t_ds'].values, pr['md'].values, pr['t_ann'].values)
+
+    def _hydraulics_tick(self):
+        t = self.sc[K.S_T]
+        dt = t - self._hyd_last['t']
+        if self.hydraulics is None or dt <= 0:
+            return
+        q1 = self.flow_rate_now()
+        hs = self.hydraulics.advance(dt, self._hyd_last['q'], q1, self.sc[K.S_BITD], self.sc[K.S_HOLED])
+        self._hyd_last = dict(t=t, q=q1)
+        self._hyd_records.append(dict(time=t, **hs))
+
     def _slow_tick(self):
         """Called every ~1 s of simulated time at fixed step counts (pause/resume exact)."""
         self._slow_ticks += 1
         self._refresh_geometry()
+        self._hydraulics_tick()
         if self._slow_ticks % self._thermal_every:
             return
         t, hole, wint = self.sc[K.S_T], self.sc[K.S_HOLED], self.sc[K.S_WINT]
@@ -371,13 +441,17 @@ class Simulation:
         self._last_slow = dict(t=t, hole=hole, wint=wint)
         ts = None
         if self.thermal is not None:
-            ts = self.thermal.advance(dt, flow_rate=self.inputs['flow_rate'],
-                                      inlet_temperature=self.inputs['inlet_temperature'],
+            ts = self.thermal.advance(dt, flow_rate=self.flow_rate_now(),
+                                      inlet_temperature=self._slow_value('inlet_temperature'),
                                       bit_depth=self.sc[K.S_BITD], hole_depth=hole, rop=rop)
+            self._sync_hydraulics_temperature()
         self._update_rock(rop, omega)
-        rec = dict(time=t, rop=rop, omega_bit_avg=omega)
+        rec = dict(time=t, rop=rop, omega_bit_avg=omega, flow_rate=self.flow_rate_now())
         if ts is not None:
-            rec.update({k: ts[k] for k in ('t_bit', 't_ds_bit', 't_out', 't_in', 'flow_rate', 'ecd')})
+            rec.update({k: ts[k] for k in ('t_bit', 't_ds_bit', 't_out', 't_in', 'ecd')})
+        if self.hydraulics is not None:
+            hs = self.hydraulics.state()
+            rec.update(spp=hs['spp'], ecd=hs['ecd'])
         if self.rock is not None:
             rec.update({k: self.rock[k] for k in ('t_rock', 'p_bh', 'ucs_t', 'ccs', 'ccs_eff', 'sigma_th',
                                                     'skin_ratio', 'w_drained', 'S')})
@@ -392,6 +466,12 @@ class Simulation:
             self.params = params
         self._refresh_geometry(force=True)
         self._pack_parameters()
+        if self.hydraulics is not None:
+            from .hydraulics import rheology
+            h, b = self.hydraulics, self.params.bit
+            h.p = self.params.hydraulics
+            h.tfa, h.cd = b.nozzle_area, b.discharge_coefficient
+            h.pv, h.ty = rheology(self.fluid)
         self._update_rock(0.0, 0.0)
 
     def _refresh_geometry(self, force=False):
@@ -456,33 +536,52 @@ class Simulation:
           ``v_block``       block velocity (m/s, positive lowering)
           ``wob_sp``        WOB set point (N) for the autodriller
 
-        Circulation (used by the wellbore temperature model):
+        Circulation (hydraulics and wellbore temperature):
           ``flow_rate``          pump rate (m^3/s)
           ``inlet_temperature``  mud temperature entering the drillstring (C)
+
+        Every set point approaches a new value linearly over its ramp time
+        (``params.ramps``; 0 = instant), starting from its current value -- or,
+        when it takes over from another mode, from the present physical value.
 
         Returns a dict of the latest scalar values.
         """
         if not self._initialized:
             raise RuntimeError('Call initialize() first')
+        r = self.params.ramps
+        ctrl, axial = self.pi[K.I_CTRL], self.pi[K.I_AXIAL]
+        # a set point taken over from another mode starts from the present physical value
         if omega_sp is not None:
             self.inputs['omega_sp'] = float(omega_sp)
+            self._set_ramp(K.R_WSP, float(omega_sp), r.omega_sp,
+                           start=None if ctrl == 0 else self.sc[K.S_WTD])
             self.pi[K.I_CTRL] = 0
         if motor_torque is not None:
             self.inputs['motor_torque'] = float(motor_torque)
+            self._set_ramp(K.R_TAUM, float(motor_torque), r.motor_torque,
+                           start=None if ctrl == 1 else self.sc[K.S_TAUM])
             self.pi[K.I_CTRL] = 1
         if omega_td is not None:
             self.inputs['omega_td'] = float(omega_td)
+            self._set_ramp(K.R_WTD, float(omega_td), r.omega_td,
+                           start=None if ctrl == 2 else self.sc[K.S_WTD])
             self.pi[K.I_CTRL] = 2
         if v_block is not None:
             self.inputs['v_block'] = float(v_block)
+            self._set_ramp(K.R_VBLK, float(v_block), r.v_block,
+                           start=None if axial == 0 else self.sc[K.S_VBLK])
             self.pi[K.I_AXIAL] = 0
         if wob_sp is not None:
             self.inputs['wob_sp'] = float(wob_sp)
+            self._set_ramp(K.R_WOB, float(wob_sp), r.wob_sp,
+                           start=None if axial == 1 else self.pf[K.P_HKLD_REF] - self.sc[K.S_HKLD])
             self.pi[K.I_AXIAL] = 1
         if flow_rate is not None:
             self.inputs['flow_rate'] = float(flow_rate)
+            self._set_slow_ramp('flow_rate', float(flow_rate), r.flow_rate)
         if inlet_temperature is not None:
             self.inputs['inlet_temperature'] = float(inlet_temperature)
+            self._set_slow_ramp('inlet_temperature', float(inlet_temperature), r.inlet_temperature)
 
         # integer step bookkeeping avoids drift over many short calls
         self._t_requested += duration
@@ -513,7 +612,7 @@ class Simulation:
             *self._geo_cols,
             self.mus, self.muk, self._qs_c, self.fn0,
             self.w, self.tau, self.v, self.qd,
-            i['omega_sp'], i['v_block'], i['motor_torque'], i['omega_td'], i['wob_sp'],
+            self.ramps,
             rec, 0, self.rec_every, self._rec_phase,
             wf, tf, vf, qf, self.surf,
             self.k0t, self.k0a, self.k1t, self.k1a, self.wbar, self.vbar,
@@ -534,7 +633,19 @@ class Simulation:
                     pipe_torque=s[K.S_TAU0], omega_bit=s[K.S_WBIT], tob=s[K.S_TOB],
                     v_block=s[K.S_VBLK], hookload=s[K.S_HKLD], v_bit=s[K.S_VBIT],
                     wob=s[K.S_WOB], bit_depth=s[K.S_BITD], hole_depth=s[K.S_HOLED],
-                    omega_sp=s[K.S_WSP])
+                    omega_sp=s[K.S_WSP], flow_rate=self.flow_rate_now(),
+                    **({k: v for k, v in self.hydraulics.state().items() if k in ('spp', 'p_bh', 'ecd', 'q_out')}
+                       if self.hydraulics is not None else {}))
+
+    def hydraulics_results(self):
+        """
+        Hydraulics channels, one row per ~1 s slow tick: standpipe pressure
+        ``spp``, bottomhole pressure ``p_bh`` (Pa gauge), ``ecd`` (kg/m^3), pump
+        rate ``q_in``, return flow ``q_out``, bit flow ``q_bit`` (m^3/s), bit
+        pressure drop ``dp_bit``, surface loss and the pipe velocity used for
+        surge / swab.
+        """
+        return pd.DataFrame(self._hyd_records)
 
     def slow_results(self):
         """

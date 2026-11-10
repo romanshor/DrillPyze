@@ -3,13 +3,15 @@ import numpy as np
 import pytest
 from scipy.signal import hilbert, butter, sosfiltfilt
 
-from DrillPyze import (Simulation, ModelParameters, FrictionParameters, DampingParameters, Fluid)
+from DrillPyze import (Simulation, ModelParameters, FrictionParameters, DampingParameters, Fluid,
+                       RampParameters)
 from DrillPyze.kernel import _kv_solve
 from fixtures import vertical_well, uniform_string
 
 
 def _sim(damping, fluid=None, hole=3500.0):
-    p = ModelParameters(friction=FrictionParameters(0, 0, 0, 0), damping=damping)
+    p = ModelParameters(friction=FrictionParameters(0, 0, 0, 0), damping=damping,
+                        ramps=RampParameters.instant())   # free decay after a kick
     sim = Simulation(vertical_well(4000), uniform_string(), fluid or Fluid(1200.0, viscosity=0.02), p)
     sim.initialize(3000.0, hole_depth=hole, dx=10.0, record_rate=200)
     return sim

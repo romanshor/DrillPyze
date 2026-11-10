@@ -115,8 +115,21 @@ Other model components:
   controller, by an external torque, or by a prescribed speed.
 * **Drawworks:** a prescribed block velocity, or an autodriller. The hook can
   only hold the string up, so hookload is never negative.
-* **Wellbore temperature and pressure:** the drift-flux model of Wang et al.
-  (2023), coupled every 2 s of simulated time.
+* **Wellbore temperature:** the drift-flux model of Wang et al. (2023),
+  coupled every 2 s of simulated time.
+* **Hydraulics** ([`docs/derivation/hydraulics.md`](docs/derivation/hydraulics.md)):
+  standpipe pressure, bottomhole pressure and ECD.
+  * **Steady losses:** Newtonian or Bingham pipe and annular losses, bit
+    nozzle loss and the SPP sum, from the borehole-hydraulics chapter of
+    *Introduction to Drilling Engineering* (ch. 7).
+  * **Transients:** pump start and stop, water hammer, surge and swab, from
+    the single-phase drift-flux model of Wang et al. (2023). It uses fixed
+    cells with volume-averaged sections, ρ(T, p), a pump inlet, a pressure
+    outlet and the bit nozzles between the two flow paths.
+  * **Coupling:** updated every ~1 s. Its BHP feeds the rock-strength model.
+* **Set-point ramps:** every set point (RPM, prescribed speed, block speed,
+  WOB, pump rate, inlet temperature) approaches a new value linearly over a
+  ramp time (`ModelParameters.ramps`), so no input changes instantly.
 * **Damping** (derivation §5.6): no tuning knob is needed; the coefficients
   come from the mud report and the string.
   * **F1, mud:** steady laminar Couette drag on the full velocity, plus a
@@ -213,7 +226,9 @@ sim.initialize(bit_depth=2500.0, hole_depth=2505.0, dx=10.0)
 # 3. step: pause, change inputs, resume at any time
 sim.step(30.0, omega_sp=60 * units.RPM)      # internal controller
 sim.step(10.0, v_block=-0.05)                # pick up while rotating
+sim.step(60.0, flow_rate=0.03)               # pumps ramp to 0.03 m3/s over params.ramps.flow_rate
 df = sim.results()                           # recorded channels (DataFrame, SI)
+hyd = sim.hydraulics_results()               # SPP, BHP, ECD, flow in / out, once per ~1 s
 prof = sim.profiles()                        # along-string state now
 
 # steady-state torque and drag on the same grid
@@ -288,6 +303,19 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * the formation-driven drilling strength reproduces the cutting law;
   * pause and resume stay exact with the slow models running;
   * the bit lifts off when picked up;
+* Hydraulics:
+  * chapter 7 Example 7.1 and Practice Problems 7.1 and 7.2: velocities,
+    apparent viscosities, Reynolds numbers, regimes, section losses, bit loss
+    and ECD reproduced (three printed turbulent losses in the chapter are
+    arithmetic errata; see the hydraulics derivation);
+  * the transient model's discrete steady state matches the textbook SPP and
+    BHP;
+  * a pump start converges to it, and mass is conserved to round-off;
+  * the Joukowsky surge is within 1% and the acoustic travel time exact;
+  * surge and swab have the right sign and are symmetric;
+  * set-point ramps are linear in time;
+  * pause and resume stay exact with hydraulics running;
+* General:
   * pause and resume are exact;
   * an external Python PI reproduces the internal controller.
 
