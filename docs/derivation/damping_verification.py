@@ -18,9 +18,8 @@ import matplotlib.pyplot as plt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'tests'))
-from fixtures import vertical_well, uniform_string  # noqa: E402
+from fixtures import vertical_well, uniform_string, decay_ratio  # noqa: E402
 from DrillPyze import (Simulation, ModelParameters, FrictionParameters, DampingParameters, Fluid, config)  # noqa: E402
-from scipy.signal import hilbert, butter, sosfiltfilt  # noqa: E402
 
 FIG = os.path.join(HERE, '..', 'figures')
 os.makedirs(FIG, exist_ok=True)
@@ -42,13 +41,7 @@ def free_decay(damping, mode):
         ch, f = 'omega_bit', sim.modal_frequencies()[1]
     r = sim.results()
     t, y = r['time'].values, r[ch].values
-    m = t > 1.0
-    fs = 1.0 / np.median(np.diff(t))
-    yb = sosfiltfilt(butter(2, [0.6 * f, 1.4 * f], btype='band', fs=fs, output='sos'), y[m])
-    env, tt = np.abs(hilbert(yb)), t[m]
-    span = tt[-1] - tt[0]
-    k = (tt > tt[0] + 0.15 * span) & (tt < tt[-1] - 0.15 * span)
-    zeta = -np.polyfit(tt[k], np.log(env[k]), 1)[0] / (2 * np.pi * f)
+    zeta = decay_ratio(t, y, f)
     row = sim.damping_summary().set_index('mode').loc[mode]
     if damping.fluid or damping.loss_factor:
         pred = row['zeta_fluid'] + row['zeta_material'] + row['zeta_numerical']

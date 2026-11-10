@@ -287,7 +287,7 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * every bit model drills off WOB at a fixed block position;
 * Damping:
   * measured free-decay damping ratios of the first axial and torsional modes
-    match the predictions within 2% (lumped, fluid, material, combined);
+    match the predictions within 0.5% (lumped, fluid, material, combined);
   * steady rotation sees only the Couette drag;
   * the yield drag applies with the pumps off only;
   * the Kelvin–Voigt solve conserves momentum;

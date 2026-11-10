@@ -1,12 +1,11 @@
 """Verification of the distributed damping models (F1 fluid, M1 material, F2 yield)."""
 import numpy as np
 import pytest
-from scipy.signal import hilbert, butter, sosfiltfilt
 
 from DrillPyze import (Simulation, ModelParameters, FrictionParameters, DampingParameters, Fluid,
                        RampParameters)
 from DrillPyze.kernel import _kv_solve
-from fixtures import vertical_well, uniform_string
+from fixtures import vertical_well, uniform_string, decay_ratio
 
 
 def _sim(damping, fluid=None, hole=3500.0):
@@ -27,14 +26,7 @@ def _decay_ratio(sim, mode):
         sim.step(0.5, omega_td=2.0, v_block=0.0)
         sim.step(60.0, omega_td=0.0)
         y, f = sim.results()['omega_bit'].values, sim.modal_frequencies()[1]
-    t = sim.results()['time'].values
-    m = t > 1.0
-    fs = 1.0 / np.median(np.diff(t))
-    yb = sosfiltfilt(butter(2, [0.6 * f, 1.4 * f], btype='band', fs=fs, output='sos'), y[m])
-    env, tt = np.abs(hilbert(yb)), t[m]
-    span = tt[-1] - tt[0]
-    k = (tt > tt[0] + 0.15 * span) & (tt < tt[-1] - 0.15 * span)
-    return -np.polyfit(tt[k], np.log(env[k]), 1)[0] / (2 * np.pi * f)
+    return decay_ratio(sim.results()['time'].values, y, f)
 
 
 def test_kv_solve_conserves_momentum_and_dissipates():

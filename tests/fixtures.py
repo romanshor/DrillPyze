@@ -28,3 +28,40 @@ def vertical_well(td=3000.0):
 
 def uniform_string():
     return Drillstring([Component('DP', 100.0, od=5.0 * units.IN, id=4.276 * units.IN)])
+
+
+def bandpass_envelope(y, fs, f_lo, f_hi, pad=4):
+    """
+    Zero-phase band-pass and Hilbert envelope with numpy FFTs only (no scipy):
+    keep the [f_lo, f_hi] band (cosine-tapered edges) and return the magnitude
+    of the analytic signal.  The record is zero-padded ``pad`` times so the
+    circular FFT does not wrap the large early amplitude onto the tail.
+    """
+    y = np.asarray(y, dtype=float)
+    y = y - np.mean(y)
+    n0 = len(y)
+    n = pad * n0
+    Y = np.fft.fft(y, n)
+    f = np.fft.fftfreq(n, 1.0 / fs)
+    af = np.abs(f)
+    bw = 0.2 * (f_hi - f_lo)
+    w = np.zeros(n)
+    w[(af >= f_lo) & (af <= f_hi)] = 1.0
+    lo = (af > f_lo - bw) & (af < f_lo)
+    hi = (af > f_hi) & (af < f_hi + bw)
+    w[lo] = 0.5 * (1 - np.cos(np.pi * (af[lo] - (f_lo - bw)) / bw))
+    w[hi] = 0.5 * (1 + np.cos(np.pi * (af[hi] - f_hi) / bw))
+    # analytic signal: double the positive frequencies, drop the negative ones
+    w = w * np.where(f > 0, 2.0, np.where(f == 0, 1.0, 0.0))
+    return np.abs(np.fft.ifft(Y * w))[:n0]
+
+
+def decay_ratio(t, y, f, t_start=1.0, trim=0.15):
+    """Damping ratio of the mode near ``f`` (Hz) from the log-envelope slope of a free decay."""
+    t = np.asarray(t)
+    m = t > t_start
+    fs = 1.0 / np.median(np.diff(t))
+    env, tt = bandpass_envelope(np.asarray(y)[m], fs, 0.6 * f, 1.4 * f), t[m]
+    span = tt[-1] - tt[0]
+    k = (tt > tt[0] + trim * span) & (tt < tt[-1] - trim * span)
+    return -np.polyfit(tt[k], np.log(env[k]), 1)[0] / (2 * np.pi * f)

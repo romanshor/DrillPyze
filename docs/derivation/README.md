@@ -615,14 +615,15 @@ and 0.025.
 
 **Verification** (`tests/test_damping.py`, `docs/derivation/damping_verification.py`).
 Free decay of the first mode of 3000 m of 5" DP gives measured
-vs (5.12)-predicted damping ratios:
+vs (5.12)-predicted damping ratios. The measured ratio is the slope of the
+log envelope of the FFT band-passed bit velocity (numpy only, zero-padded):
 
 | model | axial measured / predicted | torsional measured / predicted |
 |---|---|---|
-| lumped $k$ = 0.1 /s | 0.0187 / 0.0187 | 0.0310 / 0.0311 |
-| F1 fluid | 0.0290 / 0.0293 | 0.0414 / 0.0415 |
-| M1 material, $\eta$ = 0.02 | 0.0095 / 0.0096 | 0.0105 / 0.0105 |
-| F1 + M1, $\eta$ = 0.01 | 0.0335 / 0.0340 | 0.0461 / 0.0462 |
+| lumped $k$ = 0.1 /s | 0.0187 / 0.0187 | 0.0312 / 0.0311 |
+| F1 fluid | 0.0293 / 0.0293 | 0.0416 / 0.0415 |
+| M1 material, $\eta$ = 0.02 | 0.0096 / 0.0096 | 0.0105 / 0.0105 |
+| F1 + M1, $\eta$ = 0.01 | 0.0340 / 0.0340 | 0.0463 / 0.0462 |
 
 For Well A tripping in at 200 m/h and 0 rpm, the bit-speed range after 30 s
 narrows from 154–248 m/h (lumped $k$ = 0.1 /s) to 172–230 m/h (F1 + M1).
@@ -1012,7 +1013,7 @@ $$
 | ZTorque suppresses the stiff-controller limit cycle | yes |
 | bit breakout torque, TOB/WOB slope, drill-off at constant block | exact / 1% |
 | pause–resume, external Python PI vs internal PI | exact / 2% |
-| free decay of first axial / torsional mode vs (5.12): lumped, F1, M1, F1+M1 | within 2% (8 cases) |
+| free decay of first axial / torsional mode vs (5.12): lumped, F1, M1, F1+M1 | within 0.5% (8 cases) |
 | steady rotation with F1+M1: surface torque = Couette (5.6) only | within 2% |
 | yield drag (5.9) with pumps off; absent with pumps on | within 5% |
 | Kelvin–Voigt solve conserves momentum, dissipates energy | to $10^{-12}$ |
