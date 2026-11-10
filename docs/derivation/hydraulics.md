@@ -256,7 +256,7 @@ they are 2,156, 1,889 and 1,936 psi.
 | water hammer, 100 gpm step, 1 cP mud | Joukowsky ρcΔQ/A = 1.408 MPa | 1.421 MPa (+0.9%) |
 | pressure front at the bit | L/c = 2.083 s | 2.08 s |
 | surge / swab, ±0.5 m/s, pumps off, Bingham mud | sign; symmetry | +213 / −209 psi (±0.40 ppg EMW) |
-| Well A pump start in the full simulation | discrete steady state | SPP 2,068 vs 2,075 psi after 180 s (thermal still cooling the mud) |
+| Well A pump start (3 s ramp) in the full simulation | discrete steady state | SPP 2,069 vs 2,075 psi after 180 s (thermal still cooling the mud); ECD overshoots to 10.83 ppg before settling at 10.56 ppg |
 | set-point ramps | linear in time | exact; a ramp taken over from another mode starts from the present value |
 | pause / resume with hydraulics | bit-identical | exact |
 
@@ -267,23 +267,30 @@ Figures: `docs/figures/hydraulics_water_hammer.png`, `hydraulics_pump_start.png`
 
 ## 6. Set-point ramps
 
-Every set point approaches a new value linearly over its ramp time
-(`ModelParameters.ramps`); 0 means instant. Kernel inputs are evaluated at
-every time step inside the kernel, from a table of (start value, start time,
-ramp time, target). Pump rate and inlet temperature are evaluated at each slow
-tick and inside the hydraulic substeps. When a set point takes over from
-another mode, for example `omega_sp` after `omega_td`, its ramp starts from
-the present physical value, which makes the transfer bumpless.
+Inputs that have no controller approach a new value linearly over a short ramp
+time (`ModelParameters.ramps`); 0 means instant. Set points that feed a
+controller are not ramped, because the controller shapes the response.
 
-| input | default ramp | note |
-|---|---|---|
-| `omega_sp` (controller speed set point) | 5 s | replaces the former 60 rpm/s rate limit |
-| `omega_td` (prescribed top-drive speed) | 1 s | linear interpolation between 1 s field samples |
-| `v_block` | 2 s | the optional block-acceleration limit still applies on top |
-| `wob_sp` | 10 s | |
-| `flow_rate` | 30 s | the pumps start at t = 0 and ramp to the initial rate |
-| `inlet_temperature` | 60 s | |
-| `motor_torque` | 0 s | an actuator command from an external controller, not a set point |
+Kernel inputs are evaluated at every time step inside the kernel, from a table
+of (start value, start time, ramp time, target). Pump rate and inlet
+temperature are evaluated at each slow tick and inside the hydraulic
+substeps. When an input takes over from another mode, for example `omega_td`
+after `omega_sp`, its ramp starts from the present physical value, which makes
+the transfer bumpless.
+
+| input | controller | default ramp | note |
+|---|---|---|---|
+| `omega_sp` (speed set point) | top-drive PI / SoftTorque / ZTorque | none | the controller shapes the response |
+| `wob_sp` (WOB set point) | autodriller | none | |
+| `omega_td` (prescribed top-drive speed) | none | 1 s | linear interpolation between 1 s field samples |
+| `v_block` (block velocity) | none | 2 s | the optional block-acceleration limit still applies on top |
+| `flow_rate` (pump rate) | none | 3 s | the pumps start at t = 0 and ramp to the initial rate |
+| `inlet_temperature` | none | 3 s | |
+| `motor_torque` | external controller | none | an actuator command, not a set point |
+
+The ramp times of the controlled set points can still be set for studies of
+set-point profiling. They replace the former 60 rpm/s rate limit on
+`omega_sp`.
 
 The verification tests that check step responses against analytic results
 (wave arrival, free decay) use `RampParameters.instant()`.

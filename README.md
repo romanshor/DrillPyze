@@ -127,9 +127,11 @@ Other model components:
     cells with volume-averaged sections, ρ(T, p), a pump inlet, a pressure
     outlet and the bit nozzles between the two flow paths.
   * **Coupling:** updated every ~1 s. Its BHP feeds the rock-strength model.
-* **Set-point ramps:** every set point (RPM, prescribed speed, block speed,
-  WOB, pump rate, inlet temperature) approaches a new value linearly over a
-  ramp time (`ModelParameters.ramps`), so no input changes instantly.
+* **Set-point ramps:** inputs without a controller approach a new value
+  linearly over a short ramp time (`ModelParameters.ramps`). Defaults:
+  prescribed top-drive speed 1 s, block speed 2 s, pump rate and inlet
+  temperature 3 s. Set points that feed a controller (RPM, autodriller WOB)
+  step, and the controller shapes the response.
 * **Damping** (derivation §5.6): no tuning knob is needed; the coefficients
   come from the mud report and the string.
   * **F1, mud:** steady laminar Couette drag on the full velocity, plus a

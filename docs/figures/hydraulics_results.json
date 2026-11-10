@@ -64,11 +64,11 @@
  },
  "Well A pump start": {
   "Q_m3s": 0.03333333333333333,
-  "spp_end_psi": 2068.0937557515485,
-  "spp_steady_psi": 2075.371680267448,
-  "pbh_end_psi": 3955.957447603625,
-  "pbh_steady_psi": 3957.023488783068,
-  "ecd_end_ppg": 10.556796072650304
+  "spp_end_psi": 2068.6063145345233,
+  "spp_steady_psi": 2075.033497290242,
+  "pbh_end_psi": 3956.119594026891,
+  "pbh_steady_psi": 3957.0030714569916,
+  "ecd_end_ppg": 10.557228773645448
  },
  "surge/swab running in 0.5 m/s": {
   "dp_bh_psi_at_30s": 212.62260984836476,

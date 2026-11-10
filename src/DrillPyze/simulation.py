@@ -540,9 +540,12 @@ class Simulation:
           ``flow_rate``          pump rate (m^3/s)
           ``inlet_temperature``  mud temperature entering the drillstring (C)
 
-        Every set point approaches a new value linearly over its ramp time
-        (``params.ramps``; 0 = instant), starting from its current value -- or,
-        when it takes over from another mode, from the present physical value.
+        Inputs without a controller (prescribed speed, block velocity, pump
+        rate, inlet temperature) approach a new value linearly over a short
+        ramp time (``params.ramps``; 0 = instant), starting from the current
+        value -- or, when taking over from another mode, from the present
+        physical value.  Controlled set points (``omega_sp``, ``wob_sp``) are
+        not ramped by default: the controller shapes the response.
 
         Returns a dict of the latest scalar values.
         """

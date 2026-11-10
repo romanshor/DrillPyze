@@ -95,7 +95,7 @@ axs[0].set_ylabel('flow (gpm)'); axs[0].legend(fontsize=8)
 axs[1].plot(r.time, r.spp / PSI); axs[1].axhline(ref.state()['spp'] / PSI, ls=':', c='gray')
 axs[1].set_ylabel('SPP (psi)')
 axs[2].plot(r.time, r.ecd / PPG); axs[2].set_ylabel('ECD (ppg)'); axs[2].set_xlabel('time (s)')
-axs[0].set_title('Well A: pumps ramped to %.0f gpm over 30 s (dotted: steady state)' % (Q / GPM), fontsize=9)
+axs[0].set_title('Well A: pumps ramped to %.0f gpm over %.0f s (dotted: steady state)' % (Q / GPM, s.params.ramps.flow_rate), fontsize=9)
 fig.tight_layout(); fig.savefig(os.path.join(FIG, 'hydraulics_pump_start.png'), dpi=150)
 
 # 4. surge and swab -----------------------------------------------------------

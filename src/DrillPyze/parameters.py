@@ -120,18 +120,23 @@ class TopDriveParameters:
 @dataclass
 class RampParameters:
     """
-    Ramp times (s) for set-point changes.  A new set point is approached
-    linearly from the current value over its ramp time, so no input changes
-    instantly (0 = instant).  Ramps are evaluated inside the time stepping,
-    so pausing and resuming stays exact.
+    Ramp times (s) for set-point changes on inputs that have no controller.
+    Such a set point approaches a new value linearly from its current value
+    over its ramp time (0 = instant); ramps are evaluated inside the time
+    stepping, so pausing and resuming stays exact.
+
+    Set points that feed a controller -- the top-drive speed set point
+    (``omega_sp``, PI / SoftTorque / ZTorque) and the autodriller WOB set
+    point (``wob_sp``) -- are not ramped by default: the controller shapes the
+    response.  Their entries exist only for studies of set-point profiling.
     """
-    omega_sp: float = 5.0           # top-drive speed set point (controller)
+    omega_sp: float = 0.0           # controlled (top-drive speed controller): no ramp
     omega_td: float = 1.0           # prescribed top-drive speed (1 s = linear between 1 s samples)
-    motor_torque: float = 0.0       # external motor torque command (an actuator signal, not a set point)
-    v_block: float = 2.0            # block velocity
-    wob_sp: float = 10.0            # autodriller WOB set point
-    flow_rate: float = 30.0         # pump rate
-    inlet_temperature: float = 60.0 # mud inlet temperature
+    motor_torque: float = 0.0       # torque command from an external controller: no ramp
+    v_block: float = 2.0            # block velocity (open loop)
+    wob_sp: float = 0.0             # controlled (autodriller): no ramp
+    flow_rate: float = 3.0          # pump rate (open loop)
+    inlet_temperature: float = 3.0  # mud inlet temperature (open loop)
 
     @classmethod
     def instant(cls):

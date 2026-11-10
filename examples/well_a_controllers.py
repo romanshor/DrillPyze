@@ -10,8 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from DrillPyze import (Survey, Component, Drillstring, Wellbore, Fluid, Simulation,
-                       ModelParameters, FrictionParameters, DampingParameters, RampParameters,
-                       units, controllers)
+                       ModelParameters, FrictionParameters, DampingParameters, units, controllers)
 
 # --- 1. import / describe the well and string (SI) ------------------------
 survey = Survey(md=[0, 1500, 2100, 3000], inc=[0, 0, 60, 60], azi=[0, 0, 0, 0])
@@ -26,9 +25,6 @@ params = ModelParameters(
     friction=FrictionParameters(mu_static_cased=0.40, mu_kinetic_cased=0.22,
                                 mu_static_open=0.45, mu_kinetic_open=0.25, omega_c=1.0),
     damping=DampingParameters(k_t=0.1, k_a=0.1),
-    # a fast (1 s) start-up ramp excites off-bottom stick-slip for the controllers to act on;
-    # with the default 5 s ramp the string breaks free gently and the stiff controller stays at 60 rpm
-    ramps=RampParameters(omega_sp=1.0),
 )
 
 # first torsional mode for SoftTorque/ZTorque tuning: f ~ c / (4 L)
