@@ -17,8 +17,9 @@ const ctl = { tdMode: 'setpoint', rpm: 60, dwMode: 'velocity', wob: 0, vblk: 0, 
 
 const DISPLAY_DEFAULTS = { rpm_limit: 220, wob_limit: 150e3, torque_limit: 25e3, rop_limit: 90 / 3600,
                            spp_limit: 4000 * 6894.757293168, pore_density: 1100, frac_density: 1500 };
-const DK = { surf: '#f4f7fa', dh: '#f2a33a', sp: '#3fc6e0', lim: '#e5534b', limMark: '#ff8a83', tick: '#7f93a6',
-             track: '#26333f', dim: '#93a5b6', off: '#7e8d9c', bg: '#0f1720', ref: '#c3ccd6' };
+// light theme, matching the rest of the page: surface = ink, downhole = amber, set point = teal
+const DK = { surf: '#1c2733', dh: '#e08a12', sp: '#0f93b8', lim: '#e5534b', limMark: '#c62828', tick: '#98a6b4',
+             track: '#e3e8ee', dim: '#5b6b7c', off: '#9aa7b4', bg: '#ffffff', ref: '#6b7885' };
 const G_ACC = 9.80665;
 
 const deck = { key: null, nodes: [], bars: [], drag: null, toastT: null, last: null };
@@ -117,8 +118,8 @@ function deckDefs(L) {
 // ------------------------------------------------------------- dial drawing
 function dialFace(d) {
   let g = `<path d="${dArc(A0, A0 + SW, R)}" stroke="${DK.track}" stroke-width="11" fill="none"/>`;
-  if (d.lim != null && d.lim < d.max) g += `<path d="${dArc(dAng(d, d.lim), A0 + SW, R)}" stroke="${DK.lim}" stroke-width="11" fill="none" opacity=".7"/>`;
-  if (d.limLo != null && d.limLo > d.min) g += `<path d="${dArc(A0, dAng(d, d.limLo), R)}" stroke="${DK.lim}" stroke-width="11" fill="none" opacity=".7"/>`;
+  if (d.lim != null && d.lim < d.max) g += `<path d="${dArc(dAng(d, d.lim), A0 + SW, R)}" stroke="${DK.lim}" stroke-width="11" fill="none" opacity=".55"/>`;
+  if (d.limLo != null && d.limLo > d.min) g += `<path d="${dArc(A0, dAng(d, d.limLo), R)}" stroke="${DK.lim}" stroke-width="11" fill="none" opacity=".55"/>`;
   for (const lv of [d.lim, d.limLo]) if (lv != null && lv > d.min && lv < d.max) g += radial(dAng(d, lv), R - 9, R + 9, DK.limMark, 3);
   const n = Math.round((d.max - d.min) / d.step);
   for (let k = 0; k <= 2 * n; k++) {
@@ -171,8 +172,8 @@ function dialDynamic(d, L, t) {
 function barFace(b) {
   let g = `<rect x="${BX}" y="${BT}" width="22" height="${BB - BT}" rx="3" fill="${DK.track}"/>`;
   if (b.id === 'mw') {
-    if (b.frac < b.max) g += `<rect x="${BX}" y="${BT}" width="22" height="${(bY(b, b.frac) - BT).toFixed(1)}" fill="${DK.lim}" opacity=".7"/>`;
-    if (b.pore > b.min) g += `<rect x="${BX}" y="${bY(b, b.pore).toFixed(1)}" width="22" height="${(BB - bY(b, b.pore)).toFixed(1)}" fill="${DK.lim}" opacity=".7"/>`;
+    if (b.frac < b.max) g += `<rect x="${BX}" y="${BT}" width="22" height="${(bY(b, b.frac) - BT).toFixed(1)}" fill="${DK.lim}" opacity=".55"/>`;
+    if (b.pore > b.min) g += `<rect x="${BX}" y="${bY(b, b.pore).toFixed(1)}" width="22" height="${(BB - bY(b, b.pore)).toFixed(1)}" fill="${DK.lim}" opacity=".55"/>`;
     for (const v of [b.frac, b.pore]) if (v > b.min && v < b.max) g += `<line x1="${BX - 4}" y1="${bY(b, v).toFixed(1)}" x2="${BX + 26}" y2="${bY(b, v).toFixed(1)}" stroke="${DK.limMark}" stroke-width="2.5"/>`;
   }
   const n = Math.round((b.max - b.min) / b.step);
