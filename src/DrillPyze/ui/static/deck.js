@@ -68,7 +68,9 @@ function deckDefs(L) {
   const lim = { rpm: displayLimit('rpm_limit'), wob: toDisp('force', displayLimit('wob_limit')),
                 tq: toDisp('torque', displayLimit('torque_limit')), rop: toDisp('rop', displayLimit('rop_limit')),
                 spp: toDisp('pressure', displayLimit('spp_limit')) };
-  const flow0 = Math.max(get(state.cfg, 'parameters.thermal.flow_rate') || 0.03, ctl.flow || 0);
+  // pump scale from the case's pump rate only: a scale that followed the set point would
+  // grow under a drag towards the top and rebuild the bar mid-drag (the handle vanished)
+  const flow0 = get(state.cfg, 'parameters.thermal.flow_rate') || 0.03;
   const pore = pd(displayLimit('pore_density')), frac = pd(displayLimit('frac_density'));
   const sc = (lo, hi, n) => niceScale(lo, hi, n);
   const dials = [
@@ -101,7 +103,7 @@ function deckDefs(L) {
     needleDh: (l) => toDisp('pressure', l.p_bh_hyd), ref: () => pd(rho), refLabel: 'Static', dhLabel: 'BHP' }));
   const mwLo = Math.min(displayLimit('pore_density'), rho), mwHi = Math.max(displayLimit('frac_density'), rho);
   const bars = [
-    Object.assign(sc(0, toDisp('flow', flow0 * 1.6), 5), { id: 'q', title: 'Pump', kind: 'flow',
+    Object.assign(sc(0, toDisp('flow', flow0 * 2), 5), { id: 'q', title: 'Pump', kind: 'flow',
       sp: () => toDisp('flow', ctl.flow), spSet: (v) => { ctl.flow = Math.max(0, fromDisp('flow', v)); },
       spMsg: () => `Pump rate → ${fx(toDisp('flow', ctl.flow), 0)} ${unitOf('flow')}` }),
     Object.assign(sc(toDisp('ecd', mwLo * 0.92), toDisp('ecd', mwHi * 1.04), 6), { id: 'mw', title: 'Mud wt', kind: 'ecd',
@@ -209,7 +211,7 @@ function barHandle(b) {
 function deckBuild(defs) {
   const host = $('deck'), legend = host.querySelector('.deck-legend');
   for (const el of host.querySelectorAll('.gauge')) el.remove();
-  deck.nodes = []; deck.bars = [];
+  deck.nodes = []; deck.bars = []; deck.drag = null;
   for (const d of defs.dials) {
     const el = document.createElement('div'); el.className = 'gauge';
     const cells = [];
@@ -258,7 +260,9 @@ function deckUpdate(L, t) {
   deck.last = { L, t };
   const defs = deckDefs(L);
   const key = JSON.stringify([SYSTEM, defs.dials.map(d => [d.min, d.max, d.step, d.lim, d.limLo]), defs.bars.map(b => [b.min, b.max, b.step, b.pore, b.frac, b.mw])]);
-  if (key !== deck.key) {
+  if (deck.drag) {
+    // hold the scales still while a set point is being dragged; changes apply on release
+  } else if (key !== deck.key) {
     const focus = document.activeElement && $('deck').contains(document.activeElement) && document.activeElement.id === 't-in';
     deckBuild(defs); deck.key = key;
     if (focus) $('t-in').focus();
@@ -266,8 +270,8 @@ function deckUpdate(L, t) {
     deck.nodes.forEach((n, i) => { Object.assign(n.d, defs.dials[i]); });
     deck.bars.forEach((n, i) => { Object.assign(n.b, defs.bars[i]); });
   }
-  for (const n of deck.nodes) { n.dyn.innerHTML = dialDynamic(n.d, L, t); if (!deck.drag) drawDialSp(n); }
-  for (const n of deck.bars) { n.dyn.innerHTML = barDynamic(n.b, L); if (!deck.drag) drawBarSp(n); }
+  for (const n of deck.nodes) { n.dyn.innerHTML = dialDynamic(n.d, L, t); if (deck.drag !== n) drawDialSp(n); }
+  for (const n of deck.bars) { n.dyn.innerHTML = barDynamic(n.b, L); if (deck.drag !== n) drawBarSp(n); }
   deckReadouts(L);
 }
 function deckRedraw() { if (deck.last) deckUpdate(deck.last.L, deck.last.t); }
@@ -325,8 +329,8 @@ function wireDialDrag(n) {
     n.d.spSet(snapTo(dVal(n.d, Math.max(A0, Math.min(A0 + SW, a))), spStep(n.d)));
     drawDialSp(n); deckReadouts(deck.last.L);
   });
-  const end = () => { if (deck.drag === n) { deck.drag = null; deckToast(n.d.spMsg()); } };
-  n.spg.addEventListener('pointerup', end); n.spg.addEventListener('pointercancel', end);
+  const end = () => { if (deck.drag === n) { deck.drag = null; deckToast(n.d.spMsg()); deckRedraw(); } };
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) n.spg.addEventListener(ev, end);
   n.spg.addEventListener('keydown', (e) => {
     if (!n.d.spActive()) return;
     const k = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key]; if (!k) return;
@@ -341,8 +345,8 @@ function wireBarDrag(n) {
     if (deck.drag !== n) return;
     n.b.spSet(snapTo(bV(n.b, svgPoint(n.svg, e).y), spStep(n.b))); drawBarSp(n); deckReadouts(deck.last.L);
   });
-  const end = () => { if (deck.drag === n) { deck.drag = null; deckToast(n.b.spMsg()); } };
-  n.spg.addEventListener('pointerup', end); n.spg.addEventListener('pointercancel', end);
+  const end = () => { if (deck.drag === n) { deck.drag = null; deckToast(n.b.spMsg()); deckRedraw(); } };
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) n.spg.addEventListener(ev, end);
   n.spg.addEventListener('keydown', (e) => {
     const k = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key]; if (!k) return;
     e.preventDefault(); e.stopPropagation();
