@@ -1,6 +1,6 @@
 # DrillPyze physics specification
 
-**Spec revision: 1** (matches the Python model on branch `browser-lite`, November 2026)
+**Spec revision: 2** (matches the Python model on branch `browser-lite`, November 2026)
 
 This document specifies, at implementation level, every piece of physics and
 numerics in the Python model (`src/DrillPyze`). It is precise enough to build
@@ -29,7 +29,7 @@ not repeated here.
 7. [Slow tick](#7-slow-tick)
 8. [Hydraulics](#8-hydraulics)
 9. [Rock strength at the bit](#9-rock-strength-at-the-bit)
-10. [Wellbore temperature (full model only)](#10-wellbore-temperature-full-model-only)
+10. [Wellbore temperature](#10-wellbore-temperature)
 11. [Steady torque and drag (reference profiles)](#11-steady-torque-and-drag-reference-profiles)
 12. [Outputs](#12-outputs)
 13. [Conformance](#13-conformance)
@@ -58,12 +58,12 @@ $`j = 0 \dots n`$, where face $`j`$ is the top of cell $`j`$ and face $`n`$ is t
 | Section | Lite |
 |---|---|
 | 2 Geometry, 3–7 string model, kernel, inputs, slow tick | yes |
-| 8 Hydraulics: steady and transient (constant mud temperature) | yes |
-| 9 Rock strength (P1 confinement, T1 weakening; no T2 thermal stress) | yes |
-| 10 Wellbore temperature | no (temperature = reference temperature) |
+| 8 Hydraulics: steady and transient | yes |
+| 9 Rock strength (P1, T1, T2) | yes |
+| 10 Wellbore temperature | yes (from revision 2) |
 | 11 Steady torque and drag (reference curves) | yes |
 
-The lite version is the Python model with `parameters.thermal.enabled = False`.
+The lite version implements the whole Python model.
 
 ---
 
@@ -117,7 +117,7 @@ A case is a JSON object (see `src/DrillPyze/config.py`):
 | hydraulics | `enabled`, dx, cut factor, CFL, Picard iterations | true, 30 m, 1.5, 0.8, 2 |
 | | back pressure, surface loss $`c`$, exponent $`m`$ | 0, 0, 1.8 |
 | | clinging constant $`K_c`$ | 0.45 |
-| thermal | flow rate, inlet temperature | 0.0347 m³/s, 30 °C (+ section 10) |
+| thermal | `enabled`, flow rate, inlet temperature | true, 0.0347 m³/s, 30 °C (+ section 10) |
 | model | `cfl` | 0.95 |
 | | `thermal_update_period` | 2 (slow ticks) |
 | fluid | $`\rho_m`$, PV, $`\tau_y`$ | 1000, null, null |
@@ -630,7 +630,7 @@ At every slow tick (about every 1 s of simulated time):
 3. **Every `thermal_update_period` ticks** (default 2):
    - average ROP = $`\max(s_{hole} - s_{hole}^{last}, 0)/\Delta t_{slow}`$;
    - average bit speed = $`(W - W^{last})/\Delta t_{slow}`$;
-   - advance the temperature model (section 10; full model only);
+   - advance the temperature model (section 10), then pass the mud temperatures to the hydraulics (10.7);
    - update the rock strength (section 9) with these averages.
 
    The rock strength is also computed at initialisation and on parameter updates, with ROP = ω = 0.
@@ -693,7 +693,7 @@ The bit enters annulus cell $`k_{ab}`$, the cell containing $`s_{bit}`$ (clipped
 
 **Density** (Wang et al. 2023, eq. 2):
 $`\rho = \rho_T + p/c_m^2`$, with $`\rho_T = (1 - (T - T_\text{ref})\beta_T)\rho_m`$.
-In the lite version $`T = T_\text{ref}`$, so $`\rho_T = \rho_m`$. The cell
+Mud temperatures come from the wellbore temperature model (10.7); without it $`T = T_\text{ref}`$, so $`\rho_T = \rho_m`$. The cell
 pressure (gauge) is $`p = c_m^2(m/V - \rho_T)`$.
 
 **State:**
@@ -791,7 +791,7 @@ at the hole TVD $`z`$:
     CCS = UCS(T) + \big((1-w)\Delta p_{lp} + w\Delta p_{hp}\big)\frac{1+\sin\varphi}{1-\sin\varphi}.
     ```
 
-- **T2, thermal stress** (full model only, when a mud temperature at the bit is known):
+- **T2, thermal stress** (when the temperature model gives a mud temperature at the bit, 10.7):
   - Stress: $`\sigma_{th} = \alpha E(T_r - T_{mud})/(1-\nu)`$.
   - Skin ratio: if ω > 1e-6 and ROP > 1e-9, it is $`\min(1, \delta/d_b)`$, with:
     - time between blade passes $`t_p = 2\pi/(n_b\omega)`$;
@@ -807,38 +807,170 @@ at the hole TVD $`z`$:
 
 ---
 
-## 10. Wellbore temperature (full model only)
+## 10. Wellbore temperature
 
-The Wang et al. (2023) single-phase energy balance (`thermal.py`).
+The single-phase energy balance of Wang et al. (2023), implemented in
+`thermal.py`. It runs when the case has a formation and
+`parameters.thermal.enabled` is true.
 
-**Grid.** Axial cells of about 30 m cover the hole; the bottom cell grows with
-the hole and is cut at 1.5 dx. Each cell has:
-- drillstring and annulus fluid temperatures;
-- 12 radial formation cells, log-spaced to 5 m beyond the wall;
-- a far-field geothermal temperature.
+### 10.1 Parameters
 
-**Heat transfer.**
-- Conductances drillstring ↔ annulus and annulus ↔ formation are series resistances:
-  - convection: $`Nu = 0.023Re^{0.8}Pr^{0.4}`$ above Re 2300, else 3.66;
-  - pipe-wall conduction ($`k_s`$ = 45 W/m K);
-  - casing (0.012 m) where cased.
-- Both are volume-averaged over the string in each cell.
+| Parameter | Default |
+|---|---|
+| nominal cell length $`\Delta x_T`$ | 30 m |
+| cut factor | 1.5 |
+| radial cells $`m`$ | 12 |
+| far field (beyond the wall) $`r_{far}`$ | 5 m |
+| steel conductivity $`k_s`$ | 45 W/(m K) |
+| casing thickness $`t_c`$ | 0.012 m |
+| initial pump rate | 0.0347 m³/s |
+| inlet temperature | 30 °C |
+| largest substep | 2 s |
+| coupling iterations | 3 |
 
-**Time stepping.** Backward Euler with substeps ≤ 2 s and 3 coupling iterations:
-- drillstring cells upwind from the inlet down to the bit;
-- annulus cells upwind from the bit up (below the bit: stagnant);
-- cuttings enter the bottom cell at the formation temperature, at a rate of $`\rho_r c_r A_{hole}\,\text{ROP}`$;
-- each formation layer is a tridiagonal radial conduction solve.
+Fluid properties come from section 1: $`\rho_m`$, $`c_m`$ (heat capacity),
+$`k_m`$, $`\mu`$. Formation properties come from section 9: $`\rho_r`$,
+$`c_r`$, $`k_r`$, and the geothermal temperature $`T_{geo}(z)`$.
 
-On growth, the bottom formation cells relax toward the far-field temperature.
+### 10.2 Grid
 
-**Annulus pressure.** It is integrated with $`\rho(T, p)`$ and Newtonian
-friction to give $`p_{bh}`$ and ECD. When hydraulics is enabled, the
-hydraulics instead take the mud temperatures (interpolated to their cells)
-for $`\rho_T`$.
+Axial cells cover the hole from MD 0 to $`s_{hole}`$:
+- $`n = \max(1, \lfloor s_{hole}/\Delta x_T\rfloor)`$ cells with edges $`0, \Delta x_T, \dots, n\Delta x_T`$.
+- If the hole extends more than 1e-9 m beyond the last edge:
+  - by less than $`0.5\Delta x_T`$ with $`n > 1`$: the last edge moves to $`s_{hole}`$;
+  - otherwise: a cell is appended up to $`s_{hole}`$.
 
-Outputs: mud temperature at the bit, outlet temperature and profiles. The
-lite version omits this section.
+State per cell $`j`$:
+- drillstring fluid temperature $`T_{ds,j}`$;
+- annulus fluid temperature $`T_{a,j}`$;
+- formation temperatures $`T_{f,j,i}`$, $`i = 0\dots m-1`$ (0 at the wall).
+
+**Initially** all equal $`T_{geo}`$ at the cell-centre TVD.
+
+### 10.3 Geometry (per cell)
+
+Evaluated with the current pump rate $`Q`$ and bit depth $`s_{bit}`$.
+
+**Cache.** Geometry is recomputed when any of these hold:
+- it is forced;
+- the cell count, the bottom-cell length rounded to 0.01 m, or $`Q`$ changed;
+- the bit moved at least 0.25 m since the last evaluation.
+
+For each cell:
+- **Far field and TVD:** $`z`$ = TVD of the centre, $`T_{far} = T_{geo}(z)`$.
+- **String sampling.** The string occupies MD $`[0, s_{bit}]`$, made of the components in surface-down order, the top one stretched to $`s_{bit} - L_{BHA}`$. Sample 8 points at $`x_{top} + (k + \tfrac12)\Delta x/8`$, $`k = 0\dots7`$. Each sample takes the OD and ID of its component if it is at or above $`s_{bit}`$, else 0.
+- **Areas and diameters:**
+  - $`A_{ds}`$ = mean of $`\tfrac\pi4 ID^2`$;
+  - $`A_{a} = \tfrac\pi4 D_w^2 -`$ mean of $`\tfrac\pi4 OD^2`$ ($`D_w`$ = wall diameter, section 2.2);
+  - $`D_i`$ = mean ID and $`D_o`$ = mean OD.
+- **Convection coefficient** of a flow area $`A`$ and hydraulic diameter $`D_h`$:
+  - 0 if $`A \le 0`$ or $`D_h \le 0`$;
+  - otherwise, with $`Re = \rho_m (|Q|/A) D_h/\mu`$ and $`Pr = \mu c_m/k_m`$: $`Nu = 0.023Re^{0.8}Pr^{0.4}`$ if $`Re > 2300`$, else 3.66; then $`h = \max(Nu, 3.66)\,k_m/D_h`$.
+- **Annulus convection:** $`h_a = h(A_a, D_w - D_o)`$.
+- **Drillstring–annulus conductance** (if $`D_o > 0`$ and $`D_i > 0`$, else 0), with $`h_i = h(A_{ds}, D_i)`$:
+
+  ```math
+  R_{ds} = \frac{1}{h_i\pi D_i} + \frac{\ln(D_o/D_i)}{2\pi k_s} + \frac{1}{h_a\pi D_o},\qquad G_{ds} = \Delta x/R_{ds}.
+  ```
+
+- **Formation radial grid.** Wall radius $`r_w = D_w/2 + t_c`$ if cased, else $`D_w/2`$. Then:
+  - face radii $`f_i = r_w\left((r_w + r_{far})/r_w\right)^{i/m}`$, $`i = 0\dots m`$;
+  - nodes $`r_i = \sqrt{f_if_{i+1}}`$;
+  - heat capacity per length $`v_i = \pi(f_{i+1}^2 - f_i^2)\rho_rc_r`$;
+  - node conductances $`g_i = 2\pi k_r/\ln(r_{i+1}/r_i)`$, $`i = 0\dots m-2`$;
+  - far-field conductance $`g_{out} = 2\pi k_r/\ln(f_m/r_{m-1})`$;
+  - wall-to-first-node resistance $`r_{in} = \ln(r_0/r_w)/(2\pi k_r)`$.
+
+  All are multiplied by $`\Delta x`$ per cell.
+- **Annulus–formation conductance:**
+
+  ```math
+  R_w = \frac{1}{h_a\pi D_w} + r_{in}\;\Big(+\frac{\ln((D_w+2t_c)/D_w)}{2\pi k_s}\text{ if cased}\Big),\qquad G_w = \Delta x/R_w.
+  ```
+
+- **Heat capacities:** $`C_{ds} = \rho_mc_mA_{ds}\Delta x`$ and $`C_a = \rho_mc_mA_a\Delta x`$.
+- **Special cells:**
+  - $`j_b`$ = the cell containing the bit (last top ≤ $`s_{bit}`$, clipped to $`n-1`$);
+  - $`n_b = n-1`$ is the bottom cell.
+
+### 10.4 Growth (grow–cut–grow)
+
+`grow(h)`, with $`\delta = h - (\text{bottom edge})`$; nothing happens if $`\delta \le 0`$:
+1. The bottom cell lengthens by $`\delta`$.
+2. Its formation temperatures relax toward the undisturbed value at the new bottom:
+   $`T_{f,n_b,\cdot} \mathrel{+}= w(T_{geo}(z(h)) - T_{f,n_b,\cdot})`$, with $`w = \min(1, \delta/\Delta x_{n_b})`$.
+3. If the bottom cell is now longer than cut factor × $`\Delta x_T`$, it is cut into two equal halves; both keep the old cell's temperatures.
+
+### 10.5 Time step
+
+`advance(duration, Q, T_in, s_bit, s_hole, ROP)`:
+1. Update $`Q`$, $`T_{in}`$ and $`s_{bit}`$; $`s_{hole} \leftarrow \max(s_{hole}, \text{old})`$.
+2. Use $`n_{sub} = \max(1, \lceil\text{duration}/2\text{ s}\rceil)`$ substeps of length $`\Delta t`$.
+3. In substep $`k`$, the hole depth is $`h_k = s_{hole}^{old} + (s_{hole} - s_{hole}^{old})(k+1)/n_{sub}`$. Then:
+   1. `grow(h_k)`;
+   2. geometry (forced when ROP > 0);
+   3. heat-capacity rate $`F = \rho_mc_m|Q|`$;
+   4. cuttings rate $`q_c = \rho_rc_r\tfrac\pi4D^2\max(\text{ROP}, 0)`$ if $`s_{bit} \ge h_k - 0.5`$, else 0, entering at $`T_c = T_{geo}(z(h_k))`$;
+   5. one backward-Euler step, iterated 3 times (Gauss–Seidel), from the old temperatures $`T^o`$:
+      - **Drillstring,** downward for $`j = 0\dots j_b`$, with upstream temperature $`u`$ starting at $`T_{in}`$:
+
+        ```math
+        T_{ds,j} = \frac{C_{ds,j}T^o_{ds,j}/\Delta t + Fu + G_{ds,j}T_{a,j}}{C_{ds,j}/\Delta t + F + G_{ds,j}},\qquad u \leftarrow T_{ds,j}
+        ```
+
+        (unchanged if the denominator is 0).
+      - **Annulus,** upward for $`j = n-1\dots0`$, with "below" starting at $`T_{ds,j_b}`$:
+        - The base is
+
+          ```math
+          T_{a,j} = \frac{C_{a,j}T^o_{a,j}/\Delta t + \gamma_jT_{ds,j} + G_{w,j}T_{f,j,0} + \dots}{C_{a,j}/\Delta t + \gamma_j + G_{w,j} + \dots},
+          ```
+
+          with $`\gamma_j = G_{ds,j}`$ for $`j \le j_b`$, else 0.
+        - **Flowing cells** ($`j \le j_b`$, with $`F > 0`$): add $`F\cdot\text{below}`$ above the line and $`F`$ below it.
+        - **Bottom cell** ($`j = n_b`$): add $`q_cT_c`$ above the line and $`q_c`$ below it.
+        - After each cell $`j \le j_b`$: below $`\leftarrow T_{a,j}`$.
+        - Cells below the bit are stagnant.
+      - **Formation:** for each cell, a backward-Euler radial conduction solve from $`T^o_f`$ (tridiagonal, Thomas algorithm):
+
+        ```math
+        \frac{v_i\Delta x}{\Delta t}(T_i - T_i^o) = g_{i-1}(T_{i-1} - T_i) + g_i(T_{i+1} - T_i),
+        ```
+
+        with the wall node coupled to $`T_{a,j}`$ through $`G_w`$ and the outer node coupled to $`T_{far}`$ through $`g_{out}`$.
+4. Set the hole depth and update the annulus pressure (10.6).
+
+### 10.6 Annulus pressure and outputs
+
+**Pressure.** Integrate down the annulus from $`p = 0`$ over the cells: with $`\rho = \rho(T_{a,j}, p)`$ (section 8.2),
+$`p \mathrel{+}= \rho g(z_{e,j+1} - z_{e,j})`$, where $`z_e`$ is the TVD of the cell edges.
+- **Friction:** if $`Q > 0`$, $`j \le j_b`$ and $`A_a > 0`$, add the Newtonian friction (8.1 with $`\tau_y = 0`$, PV = $`\mu`$) over $`\Delta x_j`$. It uses the annulus between $`D_w`$ and $`\sqrt{\max(D_w^2 - 4A_a/\pi, 0)}`$ (a pipe if that is 0), at velocity $`Q/A_a`$.
+- **Results:** $`p_{bh} = p`$ at the bottom, and $`ECD = p_{bh}/(g\,z_{bottom})`$.
+
+**State outputs:**
+- $`t_{bit} = T_{a,j_b}`$ and $`t_{ds,bit} = T_{ds,j_b}`$;
+- $`t_{out} = T_{a,0}`$;
+- $`t_{in}`$;
+- $`t_{rock} = T_{geo}`$ at the hole TVD;
+- $`p_{bh}`$, ECD.
+
+**Profiles per cell:** MD, TVD, $`T_{ds}`$ (marked "no pipe" where $`A_{ds} = 0`$), $`T_a`$, $`T_{f,\cdot,0}`$ (wall) and $`T_{far}`$.
+
+### 10.7 Coupling to the other models
+
+- **Order in the simulation:**
+  - The model is created at initialisation, before the hydraulics.
+  - It advances at every rock-strength update (section 7). It is given:
+    - the elapsed time;
+    - the current ramped pump rate and inlet temperature;
+    - the bit and hole depth;
+    - the average ROP.
+- **Hydraulics.** After creation and after every advance, the hydraulics take the mud temperatures for $`\rho_T`$ (8.2):
+  - The bore uses $`T_{ds}`$ at the centres of cells with pipe (all cells if none), linearly interpolated (clamped) to the hydraulic bore-cell centres.
+  - The annulus uses $`T_a`$ interpolated the same way.
+  - Interpolation is repeated whenever the hydraulic grid changes. Cells added by a regrid first copy the bottom temperature.
+  - At initialisation the hydraulic static state is computed after the temperatures are set.
+- **Rock strength** (section 9) uses $`T_{mud} = t_{bit}`$, which turns on T2. Without hydraulics, it also uses $`p_{bh}`$ from 10.6.
 
 ---
 
@@ -895,8 +1027,15 @@ the browser contract: the lite engine reproduces it field for field.
 
 `tests/test_lite_engine.py` runs the browser engine under Node.js against the
 Python model on the same case (Well A with the temperature model off) and the
-same input script. It requires:
+same input script, with and without the wellbore temperature model. It requires:
 - agreement to rounding level for the first seconds, before stick-slip chaos amplifies round-off;
 - agreement of the statistics over the whole run (mean torque and hookload, stick-slip amplitude, hydraulic pressures).
 
 A new spec revision must keep this test passing for the lite version.
+
+## Revision history
+
+| Revision | Change |
+|---|---|
+| 1 | First specification of the Python model (November 2026). |
+| 2 | Section 10 (wellbore temperature) written at implementation level; the browser version implements it. No change to the Python physics. |

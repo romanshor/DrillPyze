@@ -5,6 +5,7 @@ import { Simulation, stiffController } from './simulation.js';
 import { FORMATION_DEFAULTS } from './formation.js';
 import { BIT_MODELS } from './kernel.js';
 import { IN, PSI } from './units.js';
+import { THERMAL_DEFAULTS } from './thermal.js';
 
 export const FLUID_DEFAULTS = { density: 1000, plastic_viscosity: null, yield_point: null, viscosity: 0.020, heat_capacity: 3750,
                                 thermal_conductivity: 0.75, thermal_expansion: 1e-4, sound_speed: 1500, reference_temperature: 20 };
@@ -21,17 +22,16 @@ const DEFAULTS = {
   ramps: { omega_sp: 0, omega_td: 1, motor_torque: 0, v_block: 2, wob_sp: 0, flow_rate: 3, inlet_temperature: 3 },
   hydraulics: { enabled: true, dx: 30, cut_factor: 1.5, cfl: 0.8, iterations: 2, back_pressure: 0, surface_loss_coefficient: 0,
                 surface_loss_exponent: 1.8, clinging_constant: 0.45 },
-  thermal: { enabled: false, dx: 30, cut_factor: 1.5, n_radial: 12, far_field: 5, steel_conductivity: 45, casing_thickness: 0.012,
-             flow_rate: 0.0347, inlet_temperature: 30, max_dt: 2, gs_iterations: 3 },
+  thermal: { ...THERMAL_DEFAULTS },
 };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
-// Well A (Aarsnes & Shor 2018); the lite version runs without the wellbore temperature model
+// Well A (Aarsnes & Shor 2018)
 export function wellA() {
   const p = clone(DEFAULTS);
   Object.assign(p.friction, { mu_static_cased: 0.40, mu_kinetic_cased: 0.22, mu_static_open: 0.45, mu_kinetic_open: 0.25 });
   Object.assign(p.bit, { model: 'cutting', strength_source: 'formation' });
-  Object.assign(p.thermal, { enabled: false, flow_rate: 2000 / 60000, inlet_temperature: 30.0 });
+  Object.assign(p.thermal, { enabled: true, flow_rate: 2000 / 60000, inlet_temperature: 30.0 });
   return {
     name: 'Well A (Aarsnes & Shor 2018)',
     well: { survey: [{ md: 0, inc: 0, azi: 0 }, { md: 1500, inc: 0, azi: 0 }, { md: 2100, inc: 60, azi: 0 }, { md: 3000, inc: 60, azi: 0 }],
@@ -118,7 +118,8 @@ export function build(cfg) {
   const params = {};
   for (const k of Object.keys(DEFAULTS)) params[k] = section(p, k);
   params.bit.blades = Math.trunc(params.bit.blades);
-  params.thermal.enabled = false;                    // lite: no wellbore temperature model (spec 10)
+  params.thermal.enabled = !!params.thermal.enabled;
+  params.thermal.n_radial = Math.trunc(params.thermal.n_radial); params.thermal.gs_iterations = Math.trunc(params.thermal.gs_iterations);
   params.cfl = num(p.cfl, 0.95);
   params.thermal_update_period = 2.0;
   params.controller = null;

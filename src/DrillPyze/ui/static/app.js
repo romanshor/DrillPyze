@@ -169,11 +169,9 @@ const SECTIONS = [
       ['formation.rock_density', 'Rock density', 'density'],
     ] },
   { title: 'Mud and circulation',
-    note: () => (window.DRILLPYZE_LITE
-      ? 'DrillPyze Lite has no wellbore temperature model: the mud stays at its reference temperature. Pump rate and inlet temperature can be changed live on the driller\'s display.'
-      : 'Wellbore temperature: drift-flux model of Wang et al. (2023, SPE-214836-MS). Pump rate and inlet temperature can be changed live on the driller\'s display.'),
+    note: () => 'Wellbore temperature: drift-flux model of Wang et al. (2023, SPE-214836-MS). Pump rate and inlet temperature can be changed live on the driller\'s display.',
     fields: [
-      ['parameters.thermal.enabled', 'Model wellbore temperature', 'bool', { fullOnly: true }],
+      ['parameters.thermal.enabled', 'Model wellbore temperature', 'bool'],
       ['parameters.thermal.flow_rate', 'Pump rate at start', 'flow'],
       ['parameters.thermal.inlet_temperature', 'Inlet temperature at start', 'temp'],
       ['fluid.viscosity', 'Mud viscosity', 'visc'],

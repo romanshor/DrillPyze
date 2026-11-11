@@ -92,6 +92,13 @@ export class Session {
     const hyd = Object.fromEntries(['time', 'spp', 'p_bh', 'ecd', 'q_in', 'q_out'].map(k => [k, hydRows.map(r => rnd(r[k], 6))]));
     const slow = Object.fromEntries(['time', 't_bit', 't_out', 't_in', 't_rock', 'ccs_eff', 'ccs', 'S', 'ecd', 'p_bh']
       .map(k => [k, slowRows.map(r => (r[k] === undefined || r[k] === null ? null : rnd(r[k], 4)))]));
+    let thermal = null;
+    if (sim.thermal) {
+      const tp = sim.thermal.profiles();
+      thermal = { md: R(tp.md, 1), t_ds: tp.t_ds.map((v, i) => (tp.has_pipe[i] ? rnd(v, 2) : null)), t_ann: R(tp.t_ann, 2),
+                  t_wall: R(tp.t_wall, 2), t_far: R(tp.t_far, 2) };
+    }
+    const ts = sim.thermal ? sim.thermal.state() : {};
     const rock = sim.rock || {}, hs = sim.hydraulics ? sim.hydraulics.state() : {}, L = sim.latest();
     const onBottom = L.bit_depth >= L.hole_depth - 1e-6, rop = onBottom ? Math.max(L.v_bit, 0) : 0;
     return {
@@ -101,14 +108,14 @@ export class Session {
         motor_torque_knm: L.motor_torque / 1e3, pipe_torque_knm: L.pipe_torque / 1e3, tob_knm: L.tob / 1e3,
         hookload_kn: L.hookload / 1e3, wob_kn: L.wob / 1e3, rop_mh: rop * 3600, bit_axial_mh: L.v_bit * 3600,
         bit_depth: L.bit_depth, hole_depth: L.hole_depth, on_bottom: onBottom,
-        t_bit: null, t_out: null, ecd: null,
+        t_bit: ts.t_bit ?? null, t_out: ts.t_out ?? null, ecd: ts.ecd ?? null,
         t_rock: rock.t_rock ?? null, ccs_eff: rock.ccs_eff ?? null, ccs: rock.ccs ?? null, S: rock.S ?? null, p_bh: rock.p_bh ?? null,
         spp: hs.spp ?? null, ecd_hyd: hs.ecd ?? null, q_out: hs.q_out ?? null, q_in: hs.q_in ?? null, pit_gain: hs.pit_gain ?? null,
         hk_ref_kn: sim.hookloadReference / 1e3, wob_surf_kn: (sim.hookloadReference - L.hookload) / 1e3,
         block_mh: L.v_block * 3600, wob_sp_kn: sim.axial === 1 ? sim.inputs.wob_sp / 1e3 : null,
         p_bh_hyd: hs.p_bh ?? null, tvd_bottom: sim.hydraulics ? sim.hydraulics.tvdBottom : null, mud_density: sim.fluid.density,
       },
-      hyd, thermal: null, slow,
+      hyd, thermal, slow,
       profile: {
         md: R(prof.md, 2), rpm: R(prof.omega.map(rpm), 2), torque_knm: R(prof.torque.map(x => x / 1e3), 3),
         tension_kn: R(prof.tension.map(x => x / 1e3), 2), v_axial_mms: R(prof.v.map(x => x * 1e3), 3),

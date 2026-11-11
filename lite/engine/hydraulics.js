@@ -70,6 +70,7 @@ export class WellboreHydraulics {
     this.Ls = this.sEdges[grid.n];
     this.bitDepth = bitDepth; this.holeDepth = holeDepth;
     this.eA = this._edges(holeDepth); this.eD = this._edges(bitDepth);
+    this.TD = null; this.TA = null; this.Tsrc = null;      // mud temperatures from the thermal model (spec 10.7)
     this._geometry();
     this.VD = this._Vd.slice(); this.VA = this._Va.slice();
     this.qPump = 0; this.vPipe = 0; this.acc = [0, 0];
@@ -98,8 +99,24 @@ export class WellboreHydraulics {
     let k = 0;
     for (let i = 0; i < eA.length; i++) if (eA[i] <= this.bitDepth) k = i;
     this.kab = Math.max(0, Math.min(k, this.LA.length - 1));
-    const rT = this.fluid.density;                     // T = T_ref in the lite version
-    this.rTD = this.LD.map(() => rT); this.rTA = this.LA.map(() => rT);
+    this._rhoT();
+  }
+  // rho_T = (1 - (T - T_ref) beta) rho_m, T = T_ref without the thermal model (spec 8.2)
+  _rhoT() {
+    const fl = this.fluid, f = (T) => (1 - (T - fl.reference_temperature) * fl.thermal_expansion) * fl.density;
+    this.rTD = this.LD.map((_, i) => f(this.TD ? this.TD[i] : fl.reference_temperature));
+    this.rTA = this.LA.map((_, i) => f(this.TA ? this.TA[i] : fl.reference_temperature));
+  }
+  setTemperatures(mdDs, tDs, mdAnn, tAnn) {
+    this.Tsrc = [mdDs, tDs, mdAnn, tAnn];
+    this._interpT();
+  }
+  _interpT() {
+    if (!this.Tsrc) return;
+    const [mdDs, tDs, mdAnn, tAnn] = this.Tsrc, mid = (e) => e.slice(0, -1).map((x, i) => 0.5 * (x + e[i + 1]));
+    this.TD = mid(this.eD).map(m => interp(m, mdDs, tDs));
+    this.TA = mid(this.eA).map(m => interp(m, mdAnn, tAnn));
+    this._rhoT();
   }
   _rhoOfP(p, rT) { return rT + p / (this.c * this.c); }
 
@@ -115,6 +132,7 @@ export class WellboreHydraulics {
           this.mA.push(f * m, (1 - f) * m); this.VA.push(f * V, (1 - f) * V);
           this.GA.push(0.5 * this.GA[this.GA.length - 1]);
           this.eA = [...e.slice(0, -1), mid, e[e.length - 1]];
+          if (this.TA) this.TA.push(this.TA[this.TA.length - 1]);
         }
       }
     }
@@ -126,11 +144,13 @@ export class WellboreHydraulics {
       this.mD.push(f * m, (1 - f) * m); this.VD.push(f * V, (1 - f) * V);
       this.GD.push(0.5 * (this.GD[this.GD.length - 1] + this.Gb));
       this.eD = [...e.slice(0, -1), mid, e[e.length - 1]];
+      if (this.TD) this.TD.push(this.TD[this.TD.length - 1]);
     } else if (Lnew < 0.5 * dx && this.mD.length > 1) {
       const m = this.mD.pop(), V = this.VD.pop();
       this.mD[this.mD.length - 1] += m; this.VD[this.VD.length - 1] += V;
       this.GD.pop();
       this.eD = [...e.slice(0, -2), e[e.length - 1]];
+      if (this.TD) this.TD.pop();
     }
   }
 
@@ -195,6 +215,7 @@ export class WellboreHydraulics {
     this.bitDepth = bitDepth; this.holeDepth = holeDepth;
     this.eA = [...this.eA.slice(0, -1), holeDepth];
     this.eD = [...this.eD.slice(0, -1), bitDepth];
+    this._interpT();
     this._geometry();
     const VD0 = this.VD.length === this._Vd.length ? this.VD : this._Vd.slice();
     const VA0 = this.VA.length === this._Va.length ? this.VA : this._Va.slice();

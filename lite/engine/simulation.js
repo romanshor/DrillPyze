@@ -3,6 +3,7 @@ import { G, STEEL_DENSITY } from './units.js';
 import { advance, rampValue, BIT_MODELS, R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB } from './kernel.js';
 import { WellboreHydraulics } from './hydraulics.js';
 import { rockStrength } from './formation.js';
+import { WellboreThermal } from './thermal.js';
 
 const F64 = (n, v = 0) => new Float64Array(n).fill(v);
 
@@ -13,7 +14,7 @@ export function stiffController(zetaP, inertia) {
 export class Simulation {
   constructor(wellbore, drillstring, fluid, params, formation = null) {
     Object.assign(this, { wellbore, drillstring, fluid, params, formation });
-    this.rock = null; this.hydraulics = null;
+    this.rock = null; this.hydraulics = null; this.thermal = null;
   }
 
   // ------------------------------------------------------------- set-up
@@ -52,9 +53,13 @@ export class Simulation {
     this.thermalEvery = Math.max(1, Math.round(P.thermal_update_period));
     this.slowTicks = 0; this.slowRecords = []; this.lastSlow = { t: 0, hole, wint: 0 };
     this.hydRecords = []; this.hydLast = { t: 0, q: 0 };
+    // wellbore temperature (spec 10), then hydraulics with its mud temperatures (10.7)
+    if (this.formation && P.thermal.enabled)
+      this.thermal = new WellboreThermal(this.wellbore, this.drillstring, this.fluid, this.formation, P.thermal, bitDepth, hole);
     if (P.hydraulics.enabled) {
       this.hydraulics = new WellboreHydraulics(this.wellbore, g, this.fluid, P.hydraulics, P.bit.nozzle_area,
                                                P.bit.discharge_coefficient, bitDepth, hole);
+      this.syncHydraulicsTemperature();
       this.hydraulics.setStatic();
     }
     this.updateRock(0, 0);
@@ -192,12 +197,14 @@ export class Simulation {
     const a = this.wellbore.hole_diameter / 2;
     this.p.krop = 1 / (2 * Math.PI * a * S); this.p.kcut = S * a;
   }
-  // spec 9 (no mud temperature in the lite version: T2 off)
+  // spec 9 (T2 uses the mud temperature at the bit from the thermal model)
   updateRock(rop, omega) {
     if (!this.formation) return;
     const b = this.params.bit, hole = this.sc.holed, tvd = this.wellbore.survey.tvdAt(hole);
-    const pbh = this.hydraulics ? this.hydraulics.state().p_bh : this.fluid.density * G * tvd;
-    this.rock = rockStrength(this.formation, hole, tvd, pbh, null, rop, omega, b.blades);
+    let tMud = null, pbh = this.fluid.density * G * tvd;
+    if (this.thermal) { const ts = this.thermal.state(); pbh = ts.p_bh; tMud = ts.t_bit; }
+    if (this.hydraulics) pbh = this.hydraulics.state().p_bh;
+    this.rock = rockStrength(this.formation, hole, tvd, pbh, tMud, rop, omega, b.blades);
     this.rock.p_bh = pbh;
     this.rock.S = b.zeta * this.rock.ccs_eff / b.cutting_efficiency;
     if (b.strength_source === 'formation') this.setDrillingStrength(this.rock.S);
@@ -230,6 +237,13 @@ export class Simulation {
     this.updateRock(0, 0);
   }
 
+  syncHydraulicsTemperature() {
+    if (!this.hydraulics || !this.thermal) return;
+    const pr = this.thermal.profiles(), idx = pr.md.map((_, i) => i).filter(i => pr.has_pipe[i]);
+    const use = idx.length ? idx : pr.md.map((_, i) => i);
+    this.hydraulics.setTemperatures(use.map(i => pr.md[i]), use.map(i => pr.t_ds[i]), pr.md, pr.t_ann);
+  }
+
   // ------------------------------------------------------------- slow tick (spec 7)
   hydraulicsTick() {
     const t = this.sc.t, dt = t - this.hydLast.t;
@@ -248,8 +262,14 @@ export class Simulation {
     if (dt <= 0) return;
     const rop = Math.max(hole - this.lastSlow.hole, 0) / dt, omega = (wint - this.lastSlow.wint) / dt;
     this.lastSlow = { t, hole, wint };
+    let ts = null;
+    if (this.thermal) {
+      ts = this.thermal.advance(dt, this.flowRateNow(), this.slowValue('inlet_temperature'), this.sc.bitd, hole, rop);
+      this.syncHydraulicsTemperature();
+    }
     this.updateRock(rop, omega);
     const rec = { time: t, rop, omega_bit_avg: omega, flow_rate: this.flowRateNow() };
+    if (ts) for (const k of ['t_bit', 't_ds_bit', 't_out', 't_in', 'ecd']) rec[k] = ts[k];
     if (this.hydraulics) { const hs = this.hydraulics.state(); rec.spp = hs.spp; rec.ecd = hs.ecd; }
     if (this.rock) for (const k of ['t_rock', 'p_bh', 'ucs_t', 'ccs', 'ccs_eff', 'sigma_th', 'skin_ratio', 'w_drained', 'S']) rec[k] = this.rock[k];
     this.slowRecords.push(rec);

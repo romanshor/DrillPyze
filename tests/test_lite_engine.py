@@ -1,6 +1,6 @@
 """
 Conformance of the browser engine (lite/engine, built from docs/spec/physics-spec.md)
-with the Python model: Well A without the wellbore temperature model, one input
+with the Python model: Well A with and without the wellbore temperature model, one input
 script covering rotation off bottom, lowering, autodriller drilling, a pump-rate
 change and pick-up (spec section 13).  Needs Node.js; skipped without it.
 """
@@ -19,9 +19,9 @@ NODE = shutil.which('node')
 pytestmark = pytest.mark.skipif(NODE is None, reason='Node.js not installed')
 
 
-def _case():
+def _case(thermal):
     cfg = config.well_a()
-    cfg['parameters']['thermal']['enabled'] = False
+    cfg['parameters']['thermal']['enabled'] = thermal
     cfg['simulation']['hole_depth'] = 2500.5         # bit reaches bottom within the script
     return cfg
 
@@ -32,9 +32,9 @@ def _script():
     return [dict(duration=1.0, inputs=events.get(t, {})) for t in range(72)]
 
 
-@pytest.fixture(scope='module')
-def runs(tmp_path_factory):
-    cfg, script = _case(), _script()
+@pytest.fixture(scope='module', params=[True, False], ids=['thermal', 'no-thermal'])
+def runs(request, tmp_path_factory):
+    cfg, script = _case(request.param), _script()
     sim = config.build(cfg)
     py = [sim.step(s['duration'], **s['inputs']) for s in script]
     path = tmp_path_factory.mktemp('lite') / 'scenario.json'
@@ -77,3 +77,17 @@ def test_recorded_rows_match(runs):
     b = np.array(js['rec'])
     assert a.shape == b.shape
     assert np.allclose(a, b, rtol=1e-6, atol=1e-6 * np.abs(a).max(axis=0))
+
+
+def test_slow_channels_match(runs):
+    """Temperatures, rock strength and hydraulics from the slow models."""
+    sim, _, js = runs
+    py = sim.slow_results()
+    jsr = js['slow']
+    assert len(py) == len(jsr)
+    for k in ('t_bit', 't_out', 'ecd', 'ccs_eff', 'S', 'p_bh'):
+        if k not in py:
+            continue
+        a = py[k].to_numpy(dtype=float)
+        b = np.array([r.get(k, np.nan) for r in jsr], dtype=float)
+        assert np.allclose(a, b, rtol=1e-6, atol=1e-9), k

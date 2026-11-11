@@ -5,15 +5,15 @@ It is the regular DrillPyze front end; the simulation runs in a Web Worker using
 a JavaScript engine (`engine/`) written from the physics specification
 (`docs/spec/physics-spec.md`).
 
-**Physics:** the full Python model except the wellbore temperature model. That
-includes:
+**Physics:** the full Python model:
 - the coupled axial–torsional string with soft-string friction and damping;
 - the bit models, top-drive controllers and autodriller;
 - steady and transient hydraulics;
+- the wellbore temperature model;
 - rock strength from the formation.
 
-The mud stays at its reference temperature. `tests/test_lite_engine.py` checks
-that the engine reproduces the Python model to round-off on Well A.
+`tests/test_lite_engine.py` checks that the engine reproduces the Python model
+to round-off on Well A, with and without the temperature model.
 
 **Speed:** about 20–30× real time for Well A on a laptop browser.
 

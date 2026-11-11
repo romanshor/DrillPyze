@@ -25,8 +25,7 @@ def index_html():
     reps = [
         ('<title>DrillPyze simulator</title>', '<title>DrillPyze Lite</title>'),
         ('<script src="/static/plotly.min.js"></script>', f'<script src="{PLOTLY_CDN}"></script>'),
-        ('<h1>DrillPyze</h1>', '<h1>DrillPyze <span class="lite-badge" title="Runs in your browser; no wellbore '
-                               'temperature model">Lite</span></h1>'),
+        ('<h1>DrillPyze</h1>', '<h1>DrillPyze <span class="lite-badge" title="Runs entirely in your browser">Lite</span></h1>'),
         ('<script src="/static/deck.js"></script>', '<script src="lite-api.js"></script>\n<script src="deck.js"></script>'),
         ('<script src="/static/app.js"></script>', '<script src="app.js"></script>'),
         ('<link rel="stylesheet" href="/static/app.css">',

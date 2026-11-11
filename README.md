@@ -269,10 +269,11 @@ revision.
 `lite/` runs the same simulator entirely in a web browser, with no install.
 - **Engine:** a JavaScript engine written from the specification runs in a
   Web Worker behind the unchanged front end.
-- **Physics:** everything except the wellbore temperature model.
+- **Physics:** the whole model, including the wellbore temperature model.
 - **Speed:** about 20–30× real time for Well A.
 - **Conformance:** `tests/test_lite_engine.py` (Node.js) checks that it
-  reproduces the Python model to round-off.
+  reproduces the Python model to round-off, with and without the
+  temperature model.
 
 ```bash
 python lite/build_site.py && python -m http.server -d _site 8000   # http://localhost:8000
