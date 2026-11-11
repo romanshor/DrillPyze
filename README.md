@@ -197,8 +197,15 @@ switching never changes it, and the choice is remembered in the browser.
   * rpm, torque and tension against depth, compared with torque-and-drag
     references;
   * drillstring, annulus and formation temperature against depth;
-  * time histories with 60 s, 10 min, 60 min and full-run windows, including
-    mud and rock temperature at the bit and the effective CCS.
+  * time histories as a drilling-log (EDR-style) display: tracks for rotary
+    speed, torque, axial loads, hydraulics (SPP, ECD) and bit and rock
+    (temperatures, effective CCS) side by side, sharing a time axis that
+    increases downward with the newest data at the bottom; 60 s, 10 min,
+    60 min and full-run windows;
+  * per-curve scales: each curve header shows its name, current value and
+    scale ends. Click a header to fix that curve's limits or return it to
+    automatic. Fixed limits are marked with a lock and remembered in the
+    browser, separately for SI and field units.
 * **Scrub back** through earlier frames with the replay slider.
 * **Download** the recorded channels as CSV.
 

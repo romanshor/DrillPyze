@@ -153,13 +153,22 @@
           <button role="radio" data-w="3600" aria-checked="false">60 min</button>
           <button role="radio" data-w="0" aria-checked="false">All</button>
         </div>
+        <button class="btn quiet" id="scales-reset" hidden>Reset scales</button>
         <a class="btn quiet" id="download" href="#" download>Download results (CSV)</a>
       </div>
-      <div class="plot trace" id="t-rpm"></div>
-      <div class="plot trace" id="t-torque"></div>
-      <div class="plot trace" id="t-axial"></div>
-      <div class="plot trace" id="t-rock"></div>
-      <div class="plot trace" id="t-hyd"></div>
+      <div class="log-wrap">
+        <div class="plot trace log" id="t-log"></div>
+        <div class="scale-hits" id="scale-hits"></div>
+        <div class="scale-pop" id="scale-pop" role="dialog" aria-labelledby="sp-title" hidden>
+          <div class="sp-head"><strong id="sp-title"></strong><span id="sp-state"></span>
+            <button type="button" class="sp-x" id="sp-close" aria-label="Close">×</button></div>
+          <label class="sp-row"><span>Min</span><input type="number" step="any" id="sp-lo"><span class="u" id="sp-unit-lo"></span></label>
+          <label class="sp-row"><span>Max</span><input type="number" step="any" id="sp-hi"><span class="u" id="sp-unit-hi"></span></label>
+          <div class="sp-msg" id="sp-msg" role="alert"></div>
+          <div class="sp-actions"><button type="button" class="btn quiet" id="sp-auto">Automatic</button>
+            <button type="button" class="btn primary" id="sp-apply">Apply</button></div>
+        </div>
+      </div>
     </section>
   </main>
 </div>

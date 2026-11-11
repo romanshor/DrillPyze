@@ -138,6 +138,24 @@ table.grid .del { border: 0; background: none; color: var(--steel); cursor: poin
 .trace-head { display: flex; align-items: center; gap: 16px; padding: 0 8px 4px; font: 600 16px/1.2 var(--font-cond); }
 .trace-head .btn { margin-left: auto; font: 500 14px var(--font); }
 .plot.trace { border: 0; min-height: 0; height: 190px; }
+.plot.trace.log { height: 780px; }
+.trace-head #scales-reset { margin-left: auto; }
+.trace-head #scales-reset:not([hidden]) + .btn { margin-left: 0; }
+.log-wrap { position: relative; }
+.scale-hits { position: absolute; inset: 0; pointer-events: none; }
+.scale-hit { position: absolute; pointer-events: auto; background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer; padding: 0; }
+.scale-hit:hover, .scale-hit:focus-visible { background: rgba(31, 111, 178, .06); border-color: rgba(31, 111, 178, .3); }
+.scale-pop { position: absolute; z-index: 5; width: 250px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(28, 39, 51, .16); padding: 10px 12px; font-size: 14px; }
+.sp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.sp-head #sp-state { color: var(--steel); font-size: 12.5px; }
+.sp-x { margin-left: auto; border: 0; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: var(--steel); }
+.sp-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; margin: 4px 0; }
+.sp-row input { width: 100%; padding: 4px 6px; }
+.sp-row .u { color: var(--steel); font-size: 13px; min-width: 40px; }
+.sp-msg { color: #b3261e; font-size: 12.5px; min-height: 16px; }
+.sp-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.swatch { display: inline-block; width: 18px; height: 0; border-top-width: 3px; margin-right: 8px; vertical-align: middle; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .seg button { border: 0; background: #fff; padding: 4px 12px; cursor: pointer; font: 500 14px var(--font); border-right: 1px solid var(--line); }
 .seg button:last-child { border-right: 0; }

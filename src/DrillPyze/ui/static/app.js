@@ -59,7 +59,9 @@ const state = {
   cfg: null, defaults: null, session: null, info: null, reference: null, path: null,
   frames: [], traces: null, slow: null, playing: false, busy: false, scrub: null, windowS: 60,
   dirty: false, rpmMax: 200, tqMax: 1, tqMin: 0,
+  scales: null, autoScale: {},
 };
+state.scales = loadScales();
 
 // ----------------------------------------------------------------- form spec
 // [path in config, label, quantity kind, options]
@@ -479,48 +481,171 @@ function timeRange(tNow) {
   return tNow <= W ? [0, W] : [tNow - W, tNow];
 }
 
+// Time history as a drilling-log (EDR) display: tracks side by side, a shared
+// vertical time axis increasing downward (newest data at the bottom), and a
+// header per curve with its name, current value and scale ends.
+const LOG_GAP = 0.014;          // gap between tracks (fraction of plot width)
+const LOG_ROW = 30;             // header height per curve (px)
+const LOG_HEIGHT = 780;         // figure height (px)
+function logTracks() {
+  const T = state.traces, L = state.slow, H = state.hyd;
+  const dsp = (k, a) => a.map(v => toDisp(k, v));
+  const f = (y, name, color, unit, extra = {}) => Object.assign({ t: T.time, y, name, color, unit }, extra);
+  const s = (y, name, color, unit, extra = {}) => Object.assign({ t: L.time, y, name, color, unit }, extra);
+  const h = (y, name, color, unit, extra = {}) => Object.assign({ t: H.time, y, name, color, unit }, extra);
+  const uT = unitOf('torque'), uF = unitOf('force'), uP = unitOf('pressure'), uE = unitOf('ecd'), uTe = unitOf('temp'), uS = unitOf('stress');
+  return [
+    { title: 'Rotary speed', curves: [
+      f(T.rpm_sp, 'RPM set point', COLORS.ref, 'rpm', { id: 'rpm_sp', dash: 'dash' }),
+      f(T.rpm_td, 'Top drive', COLORS.ink, 'rpm', { id: 'rpm_td' }),
+      f(T.rpm_bit, 'Bit', COLORS.rot, 'rpm', { id: 'rpm_bit' })] },
+    { title: 'Torque', curves: [
+      f(srv('torque', T.motor_torque_knm), 'Motor', COLORS.ink, uT, { id: 'tq_motor' }),
+      f(srv('torque', T.pipe_torque_knm), 'Surface pipe', COLORS.trq, uT, { id: 'tq_pipe' }),
+      f(srv('torque', T.tob_knm), 'On bit', COLORS.bit, uT, { id: 'tq_bit' })] },
+    { title: 'Axial', curves: [
+      f(srv('force', T.hookload_kn), 'Hookload', COLORS.ax, uF, { id: 'hookload' }),
+      f(srv('force', T.wob_kn), 'WOB', COLORS.ink, uF, { id: 'wob', zero: true })] },
+    { title: 'Hydraulics', curves: [
+      h(dsp('pressure', H.spp), 'SPP', COLORS.ink, uP, { id: 'spp' }),
+      h(dsp('ecd', H.ecd), 'ECD', COLORS.ax, uE, { id: 'ecd' })] },
+    { title: 'Bit and rock', curves: [
+      s(srv('temp', L.t_rock), 'Rock at bit', COLORS.ref, uTe, { id: 't_rock', dash: 'dash' }),
+      s(srv('temp', L.t_bit), 'Mud at bit', '#a3402a', uTe, { id: 't_bit' }),
+      s(srv('stress', L.ccs_eff), 'Effective CCS', COLORS.ink, uS, { id: 'ccs' })] },
+  ];
+}
+
+function niceRange(lo, hi, zero) {
+  if (!isFinite(lo) || !isFinite(hi)) return [0, 1];
+  if (zero) lo = Math.min(lo, 0);
+  if (hi - lo < 1e-9) { const d = Math.max(Math.abs(hi) * 0.05, 1); lo -= d; hi += d; }
+  const step = Math.pow(10, Math.floor(Math.log10((hi - lo) / 4)));
+  const m = [1, 2, 2.5, 5, 10].find(k => (hi - lo) / (k * step) <= 5) * step;
+  return [Math.floor(lo / m) * m, Math.ceil(hi / m) * m];
+}
+function fmtScale(v) { const a = Math.abs(v); return a >= 1000 ? v.toFixed(0) : a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1).replace(/\.0$/, '') : v.toPrecision(2).replace(/\.?0+$/, ''); }
+
 function drawTraces(cursor) {
   const T = state.traces; const tNow = T.time.length ? T.time[T.time.length - 1] : 0;
-  const range = timeRange(tNow);
-  const shapes = cursor == null ? [] : [{ type: 'line', x0: cursor, x1: cursor, yref: 'paper', y0: 0, y1: 1, line: { color: COLORS.ink, width: 1, dash: 'dot' } }];
-  const lay = (title, yt, extra = {}) => baseLayout(Object.assign({
-    title: { text: title, x: 0.01, font: { size: 14 } }, showlegend: true,
-    legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.18, font: { size: 11 } },
-    margin: { l: 56, r: 56, t: 30, b: 30 }, xaxis: axis('', { range }), yaxis: axis(yt), shapes,
-    datarevision: `${T.time.length}-${SYSTEM}` }, extra));
-  const sg = (y, name, color, extra = {}) => Object.assign({ x: T.time, y, name, type: 'scattergl', mode: 'lines', line: { color, width: 1.4 } }, extra);
-  Plotly.react('t-rpm', [
-    sg(T.rpm_sp, 'Set point', COLORS.ref, { line: { color: COLORS.ref, width: 1.2, dash: 'dash' } }),
-    sg(T.rpm_td, 'Top drive', COLORS.ink),
-    sg(T.rpm_bit, 'Bit', COLORS.rot),
-  ], lay('Rotary speed', 'rpm'), PCONF);
-  const uT = unitOf('torque'), uF = unitOf('force');
-  Plotly.react('t-torque', [
-    sg(srv('torque', T.motor_torque_knm), 'Motor', COLORS.ink),
-    sg(srv('torque', T.pipe_torque_knm), 'Pipe at surface', COLORS.trq),
-    sg(srv('torque', T.tob_knm), 'On bit', COLORS.bit),
-  ], lay('Torque', uT), PCONF);
-  Plotly.react('t-axial', [
-    sg(srv('force', T.hookload_kn), 'Hookload', COLORS.ax),
-    sg(srv('force', T.wob_kn), 'WOB', COLORS.ink, { yaxis: 'y2' }),
-  ], lay('Axial', `Hookload (${uF})`, { xaxis: axis('', { range }),
-    yaxis2: axis(`WOB (${uF})`, { overlaying: 'y', side: 'right', showgrid: false, rangemode: 'tozero' }) }), PCONF);
-  const L = state.slow, uTe = unitOf('temp'), uS = unitOf('stress');
-  const sl = (y, name, color, extra = {}) => Object.assign({ x: L.time, y, name, type: 'scatter', mode: 'lines', line: { color, width: 1.6 } }, extra);
-  Plotly.react('t-rock', [
-    sl(srv('temp', L.t_rock), 'Rock at bit', COLORS.ref, { line: { color: COLORS.ref, dash: 'dash', width: 1.4 } }),
-    sl(srv('temp', L.t_bit), 'Mud at bit', '#a3402a'),
-    sl(srv('temp', L.t_out), 'Mud out', COLORS.steel),
-    sl(srv('stress', L.ccs_eff), 'Effective CCS', COLORS.ink, { yaxis: 'y2' }),
-  ], lay('Bit and rock', `Temperature (${uTe})`, { xaxis: axis('Time (s)', { range }),
-    yaxis2: axis(`CCS (${uS})`, { overlaying: 'y', side: 'right', showgrid: false }) }), PCONF);
-  const H = state.hyd, uP = unitOf('pressure'), uE = unitOf('ecd'), dsp = (k, a) => a.map(v => toDisp(k, v));
-  const sh = (y, name, color, extra = {}) => Object.assign({ x: H.time, y, name, type: 'scatter', mode: 'lines', line: { color, width: 1.6 } }, extra);
-  Plotly.react('t-hyd', [
-    sh(dsp('pressure', H.spp), 'Standpipe pressure', COLORS.ink),
-    sh(dsp('ecd', H.ecd), 'ECD', COLORS.ax, { yaxis: 'y2' }),
-  ], lay('Hydraulics', `SPP (${uP})`, { xaxis: axis('Time (s)', { range }),
-    yaxis2: axis(`ECD (${uE})`, { overlaying: 'y', side: 'right', showgrid: false }) }), PCONF);
+  const [t0, t1] = timeRange(tNow);
+  const tracks = logTracks();
+  const n = tracks.length, wTrack = (1 - (n - 1) * LOG_GAP) / n;
+  const rows = Math.max(...tracks.map(k => k.curves.length));
+  const el = $('t-log');
+  const height = LOG_HEIGHT, top = 30 + rows * LOG_ROW, bottom = 14;
+  const px = (p) => p / (height - top - bottom);          // pixels -> paper units above the plot
+  const data = [], shapes = [], annotations = [], hits = [];
+  const layout = baseLayout({ height, margin: { l: 64, r: 12, t: top, b: bottom }, showlegend: false, hovermode: 'y unified',
+    datarevision: `${T.time.length}-${SYSTEM}`,
+    yaxis: axis('', { range: [t1, t0], autorange: false, title: { text: 'Time (s)', standoff: 4 },
+                      gridcolor: '#dfe5eb', zeroline: false }) });
+  let ax = 0;
+  tracks.forEach((tr, i) => {
+    const d0 = i * (wTrack + LOG_GAP), d1 = d0 + wTrack;
+    // track frame and title
+    shapes.push({ type: 'rect', xref: 'paper', yref: 'paper', x0: d0, x1: d1, y0: 0, y1: 1, line: { color: '#b9c3ce', width: 1 }, layer: 'below' });
+    annotations.push({ xref: 'paper', yref: 'paper', x: (d0 + d1) / 2, y: 1 + px(top - 4), xanchor: 'center', yanchor: 'top', showarrow: false,
+                       text: `<b>${tr.title}</b>`, font: { size: 13, color: COLORS.ink } });
+    // curves fill the header rows from the plot upward, so the last curve sits next to the plot
+    const off = rows - tr.curves.length;
+    let base = null;
+    tr.curves.forEach((c, j) => {
+      ax += 1; const xa = ax === 1 ? 'x' : 'x' + ax, key = ax === 1 ? 'xaxis' : 'xaxis' + ax;
+      // scale from the data inside the time window
+      let lo = Infinity, hi = -Infinity, last = null;
+      for (let k = 0; k < c.t.length; k++) { const tk = c.t[k], v = c.y[k]; if (v == null || !isFinite(v)) continue;
+        if (tk >= t0 && tk <= t1) { if (v < lo) lo = v; if (v > hi) hi = v; } last = v; }
+      const auto = niceRange(lo, hi, c.zero);
+      const man = manualScale(c.id);
+      const [r0, r1] = man || auto;
+      state.autoScale[c.id] = auto;
+      layout[key] = { domain: [d0, d1], range: [r0, r1], anchor: 'y', showticklabels: false, ticks: '', zeroline: false,
+                      showgrid: j === 0, gridcolor: '#eef1f4', nticks: 5, fixedrange: true };
+      if (base) layout[key].overlaying = base; else base = xa;
+      data.push({ x: c.y, y: c.t, xaxis: xa, yaxis: 'y', type: c.t === T.time ? 'scattergl' : 'scatter', mode: 'lines', name: c.name,
+                  line: { color: c.color, width: 1.5, dash: c.dash || 'solid' },
+                  hovertemplate: `${c.name}: %{x:.4g} ${c.unit}<extra></extra>` });
+      // curve header row (Pason style): scale minimum | name and current value | scale maximum, coloured bar below
+      const rowTop = top - 26 - (off + j) * LOG_ROW;              // px above the plot area
+      hits.push({ id: c.id, name: c.name, unit: c.unit, color: c.color, man: !!man, d0, d1, y: top - rowTop - 2, h: 26 });
+      const yt = 1 + px(rowTop - 9), yb = 1 + px(rowTop - 21);
+      const pad = 0.005;
+      annotations.push({ xref: 'paper', yref: 'paper', x: (d0 + d1) / 2, y: yt, xanchor: 'center', yanchor: 'middle', showarrow: false,
+                         text: `${man ? '\u{1F512} ' : ''}<b>${c.name}</b> ${last == null ? '–' : fmtScale(last)} ${c.unit}`,
+                         font: { size: 11.5, color: c.color } });
+      annotations.push({ xref: 'paper', yref: 'paper', x: d0 + pad, y: yt, xanchor: 'left', yanchor: 'middle', showarrow: false,
+                         text: man ? `<b>${fmtScale(r0)}</b>` : fmtScale(r0), font: { size: 10.5, color: c.color } });
+      annotations.push({ xref: 'paper', yref: 'paper', x: d1 - pad, y: yt, xanchor: 'right', yanchor: 'middle', showarrow: false,
+                         text: man ? `<b>${fmtScale(r1)}</b>` : fmtScale(r1), font: { size: 10.5, color: c.color } });
+      shapes.push({ type: 'line', xref: 'paper', yref: 'paper', x0: d0 + pad, x1: d1 - pad, y0: yb, y1: yb,
+                    line: { color: c.color, width: 2.5, dash: c.dash || 'solid' } });
+    });
+  });
+  if (cursor != null) shapes.push({ type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: cursor, y1: cursor,
+                                    line: { color: COLORS.ink, width: 1, dash: 'dot' } });
+  layout.shapes = shapes; layout.annotations = annotations;
+  Plotly.react('t-log', data, layout, PCONF);
+  placeScaleHits(hits, layout.margin);
+}
+
+// ------------------------------------------------- manual curve scales
+// Limits are kept per unit system, in display units, and remembered in this browser.
+function loadScales() {
+  try { const s = JSON.parse(localStorage.getItem('drillpyze-scales') || '{}'); return { si: s.si || {}, field: s.field || {} }; }
+  catch (e) { return { si: {}, field: {} }; }
+}
+function saveScales() { try { localStorage.setItem('drillpyze-scales', JSON.stringify(state.scales)); } catch (e) { /* storage unavailable */ } }
+function manualScale(id) {
+  const m = state.scales[SYSTEM] && state.scales[SYSTEM][id];
+  return m && isFinite(m[0]) && isFinite(m[1]) && m[1] > m[0] ? m : null;
+}
+function setScale(id, lim) {
+  if (lim) state.scales[SYSTEM][id] = lim; else delete state.scales[SYSTEM][id];
+  saveScales(); drawTraces(state.scrub == null ? null : state.frames[state.scrub].time);
+}
+// Invisible buttons over each curve header; clicking one opens a small pop-up
+// with that curve's limits only.
+function placeScaleHits(hits, m) {
+  const el = $('t-log'), layer = $('scale-hits');
+  const W = el.clientWidth - m.l - m.r;
+  const sig = JSON.stringify([W, SYSTEM, hits.map(h => [h.id, h.man, h.y])]);
+  if (layer.dataset.sig !== sig) {
+    layer.dataset.sig = sig; layer.innerHTML = '';
+    for (const h of hits) {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'scale-hit'; btn.dataset.id = h.id;
+      btn.style.left = `${m.l + h.d0 * W}px`; btn.style.width = `${(h.d1 - h.d0) * W}px`;
+      btn.style.top = `${h.y}px`; btn.style.height = `${h.h}px`;
+      btn.title = `${h.name}: ${h.man ? 'fixed scale' : 'automatic scale'} (click to set limits)`;
+      btn.setAttribute('aria-label', `Set scale limits for ${h.name} (${h.unit})`);
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); openScalePop(h, btn); });
+      layer.appendChild(btn);
+    }
+  }
+  $('scales-reset').hidden = !Object.keys(state.scales[SYSTEM] || {}).length;
+}
+
+function openScalePop(h, anchor) {
+  const pop = $('scale-pop'), auto = state.autoScale[h.id] || [0, 1], man = manualScale(h.id);
+  pop.dataset.id = h.id;
+  $('sp-title').innerHTML = `<span class="swatch" style="border-color:${h.color}"></span>${h.name}`;
+  $('sp-unit-lo').textContent = h.unit; $('sp-unit-hi').textContent = h.unit;
+  $('sp-state').textContent = man ? 'Fixed scale' : 'Automatic scale';
+  $('sp-lo').value = (man || auto)[0]; $('sp-hi').value = (man || auto)[1];
+  $('sp-msg').textContent = '';
+  const box = $('t-log'), a = anchor.getBoundingClientRect(), b = box.getBoundingClientRect();
+  pop.hidden = false;
+  const w = pop.offsetWidth;
+  pop.style.left = `${Math.min(Math.max(a.left - b.left + a.width / 2 - w / 2, 4), b.width - w - 4)}px`;
+  pop.style.top = `${a.bottom - b.top + 6}px`;
+  $('sp-lo').focus(); $('sp-lo').select();
+}
+function closeScalePop() { $('scale-pop').hidden = true; }
+function applyScalePop() {
+  const id = $('scale-pop').dataset.id, a = parseFloat($('sp-lo').value), b = parseFloat($('sp-hi').value);
+  if (!(isFinite(a) && isFinite(b) && b > a)) { $('sp-msg').textContent = 'Max must be greater than min.'; return; }
+  setScale(id, [a, b]); closeScalePop();
 }
 
 function showReadouts(L) {
@@ -698,6 +823,7 @@ function setSystem(sys) {
   const circ = circulationSI();
   SYSTEM = sys;
   try { localStorage.setItem('drillpyze-units', sys); } catch (e) { /* storage unavailable */ }
+  closeScalePop();
   for (const b of document.querySelectorAll('#units button')) b.setAttribute('aria-checked', String(b.dataset.sys === sys));
   $('dw-mode').options[0].text = `Block speed (+ lowering)`;
   applyDwUnits(dwSI);
@@ -744,6 +870,17 @@ function wire() {
   $('scrub').addEventListener('input', (e) => scrubTo(Number(e.target.value)));
   $('go-live').addEventListener('click', goLive);
 
+  $('scales-reset').addEventListener('click', () => { state.scales[SYSTEM] = {}; saveScales(); closeScalePop();
+    drawTraces(state.scrub == null ? null : state.frames[state.scrub].time); });
+  $('sp-apply').addEventListener('click', applyScalePop);
+  $('sp-auto').addEventListener('click', () => { setScale($('scale-pop').dataset.id, null); closeScalePop(); });
+  $('sp-close').addEventListener('click', closeScalePop);
+  $('scale-pop').addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); applyScalePop(); }
+    if (ev.key === 'Escape') { ev.preventDefault(); closeScalePop(); }
+  });
+  document.addEventListener('click', (ev) => { const p = $('scale-pop');
+    if (!p.hidden && !p.contains(ev.target) && !ev.target.classList.contains('scale-hit')) closeScalePop(); });
   for (const b of document.querySelectorAll('#window button')) {
     b.addEventListener('click', () => {
       for (const o of document.querySelectorAll('#window button')) o.setAttribute('aria-checked', String(o === b));
