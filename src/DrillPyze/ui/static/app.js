@@ -546,15 +546,15 @@ function logTracks() {
       f(srv('depth', T.bit_depth), 'Bit depth', COLORS.ink, uD, { id: 'bit_depth', group: 'depth' }),
       f(srv('depth', T.hole_depth), 'Hole depth', COLORS.ref, uD, { id: 'hole_depth', group: 'depth', dash: 'dash' })] },
     { title: 'Rotary speed', curves: [
-      f(T.rpm_sp, 'RPM set point', COLORS.ref, 'rpm', { id: 'rpm_sp', dash: 'dash' }),
-      f(T.rpm_td, 'Top drive', COLORS.ink, 'rpm', { id: 'rpm_td' }),
+      f(T.rpm_sp, 'RPM set point', COLORS.ref, 'rpm', { id: 'rpm_sp', group: 'rpm_surface', dash: 'dash' }),
+      f(T.rpm_td, 'Top drive', COLORS.ink, 'rpm', { id: 'rpm_td', group: 'rpm_surface' }),
       f(T.rpm_bit, 'Bit', COLORS.rot, 'rpm', { id: 'rpm_bit' })] },
     { title: 'Downhole', curves: [
       f(T.ssi, `SSI (${SSI_WINDOW} s)`, COLORS.bit, '', { id: 'ssi', zero: true }),
       f(T.bit_acc, 'Bit ang. accel.', COLORS.rot, 'rad/s²', { id: 'bit_acc' })] },
     { title: 'Torque', curves: [
-      f(srv('torque', T.motor_torque_knm), 'Motor', COLORS.ink, uT, { id: 'tq_motor' }),
-      f(srv('torque', T.pipe_torque_knm), 'Surface pipe', COLORS.trq, uT, { id: 'tq_pipe' }),
+      f(srv('torque', T.motor_torque_knm), 'Motor', COLORS.ink, uT, { id: 'tq_motor', group: 'tq_surface' }),
+      f(srv('torque', T.pipe_torque_knm), 'Surface pipe', COLORS.trq, uT, { id: 'tq_pipe', group: 'tq_surface' }),
       f(srv('torque', T.tob_knm), 'On bit', COLORS.bit, uT, { id: 'tq_bit' })] },
     { title: 'Axial', curves: [
       f(srv('force', T.hookload_kn), 'Hookload', COLORS.ax, uF, { id: 'hookload' }),
@@ -562,11 +562,11 @@ function logTracks() {
     { title: 'Hydraulics', curves: [
       h(dsp('pressure', H.spp), 'SPP', COLORS.ink, uP, { id: 'spp' }),
       h(dsp('ecd', H.ecd), 'ECD', COLORS.ax, uE, { id: 'ecd' }),
-      h(dsp('flow', H.q_in), 'Flow in', COLORS.rot, uQ, { id: 'q_in', zero: true }),
-      h(dsp('flow', H.q_out), 'Flow out', COLORS.trq, uQ, { id: 'q_out', dash: 'dash', zero: true })] },
+      h(dsp('flow', H.q_in), 'Flow in', COLORS.rot, uQ, { id: 'q_in', group: 'flow', zero: true }),
+      h(dsp('flow', H.q_out), 'Flow out', COLORS.trq, uQ, { id: 'q_out', group: 'flow', dash: 'dash', zero: true })] },
     { title: 'Bit and rock', curves: [
-      s(srv('temp', L.t_rock), 'Rock at bit', COLORS.ref, uTe, { id: 't_rock', dash: 'dash' }),
-      s(srv('temp', L.t_bit), 'Mud at bit', '#a3402a', uTe, { id: 't_bit' }),
+      s(srv('temp', L.t_rock), 'Rock at bit', COLORS.ref, uTe, { id: 't_rock', group: 'temp_bit', dash: 'dash' }),
+      s(srv('temp', L.t_bit), 'Mud at bit', '#a3402a', uTe, { id: 't_bit', group: 'temp_bit' }),
       s(srv('stress', L.ccs_eff), 'Effective CCS', COLORS.ink, uS, { id: 'ccs' })] },
   ];
 }
@@ -613,11 +613,14 @@ function drawTraces(cursor) {
     yaxis: axis('', Object.assign({ range: [yv(t1), yv(t0)], autorange: false, gridcolor: '#dfe5eb', zeroline: false },
       clock0 == null ? { title: { text: 'Time (s)', standoff: 4 } }
                      : { type: 'date', tickformat: '%H:%M:%S', hoverformat: '%Y-%m-%d %H:%M:%S', title: { text: 'Time', standoff: 12 } })) });
-  // data range in the window per scale group (curves with the same `group` share one scale)
-  const grp = {};
+  // data range in the window per scale group (curves with the same `group` share one scale:
+  // bit and hole depth, rpm set point and top drive, motor and pipe torque, flow in and out,
+  // rock and mud temperature at the bit)
+  const grp = {}, members = {};
   for (const tr of tracks) for (const c of tr.curves) {
     const g = c.group || c.id; const r = grp[g] || (grp[g] = { lo: Infinity, hi: -Infinity, zero: false });
     r.zero = r.zero || !!c.zero;
+    (members[g] = members[g] || []).push(c.name);
     for (let k = 0; k < c.t.length; k++) { const tk = c.t[k], v = c.y[k];
       if (v != null && isFinite(v) && tk >= t0 && tk <= t1) { if (v < r.lo) r.lo = v; if (v > r.hi) r.hi = v; } }
   }
@@ -638,7 +641,8 @@ function drawTraces(cursor) {
       for (let k = c.y.length - 1; k >= 0; k--) { const v = c.y[k]; if (v != null && isFinite(v)) { last = v; break; } }
       const g = grp[c.group || c.id];
       const auto = niceRange(g.lo, g.hi, g.zero);
-      const man = manualScale(c.group || c.id) || manualScale(c.id);
+      // a shared scale is set (and stored) once for the group, never per curve
+      const man = c.group ? manualScale(c.group) : manualScale(c.id);
       const [r0, r1] = man || auto;
       state.autoScale[c.group || c.id] = auto;
       layout[key] = { domain: [d0, d1], range: [r0, r1], anchor: 'y', showticklabels: false, ticks: '', zeroline: false,
@@ -649,7 +653,7 @@ function drawTraces(cursor) {
                   hovertemplate: `${c.name}: %{x:.4g} ${c.unit}<extra></extra>` });
       // curve header (Pason style): name and current value; below it the scale ends beside a coloured bar
       const rowTop = top - 26 - (off + j) * LOG_ROW;              // px above the plot area
-      hits.push({ id: c.group || c.id, name: c.group ? `${c.name} (shared depth scale)` : c.name, unit: c.unit, color: c.color,
+      hits.push({ id: c.group || c.id, name: c.group ? `${members[c.group].join(' and ')} (shared scale)` : c.name, unit: c.unit, color: c.color,
                   man: !!man, d0, d1, y: top - rowTop - 2, h: LOG_ROW - 4 });
       const yt = 1 + px(rowTop - 8), ys = 1 + px(rowTop - 22), yb = 1 + px(rowTop - 30);
       const pad = 0.004;

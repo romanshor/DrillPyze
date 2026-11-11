@@ -233,7 +233,10 @@ switching never changes it, and the choice is remembered in the browser.
   * per-curve scales: each curve header shows its name, current value and
     scale ends. Click a header to fix that curve's limits or return it to
     automatic. Fixed limits are marked with a lock and remembered in the
-    browser, separately for SI and field units.
+    browser, separately for SI and field units. Curves of the same quantity
+    share one scale, and setting it on either sets both: bit and hole depth,
+    RPM set point and top drive, motor and surface-pipe torque, flow in and
+    out, and rock and mud temperature at the bit.
 * **Scrub back** through earlier frames with the replay slider.
 * **Download** the recorded channels as CSV.
 
