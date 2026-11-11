@@ -145,3 +145,5 @@ docs/_build/
 !docs/**/*.png
 .pytest_cache/
 *.egg-info/
+# DrillPyze Lite build output
+_site/

@@ -1,0 +1,18 @@
+{
+  "spec_revision": 1,
+  "files": {
+    "kernel.py": "f30496c6ba28ddd3b53fbec8751dc69874738a794cf591b29c7e5ba3dba82e87",
+    "simulation.py": "2f8a23038db302db1272663194d236e59d2c2f7b4785749b94aa4a63f9f95aa7",
+    "geometry.py": "b2beb241a3af7aecf6bb2d74d8bf17a671537d1b2e10df52e9c6ab8de3e97b0f",
+    "survey.py": "d63c1a07a3cd41eec4fe1f200846448995c614b8804c07021ba7a94730f2b6ec",
+    "drillstring.py": "42f5ce558ee7b330298814560ab75395142905b6fd6bedd1cfd2597ea1a2284d",
+    "controllers.py": "026d0028cfe390f4bd673d79c05eda07f75d2a568216178cb0b7824b3d675b35",
+    "hydraulics.py": "dfccb6bbebff0697975ab22424612dea2eac240c15fbe25477f613ec2d8ceb67",
+    "thermal.py": "103df9e8653a8ba82741deaf3f24f70ccc3bfb0ec36f230cf5e9e6a21faf4572",
+    "formation.py": "c2a388b9f2631aef940cbb20d4912e5ebfd5e177deb4ef8ec19be40b081ae010",
+    "statics.py": "7e670627800bd2617706365dc0d4b40855c727c442ce15a6cce37abd0e327c13",
+    "parameters.py": "b2b804394522b7f17b4dd0d540d0e4924991fde06bc2820f580e0930808b319e",
+    "wellbore.py": "65735516f19c4e9e932a96051c42b545cc788146254cfbed3675939e34e8f74e",
+    "units.py": "355c5afa3799111f49cfbae0b6c3bf5c3e679a2fcda53cdd8ef8c4ef401070bd"
+  }
+}

@@ -13,7 +13,8 @@ import re
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DOCS = [ROOT / 'README.md'] + sorted((ROOT / 'docs' / 'derivation').glob('*.md'))
+DOCS = ([ROOT / 'README.md'] + sorted((ROOT / 'docs' / 'derivation').glob('*.md'))
+        + sorted((ROOT / 'docs' / 'spec').glob('*.md')))
 
 
 @pytest.mark.parametrize('path', DOCS, ids=[str(p.relative_to(ROOT)) for p in DOCS])
