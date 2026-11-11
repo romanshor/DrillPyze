@@ -212,7 +212,9 @@ switching never changes it, and the choice is remembered in the browser.
   * The status strip shows bit and hole depth, hookload, mud temperature at
     the bit, rock strength, the drawworks mode and a stick-slip alarm.
 * **Watch the string**:
-  * the well path, with the casing, drill pipe, BHA and bit positions;
+  * the well path, with the casing, drill pipe, BHA and bit positions. The open
+    hole is drawn to the current hole depth; any survey beyond it is a light
+    dashed line;
   * rpm, torque and tension against depth, compared with torque-and-drag
     references;
   * drillstring, annulus and formation temperature against depth;

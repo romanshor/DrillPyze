@@ -471,15 +471,31 @@ function drawStringViews(fr) {
 
   // ---- well path with the drill pipe, BHA and bit positions
   const path = state.path;
-  const cased = path.md.map((m, i) => (m <= path.shoe_md ? i : -1)).filter(i => i >= 0);
   const pvs = srv('length', path.vs), ptvd = srv('depth', path.tvd);
+  // the survey between MD a and b, with end points interpolated so sections meet exactly
+  const span = (a, b) => {
+    const x = [], y = [], at = (m) => {
+      let k = 1; while (k < path.md.length - 1 && path.md[k] < m) k++;
+      const f = Math.max(0, Math.min(1, (m - path.md[k - 1]) / ((path.md[k] - path.md[k - 1]) || 1)));
+      x.push(pvs[k - 1] + f * (pvs[k] - pvs[k - 1])); y.push(ptvd[k - 1] + f * (ptvd[k] - ptvd[k - 1]));
+    };
+    if (b <= a) return { x, y };
+    at(a); path.md.forEach((m, i) => { if (m > a && m < b) { x.push(pvs[i]); y.push(ptvd[i]); } }); at(b);
+    return { x, y };
+  };
+  const holeMd = fr.latest.hole_depth, surveyMd = path.md[path.md.length - 1];
+  const hole = span(0, holeMd), plan = span(holeMd, surveyMd), cased = span(0, Math.min(path.shoe_md, holeMd));
   const vs = srv('length', p.vs), tvd = srv('depth', p.tvd);
   const pick = (arr, want) => arr.map((v, i) => (path.bha[i] === want ? v : null));
   const nb = p.md.length - 1;
   const bitTip = `Bit at ${toDisp('depth', fr.latest.bit_depth).toFixed(1)} ${uD} MD`;
   Plotly.react('p-path', [
-    { x: pvs, y: ptvd, mode: 'lines', line: { color: '#d9e0e7', width: 16 }, hoverinfo: 'skip', name: 'Open hole' },
-    { x: cased.map(i => pvs[i]), y: cased.map(i => ptvd[i]), mode: 'lines', line: { color: '#a9b5c1', width: 18 },
+    // survey beyond the hole depth (planned, not yet drilled)
+    { x: plan.x, y: plan.y, mode: 'lines', line: { color: '#9aa7b4', width: 1.5, dash: 'dash' }, hoverinfo: 'skip',
+      name: 'Survey beyond hole', showlegend: plan.x.length > 0 },
+    { x: hole.x, y: hole.y, mode: 'lines', line: { color: '#d9e0e7', width: 16 }, hoverinfo: 'skip',
+      name: `Open hole to ${toDisp('depth', holeMd).toFixed(0)} ${uD}` },
+    { x: cased.x, y: cased.y, mode: 'lines', line: { color: '#a9b5c1', width: 18 },
       hoverinfo: 'skip', name: `Casing to ${toDisp('depth', path.shoe_md).toFixed(0)} ${uD}` },
     { x: pick(vs, 0), y: pick(tvd, 0), mode: 'lines', line: { color: COLORS.steel, width: 3 }, name: 'Drill pipe',
       hoverinfo: 'skip' },
