@@ -640,6 +640,19 @@ class Simulation:
                     **({k: v for k, v in self.hydraulics.state().items() if k in ('spp', 'p_bh', 'ecd', 'q_out')}
                        if self.hydraulics is not None else {}))
 
+    def tare_hookload(self):
+        """
+        Zero the weight indicator: take the present hookload as the off-bottom
+        reference, so surface WOB = reference - hookload (used by the autodriller).
+        """
+        self.pf[K.P_HKLD_REF] = self.sc[K.S_HKLD]
+        return float(self.pf[K.P_HKLD_REF])
+
+    @property
+    def hookload_reference(self):
+        """Off-bottom reference hookload (N) for surface WOB."""
+        return float(self.pf[K.P_HKLD_REF])
+
     def hydraulics_results(self):
         """
         Hydraulics channels, one row per ~1 s slow tick: standpipe pressure

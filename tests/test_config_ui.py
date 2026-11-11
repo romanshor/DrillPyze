@@ -90,6 +90,37 @@ def test_ui_server_init_step_and_csv(ui_url):
     assert 'DrillPyze' in html
 
 
+def test_ui_server_drillers_display_fields(ui_url):
+    """Channels for the driller's display, and zeroing the weight indicator with a zero-length step."""
+    cfg = config.default()
+    assert set(cfg['display']) >= {'rpm_limit', 'wob_limit', 'torque_limit', 'rop_limit', 'spp_limit',
+                                   'pore_density', 'frac_density'}
+    sid = _post(ui_url + '/api/init', {'config': cfg})['session']
+    inp = {'td_mode': 'setpoint', 'rpm': 60, 'dw_mode': 'velocity', 'v_block_mh': 0}
+    L = _post(ui_url + '/api/step', {'session': sid, 'duration': 3.0, 'inputs': inp})['latest']
+    for k in ('wob_surf_kn', 'hk_ref_kn', 'block_mh', 'p_bh_hyd', 'tvd_bottom', 'mud_density'):
+        assert L[k] is not None, k
+    assert L['wob_surf_kn'] == pytest.approx(L['hk_ref_kn'] - L['hookload_kn'])
+    # static pressure at bottom lies below the circulating bottomhole pressure
+    assert L['mud_density'] * 9.80665 * L['tvd_bottom'] < L['p_bh_hyd']
+    fr = _post(ui_url + '/api/step', {'session': sid, 'duration': 0.0, 'inputs': dict(inp, tare=True)})
+    assert fr['time'] == pytest.approx(3.0, abs=0.01)
+    assert fr['latest']['hk_ref_kn'] == pytest.approx(fr['latest']['hookload_kn'])
+    assert fr['latest']['wob_surf_kn'] == pytest.approx(0.0, abs=1e-9)
+    html = urllib.request.urlopen(ui_url + '/').read().decode()
+    assert 'id="deck"' in html and '/static/deck.js' in html
+    js = urllib.request.urlopen(ui_url + '/static/deck.js').read().decode()
+    assert 'function deckInputs' in js
+
+
+def test_tare_hookload_sets_autodriller_reference():
+    sim = config.build(config.default())
+    sim.step(2.0, omega_sp=60 * units.RPM)
+    hk = sim.latest()['hookload']
+    assert sim.tare_hookload() == pytest.approx(hk)
+    assert sim.hookload_reference == pytest.approx(hk)
+
+
 def test_ui_server_reports_invalid_case(ui_url):
     cfg = config.default()
     cfg['simulation']['bit_depth'] = 50.0

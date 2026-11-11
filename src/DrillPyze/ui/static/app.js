@@ -2,8 +2,9 @@
  *
  * The browser edits a case (SI config, shown in convenient display units),
  * asks the Python server to initialise a simulation, and then plays it by
- * requesting one frame at a time.  Inputs in the transport bar are sent with
- * every step, so they can be changed while the simulation runs or is paused.
+ * requesting one frame at a time.  Set points on the driller's display
+ * (deck.js) are sent with every step, so they can be changed while the
+ * simulation runs or is paused.
  */
 'use strict';
 
@@ -193,6 +194,16 @@ const SECTIONS = [
       ['parameters.top_drive.max_torque', 'Torque limit', 'torque', { hint: '0 for no limit' }],
       ['parameters.drawworks.block_acceleration', 'Block acceleration limit', 'accel', { hint: '0 for instant changes in block speed' }],
     ] },
+  { title: "Driller's display", note: () => 'Limits shown as red markers and zones on the dials. They change the display only (no restart).',
+    fields: [
+      ['display.rpm_limit', 'Rotary speed limit', 'rpm', { live: true }],
+      ['display.wob_limit', 'WOB limit', 'force', { live: true }],
+      ['display.torque_limit', 'Surface torque limit', 'torque', { live: true }],
+      ['display.rop_limit', 'ROP limit', 'rop', { live: true }],
+      ['display.spp_limit', 'Standpipe pressure limit', 'pressure', { live: true }],
+      ['display.pore_density', 'Pore pressure (equivalent density)', 'density', { live: true }],
+      ['display.frac_density', 'Fracture pressure (equivalent density)', 'density', { live: true }],
+    ] },
   { title: 'Numerics',
     fields: [
       ['simulation.dx', 'Cell size', 'length', { hint: 'Halving the cell size makes runs about 4× slower' }],
@@ -277,9 +288,11 @@ function fieldRow(spec) {
   const v = get(state.cfg, path);
   el.value = v == null ? '' : sig(toDisp(kind, v));
   if (opt.blank) el.placeholder = opt.blank;
+  if (opt.live && v == null && path.startsWith('display.')) el.placeholder = sig(toDisp(kind, DISPLAY_DEFAULTS[path.slice(8)]));
   if (opt.hint) el.title = opt.hint;
   el.addEventListener('change', () => {
-    set(state.cfg, path, el.value === '' ? null : fromDisp(kind, Number(el.value))); markDirty();
+    set(state.cfg, path, el.value === '' ? null : fromDisp(kind, Number(el.value)));
+    if (opt.live) deckRedraw(); else markDirty();
   });
   return row;
 }
@@ -391,6 +404,9 @@ function buildForm() {
 const PCONF = { displayModeBar: false, responsive: true };
 const TITLE = (text) => ({ text, x: 0.02, xanchor: 'left', y: 0.985, yanchor: 'top', yref: 'container', font: { size: 15 } });
 const LEGEND_TOP = { orientation: 'h', x: 0, xanchor: 'left', y: 1.0, yanchor: 'bottom', font: { size: 11 }, traceorder: 'reversed' };
+// plot-area top of the along-string views: room for the title plus a legend that wraps to
+// three rows in a narrow panel, and the same for every view so their depth axes line up
+const STRING_TOP = 100;
 const FONT = { family: 'Barlow, Segoe UI, Arial, sans-serif', size: 12, color: COLORS.ink };
 function baseLayout(extra) {
   return Object.assign({
@@ -416,7 +432,7 @@ function drawStringViews(fr) {
   state.rpmMax = Math.max(state.rpmMax, ...p.rpm.map(Math.abs));
   Plotly.react('p-rpm', [
     { x: p.rpm, y: md, mode: 'lines', line: { color: COLORS.rot, width: 2 }, hovertemplate: `%{x:.0f} rpm at %{y:.0f} ${uD}<extra></extra>` },
-  ], baseLayout({ title: TITLE('Rotary speed'), margin: { l: 56, r: 14, t: 74, b: 40 },
+  ], baseLayout({ title: TITLE('Rotary speed'), margin: { l: 56, r: 14, t: STRING_TOP, b: 40 },
     xaxis: axis('rpm', { range: [-0.08 * state.rpmMax, state.rpmMax * 1.05] }), yaxis: depthAxis(true) }), PCONF);
 
   // ---- torque along the string with T&D references (range tracked in SI)
@@ -427,7 +443,7 @@ function drawStringViews(fr) {
     { x: srv('torque', ref.torque_rotating_knm), y: refMd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Kinetic μ', hoverinfo: 'skip' },
     { x: srv('torque', p.torque_knm), y: md, mode: 'lines', line: { color: COLORS.trq, width: 2 }, name: 'Simulated', hovertemplate: `%{x:.2f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
   ], baseLayout({ title: TITLE('Torque'), showlegend: true,
-    legend: LEGEND_TOP, margin: { l: 14, r: 14, t: 74, b: 40 },
+    legend: LEGEND_TOP, margin: { l: 14, r: 14, t: STRING_TOP, b: 40 },
     xaxis: axis(uT, { range: srv('torque', [Math.min(0, state.tqMin) * 1.1, state.tqMax * 1.08]) }), yaxis: depthAxis(false) }), PCONF);
 
   // ---- axial force
@@ -435,7 +451,7 @@ function drawStringViews(fr) {
     { x: srv('force', ref.tension_hanging_kn), y: refMd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Hanging', hoverinfo: 'skip' },
     { x: srv('force', p.tension_kn), y: md, mode: 'lines', line: { color: COLORS.ax, width: 2 }, name: 'Simulated', hovertemplate: `%{x:.0f} ${uF} at %{y:.0f} ${uD}<extra></extra>` },
   ], baseLayout({ title: TITLE('Effective tension'), showlegend: true,
-    legend: LEGEND_TOP, margin: { l: 14, r: 14, t: 74, b: 40 },
+    legend: LEGEND_TOP, margin: { l: 14, r: 14, t: STRING_TOP, b: 40 },
     xaxis: axis(uF), yaxis: depthAxis(false) }), PCONF);
 
   // ---- wellbore temperature (Wang et al. 2023 drift-flux model)
@@ -446,10 +462,10 @@ function drawStringViews(fr) {
       { x: srv('temp', th.t_far), y: tmd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Formation', hoverinfo: 'skip' },
       { x: srv('temp', th.t_ds), y: tmd, mode: 'lines', line: { color: COLORS.rot, width: 2 }, name: 'Drillstring', hovertemplate: `%{x:.0f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
       { x: srv('temp', th.t_ann), y: tmd, mode: 'lines', line: { color: '#a3402a', width: 2 }, name: 'Annulus', hovertemplate: `%{x:.0f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
-    ], baseLayout({ title: TITLE('Temperature'), showlegend: true, legend: LEGEND_TOP, margin: { l: 14, r: 14, t: 74, b: 40 },
+    ], baseLayout({ title: TITLE('Temperature'), showlegend: true, legend: LEGEND_TOP, margin: { l: 14, r: 14, t: STRING_TOP, b: 40 },
       xaxis: axis(uT), yaxis: depthAxis(false) }), PCONF);
   } else {
-    Plotly.react('p-temp', [], baseLayout({ title: TITLE('Temperature'), xaxis: axis(''), yaxis: depthAxis(false),
+    Plotly.react('p-temp', [], baseLayout({ title: TITLE('Temperature'), margin: { l: 14, r: 14, t: STRING_TOP, b: 40 }, xaxis: axis(''), yaxis: depthAxis(false),
       annotations: [{ text: 'Wellbore temperature model is off', showarrow: false, xref: 'paper', yref: 'paper', x: 0.5, y: 0.5 }] }), PCONF);
   }
 
@@ -651,6 +667,7 @@ function drawTraces(cursor) {
   if (cursor != null) shapes.push({ type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: yv(cursor), y1: yv(cursor),
                                     line: { color: COLORS.ink, width: 1, dash: 'dot' } });
   layout.shapes = shapes; layout.annotations = annotations;
+  $('t-log').style.height = `${height}px`;          // the panel always holds the whole figure
   Plotly.react('t-log', data, layout, PCONF);
   placeScaleHits(hits, layout.margin);
 }
@@ -714,42 +731,25 @@ function applyScalePop() {
   setScale(id, [a, b]); closeScalePop();
 }
 
-function showReadouts(L) {
-  $('ro-rpm-td').textContent = fixed(L.rpm_td, 0);
-  $('ro-rpm-bit').textContent = fixed(L.rpm_bit, 0);
-  $('ro-tq').textContent = fixed(srv('torque', L.pipe_torque_knm), 2);
-  $('ro-tob').textContent = fixed(srv('torque', L.tob_knm), 2);
-  $('ro-hk').textContent = fixed(srv('force', L.hookload_kn), 0);
-  $('ro-wob').textContent = fixed(srv('force', L.wob_kn), 1);
-  $('ro-rop').textContent = fixed(srv('rop', L.rop_mh), 1);
-  $('ro-depth').textContent = fixed(toDisp('depth', L.bit_depth), 2);
-  $('ro-tbit').textContent = fixed(srv('temp', L.t_bit), 0);
-  $('ro-ccs').textContent = fixed(srv('stress', L.ccs_eff), 0);
-  $('ro-spp').textContent = fixed(toDisp('pressure', L.spp), SYSTEM === 'field' ? 0 : 2);
-  $('ro-ecd').textContent = fixed(toDisp('ecd', L.ecd_hyd), SYSTEM === 'field' ? 2 : 0);
+function showStatus(L) {
+  $('st-bit').textContent = fixed(toDisp('depth', L.bit_depth), 2);
+  $('st-hole').textContent = fixed(toDisp('depth', L.hole_depth), 2);
+  $('st-hk').textContent = fixed(srv('force', L.hookload_kn), 0);
+  $('st-tbit').textContent = fixed(srv('temp', L.t_bit), 0);
+  $('st-ccs').textContent = fixed(srv('stress', L.ccs_eff), 0);
   for (const el of document.querySelectorAll('[data-kind]')) el.textContent = unitOf(el.dataset.kind);
 }
 
 function render(fr, live = true) {
   drawStringViews(fr);
-  showReadouts(fr.latest);
+  showStatus(fr.latest);
+  deckUpdate(fr.latest, live ? null : fr.time);
   $('clock').textContent = `${fr.time.toFixed(2)} s`;
   drawTraces(live ? null : fr.time);
 }
 
 // -------------------------------------------------------------- simulation
-function inputs() {
-  // the server takes block speed in m/h and WOB in kN
-  const dw = Number($('dw').value) || 0;
-  const vel = $('dw-mode').value === 'velocity';
-  const flow = $('flow').value === '' ? null : fromDisp('flow', Number($('flow').value));
-  const tin = $('t-in').value === '' ? null : fromDisp('temp', Number($('t-in').value));
-  return { td_mode: $('td-mode').value, rpm: Number($('rpm').value) || 0,
-           flow_m3s: flow, inlet_c: tin,
-           dw_mode: $('dw-mode').value,
-           v_block_mh: vel ? fromDisp('rop', dw) * 3600 : 0,
-           wob_kn: vel ? 0 : fromDisp('force', dw) / 1e3 };
-}
+function inputs() { return deckInputs(); }
 
 async function initialise() {
   pause();
@@ -758,10 +758,11 @@ async function initialise() {
   try {
     const r = await api('/api/init', { config: state.cfg, previous: state.session });
     Object.assign(state, { session: r.session, info: r.info, reference: r.reference, path: r.path,
-                           frames: [], traces: emptyTraces(), slow: emptySlow(), hyd: emptyHyd(), scrub: null, rpmMax: Math.max(60, Number($('rpm').value) * 1.5),
+                           frames: [], traces: emptyTraces(), slow: emptySlow(), hyd: emptyHyd(), scrub: null, rpmMax: Math.max(60, ctl.rpm * 1.5),
                            tqMax: 1, tqMin: 0, dirty: false });
     $('dirty-hint').hidden = true;
-    setCirculation(get(state.cfg, 'parameters.thermal.flow_rate'), get(state.cfg, 'parameters.thermal.inlet_temperature'));
+    ctl.flow = get(state.cfg, 'parameters.thermal.flow_rate'); ctl.tin = get(state.cfg, 'parameters.thermal.inlet_temperature');
+    deck.key = null;
     pushFrame(r.frame);
     render(r.frame);
     const i = r.info;
@@ -778,7 +779,7 @@ function pushFrame(fr) {
   appendTrace(fr.trace);
   appendSlow(fr.slow);
   appendHyd(fr.hyd);
-  state.frames.push({ time: fr.time, latest: fr.latest, profile: fr.profile });
+  state.frames.push({ time: fr.time, latest: fr.latest, profile: fr.profile, thermal: fr.thermal });
   if (state.frames.length > MAX_FRAMES) state.frames.splice(0, state.frames.length - MAX_FRAMES);
   const s = $('scrub'); s.max = state.frames.length - 1; if (state.scrub == null) s.value = s.max;
 }
@@ -854,46 +855,14 @@ function goLive() {
   const fr = state.frames[state.frames.length - 1]; if (fr) render(fr);
 }
 
-// ------------------------------------------------------------- live inputs
-function syncLive(source, target) { $(target).value = $(source).value; }
-function dwLimits() {
-  // slider ranges chosen in SI and expressed in display units
-  return $('dw-mode').value === 'wob'
-    ? { kind: 'force', min: 0, max: toDisp('force', 300e3) }
-    : { kind: 'rop', min: toDisp('rop', -60 / 3600), max: toDisp('rop', 60 / 3600) };
-}
-function applyDwUnits(valueSI) {
-  const L = dwLimits(), s = $('dw-slider');
-  const step = (L.max - L.min) / 240;
-  s.min = L.min; s.max = L.max; s.step = step;
-  $('dw-unit').textContent = unitOf(L.kind);
-  const v = valueSI == null ? 0 : toDisp(L.kind, valueSI);
-  $('dw').value = fmt(v, 1); $('dw').step = Number(step.toPrecision(1)); s.value = v;
-}
-function dwModeChanged() { applyDwUnits(0); }
-function setCirculation(flowSI, tinSI) {
-  if (flowSI != null) $('flow').value = sig(toDisp('flow', flowSI), 4);
-  if (tinSI != null) $('t-in').value = sig(toDisp('temp', tinSI), 4);
-}
-function circulationSI() {
-  return [$('flow').value === '' ? null : fromDisp('flow', Number($('flow').value)),
-          $('t-in').value === '' ? null : fromDisp('temp', Number($('t-in').value))];
-}
-
 // ------------------------------------------------------------ unit system
 function setSystem(sys) {
   if (sys === SYSTEM) return;
-  // keep the live drawworks input physically the same across the switch
-  const L = dwLimits();
-  const dwSI = fromDisp(L.kind, Number($('dw').value) || 0);
-  const circ = circulationSI();
+  // set points are held in SI (deck.js), so a switch never changes them
   SYSTEM = sys;
   try { localStorage.setItem('drillpyze-units', sys); } catch (e) { /* storage unavailable */ }
   closeScalePop();
   for (const b of document.querySelectorAll('#units button')) b.setAttribute('aria-checked', String(b.dataset.sys === sys));
-  $('dw-mode').options[0].text = `Block speed (+ lowering)`;
-  applyDwUnits(dwSI);
-  setCirculation(circ[0], circ[1]);
   for (const el of document.querySelectorAll('[data-kind]')) el.textContent = unitOf(el.dataset.kind);
   if (state.cfg) buildForm();
   const fr = state.scrub == null ? state.frames[state.frames.length - 1] : state.frames[state.scrub];
@@ -926,11 +895,6 @@ function wire() {
   $('collapse-case').addEventListener('click', () => { document.querySelector('.app').classList.add('case-hidden'); $('show-case').hidden = false; window.dispatchEvent(new Event('resize')); });
   $('show-case').addEventListener('click', () => { document.querySelector('.app').classList.remove('case-hidden'); $('show-case').hidden = true; window.dispatchEvent(new Event('resize')); });
 
-  $('rpm-slider').addEventListener('input', () => syncLive('rpm-slider', 'rpm'));
-  $('rpm').addEventListener('input', () => syncLive('rpm', 'rpm-slider'));
-  $('dw-slider').addEventListener('input', () => syncLive('dw-slider', 'dw'));
-  $('dw').addEventListener('input', () => syncLive('dw', 'dw-slider'));
-  $('dw-mode').addEventListener('change', dwModeChanged);
   for (const b of document.querySelectorAll('#units button')) b.addEventListener('click', () => setSystem(b.dataset.sys));
 
   $('scrub').addEventListener('input', (e) => scrubTo(Number(e.target.value)));
@@ -964,7 +928,6 @@ function wire() {
 async function start() {
   wire();
   for (const b of document.querySelectorAll('#units button')) b.setAttribute('aria-checked', String(b.dataset.sys === SYSTEM));
-  applyDwUnits(0);
   if (typeof Plotly === 'undefined') {
     message('The plotting library could not be loaded. Install it with "pip install plotly" or connect to the internet, then reload.');
     return;

@@ -78,6 +78,10 @@ def well_a():
         'simulation': {'bit_depth': 2500.0, 'hole_depth': 2505.0, 'dx': 10.0, 'record_rate': 50.0,
                        'start_time': None,       # clock time of t = 0 ('2021-01-07 06:30:00'); None = elapsed time
                        'block_height': 25.0},    # block height above the rig floor at t = 0 (m), UI display
+        # driller's display limits (UI only, SI): red zones and limit markers on the dials
+        'display': {'rpm_limit': 220.0, 'wob_limit': 150e3, 'torque_limit': 25e3, 'rop_limit': 90 / 3600,
+                    'spp_limit': 4000 * units.PSI,
+                    'pore_density': 1100.0, 'frac_density': 1500.0},
     }
 
 

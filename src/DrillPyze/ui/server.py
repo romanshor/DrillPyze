@@ -100,6 +100,8 @@ class Session:
     def apply_inputs(self, inp):
         """Translate UI inputs (display units) into Simulation.step keyword arguments."""
         kw = {}
+        if inp.get('tare'):
+            self.sim.tare_hookload()
         td_mode = inp.get('td_mode', 'setpoint')
         rpm = float(inp.get('rpm', 0.0))
         if td_mode == 'speed':
@@ -120,8 +122,9 @@ class Session:
         with self.lock:
             self.touched = time.time()
             t0 = time.perf_counter()
+            kw = self.apply_inputs(inputs or {})      # applied even for a zero step (e.g. zeroing the weight indicator)
             if duration > 0:
-                self.sim.step(duration, **self.apply_inputs(inputs or {}))
+                self.sim.step(duration, **kw)
             self.wall += time.perf_counter() - t0
             return self.frame(time.perf_counter() - t0, duration)
 
@@ -199,6 +202,15 @@ class Session:
                 'S': rock.get('S'), 'p_bh': rock.get('p_bh'),
                 'spp': hs.get('spp'), 'ecd_hyd': hs.get('ecd'), 'q_out': hs.get('q_out'),
                 'q_in': hs.get('q_in'), 'pit_gain': hs.get('pit_gain'),
+                # driller's display: surface WOB from the zeroed weight indicator, block speed,
+                # hydraulics bottomhole pressure and the static (mud weight) pressure at bottom
+                'hk_ref_kn': sim.hookload_reference / 1e3,
+                'wob_surf_kn': (sim.hookload_reference - L['hookload']) / 1e3,
+                'block_mh': L['v_block'] * 3600.0,
+                'wob_sp_kn': sim.inputs['wob_sp'] / 1e3 if sim.pi[K.I_AXIAL] == 1 else None,
+                'p_bh_hyd': hs.get('p_bh'),
+                'tvd_bottom': float(sim.hydraulics.tvd_bottom) if sim.hydraulics is not None else None,
+                'mud_density': float(sim.fluid.density),
             },
             'hyd': hyd,
             'thermal': thermal,

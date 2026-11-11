@@ -188,10 +188,29 @@ switching never changes it, and the choice is remembered in the browser.
     fast as possible).
   * *Run ahead* jumps forward without animating each frame. Space toggles
     play; the right arrow steps one frame.
-* **Change rig inputs while running** in the transport bar:
-  * top drive: controller set point, or a prescribed speed;
-  * drawworks: block speed, or an autodriller WOB set point;
-  * circulation: pump rate and mud inlet temperature.
+* **Drive the rig from the driller's display** at the top of the workspace.
+  It has six dials (WOB, rotary speed, torque, ROP, standpipe pressure,
+  bottomhole pressure) and two bars (pump rate, mud weight / ECD).
+  * Each dial's needle and large number are the surface measurement. The
+    model's downhole estimate is an orange arrow outside the dial, and a band
+    shows its range over the last 10 s, so stick-slip is visible as a wide
+    band on the rotary dial.
+  * Bottomhole pressure (a model value, orange needle) shows the static
+    mud-weight pressure as a grey tick. The mud-weight bar shows static mud
+    weight as the bar and ECD as an arrow. Both show the pore- and
+    fracture-pressure window.
+  * Set points are cyan diamonds on the dials themselves: drag one, or focus
+    it and use the arrow keys. They cover the top-drive set point (or
+    prescribed speed), the autodriller WOB or block speed (the chips choose
+    which), and the pump rate. The mud inlet temperature sits under the pump bar.
+  * Surface WOB comes from the weight indicator: off-bottom hookload minus
+    hookload. *Zero* takes the present hookload as off-bottom. Choosing the
+    autodriller while off bottom zeroes it automatically
+    (`Simulation.tare_hookload`).
+  * Limits are red markers and zones, set in the *Driller's display* section
+    of the inputs (`display.*` in the case). They change the display only.
+  * The status strip shows bit and hole depth, hookload, mud temperature at
+    the bit, rock strength, the drawworks mode and a stick-slip alarm.
 * **Watch the string**:
   * the well path, with the casing, drill pipe, BHA and bit positions;
   * rpm, torque and tension against depth, compared with torque-and-drag

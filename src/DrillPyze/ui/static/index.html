@@ -87,48 +87,31 @@
         </span>
       </div>
 
-      <div class="group live" aria-label="Rig inputs">
-        <div class="live-row">
-          <select id="td-mode" aria-label="Top drive mode">
-            <option value="setpoint">Top drive set point</option>
-            <option value="speed">Prescribed top drive speed</option>
-          </select>
-          <input type="range" id="rpm-slider" min="0" max="200" step="1" value="60" aria-label="Top drive rpm">
-          <input type="number" id="rpm" value="60" step="1" class="num"><span class="unit">rpm</span>
-        </div>
-        <div class="live-row">
-          <select id="dw-mode" aria-label="Drawworks mode">
-            <option value="velocity">Block speed (+ lowering)</option>
-            <option value="wob">Autodriller WOB</option>
-          </select>
-          <input type="range" id="dw-slider" min="-60" max="60" step="0.5" value="0" aria-label="Drawworks input">
-          <input type="number" id="dw" value="0" step="any" class="num"><span class="unit" id="dw-unit">m/h</span>
-        </div>
-        <div class="live-row circ">
-          <label for="flow">Pump rate</label>
-          <input type="number" id="flow" step="any" class="num"><span class="unit" data-kind="flow"></span>
-          <label for="t-in">Mud in</label>
-          <input type="number" id="t-in" step="any" class="num"><span class="unit" data-kind="temp"></span>
-        </div>
+      <div class="status" aria-label="Rig status">
+        <div><span>Bit depth</span><b id="st-bit">–</b> <i data-kind="depth"></i></div>
+        <div><span>Hole depth</span><b id="st-hole">–</b> <i data-kind="depth"></i></div>
+        <div><span>Hookload</span><b id="st-hk">–</b> <i data-kind="force"></i></div>
+        <div><span>Mud at bit</span><b id="st-tbit">–</b> <i data-kind="temp"></i></div>
+        <div><span>Rock CCS</span><b id="st-ccs">–</b> <i data-kind="stress"></i></div>
+        <div><span>Drawworks</span><b id="st-mode">–</b></div>
+        <div class="alarm" id="alarm" role="status" hidden>Stick-slip at bit</div>
       </div>
     </section>
 
     <p class="message" id="message" role="status" hidden></p>
 
-    <section class="readouts" aria-label="Current values">
-      <div class="ro rot"><span class="ro-label">Top drive</span><span class="ro-val" id="ro-rpm-td">–</span><span class="ro-unit">rpm</span></div>
-      <div class="ro rot"><span class="ro-label">Bit</span><span class="ro-val" id="ro-rpm-bit">–</span><span class="ro-unit">rpm</span></div>
-      <div class="ro trq"><span class="ro-label">Surface torque</span><span class="ro-val" id="ro-tq">–</span><span class="ro-unit" data-kind="torque"></span></div>
-      <div class="ro trq"><span class="ro-label">Torque on bit</span><span class="ro-val" id="ro-tob">–</span><span class="ro-unit" data-kind="torque"></span></div>
-      <div class="ro ax"><span class="ro-label">Hookload</span><span class="ro-val" id="ro-hk">–</span><span class="ro-unit" data-kind="force"></span></div>
-      <div class="ro ax"><span class="ro-label">WOB</span><span class="ro-val" id="ro-wob">–</span><span class="ro-unit" data-kind="force"></span></div>
-      <div class="ro ax"><span class="ro-label">ROP</span><span class="ro-val" id="ro-rop">–</span><span class="ro-unit" data-kind="rop"></span></div>
-      <div class="ro"><span class="ro-label">Bit depth</span><span class="ro-val" id="ro-depth">–</span><span class="ro-unit" data-kind="depth"></span></div>
-      <div class="ro tmp"><span class="ro-label">Mud at bit</span><span class="ro-val" id="ro-tbit">–</span><span class="ro-unit" data-kind="temp"></span></div>
-      <div class="ro tmp"><span class="ro-label">Rock CCS at bit</span><span class="ro-val" id="ro-ccs">–</span><span class="ro-unit" data-kind="stress"></span></div>
-      <div class="ro"><span class="ro-label">Standpipe pressure</span><span class="ro-val" id="ro-spp">–</span><span class="ro-unit" data-kind="pressure"></span></div>
-      <div class="ro"><span class="ro-label">ECD</span><span class="ro-val" id="ro-ecd">–</span><span class="ro-unit" data-kind="ecd"></span></div>
-    </section>
+    <div class="deck-wrap"><section class="deck" id="deck" aria-label="Driller's display">
+      <div class="deck-legend">
+        <span><svg width="30" height="12" aria-hidden="true"><line x1="2" y1="6" x2="28" y2="6" stroke="#f4f7fa" stroke-width="4" stroke-linecap="round"/></svg>Surface measurement</span>
+        <span><svg width="18" height="14" aria-hidden="true"><path d="M9 13 L2 2 L16 2 Z" fill="#f2a33a"/></svg>Downhole estimate (model)</span>
+        <span><svg width="30" height="12" aria-hidden="true"><rect x="2" y="3" width="26" height="6" rx="3" fill="#f2a33a" opacity=".4"/></svg>Downhole range, last 10 s</span>
+        <span><svg width="18" height="16" aria-hidden="true"><path d="M9 1 L16 8 L9 15 L2 8 Z" fill="#3fc6e0" stroke="#0f1720" stroke-width="1.5"/></svg>Set point: drag it, or focus it and use the arrow keys</span>
+        <span><svg width="18" height="16" aria-hidden="true"><path d="M9 1 L16 8 L9 15 L2 8 Z" fill="none" stroke="#7e8d9c" stroke-width="2"/></svg>Inactive set point</span>
+        <span><svg width="14" height="14" aria-hidden="true"><line x1="7" y1="0" x2="7" y2="14" stroke="#c3ccd6" stroke-width="2.5"/></svg>Static (mud weight) pressure</span>
+        <span><svg width="30" height="12" aria-hidden="true"><rect x="2" y="3" width="26" height="6" rx="1" fill="#e5534b" opacity=".75"/><line x1="2" y1="0" x2="2" y2="12" stroke="#ff8a83" stroke-width="3"/></svg>Limit (set under Driller's display)</span>
+      </div>
+    </section></div>
+    <div class="deck-toast" id="deck-toast" role="status" aria-live="polite"></div>
 
     <section class="string-views" aria-label="Along-string state">
       <div class="plot" id="p-path"></div>
@@ -156,7 +139,7 @@
         <button class="btn quiet" id="scales-reset" hidden>Reset scales</button>
         <a class="btn quiet" id="download" href="#" download>Download results (CSV)</a>
       </div>
-      <div class="log-wrap">
+      <div class="log-scroll"><div class="log-wrap">
         <div class="plot trace log" id="t-log"></div>
         <div class="scale-hits" id="scale-hits"></div>
         <div class="scale-pop" id="scale-pop" role="dialog" aria-labelledby="sp-title" hidden>
@@ -168,11 +151,12 @@
           <div class="sp-actions"><button type="button" class="btn quiet" id="sp-auto">Automatic</button>
             <button type="button" class="btn primary" id="sp-apply">Apply</button></div>
         </div>
-      </div>
+      </div></div>
     </section>
   </main>
 </div>
 
+<script src="/static/deck.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
