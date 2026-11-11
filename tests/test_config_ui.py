@@ -36,6 +36,15 @@ def test_validation_catches_bad_input():
     assert 'BHA length' in errs and 'ID must be smaller' in errs and 'kinetic friction exceeds' in errs
 
 
+def test_start_time_validation():
+    cfg = config.default()
+    for ok in (None, '', '2021-01-07 06:30:00', '2021-01-07T06:30:00', '2021-01-07 06:30'):
+        cfg['simulation']['start_time'] = ok
+        assert not [e for e in config.validate(cfg) if 'Start date' in e], ok
+    cfg['simulation']['start_time'] = '7 Jan 2021'
+    assert any('Start date' in e for e in config.validate(cfg))
+
+
 def test_survey_positions_match_tvd():
     s = config.build_well(config.default()).survey
     n, e, z = s.positions([1500.0, 2100.0])
@@ -69,6 +78,12 @@ def test_ui_server_init_step_and_csv(ui_url):
     assert len(fr['profile']['md']) == init['info']['cells']
     assert 0 < len(fr['trace']['time']) <= server.MAX_TRACE_ROWS
     assert fr['latest']['rpm_td'] > 30
+    # block position is integrated from the block velocity at the full record rate
+    fr2 = _post(ui_url + '/api/step', {'session': sid, 'duration': 3.0,
+                                       'inputs': {'td_mode': 'setpoint', 'rpm': 60, 'dw_mode': 'velocity', 'v_block_mh': 360}})
+    bp = fr2['trace']['block_pos']
+    assert bp[0] == pytest.approx(25.0, abs=0.05)                   # 0.1 m/s, ramped over 2 s: ~0.2 m in 3 s
+    assert 25.0 - bp[-1] == pytest.approx(0.1 * (3.0 - 1.0), rel=0.05)
     csv = urllib.request.urlopen(f'{ui_url}/api/results.csv?session={sid}').read().decode()
     assert csv.splitlines()[0].startswith('time,omega_td')
     html = urllib.request.urlopen(ui_url + '/').read().decode()

@@ -75,7 +75,9 @@ def well_a():
             'thermal': asdict(ThermalParameters(flow_rate=2000 / 60000, inlet_temperature=30.0)),
             'cfl': 0.95,
         },
-        'simulation': {'bit_depth': 2500.0, 'hole_depth': 2505.0, 'dx': 10.0, 'record_rate': 50.0},
+        'simulation': {'bit_depth': 2500.0, 'hole_depth': 2505.0, 'dx': 10.0, 'record_rate': 50.0,
+                       'start_time': None,       # clock time of t = 0 ('2021-01-07 06:30:00'); None = elapsed time
+                       'block_height': 25.0},    # block height above the rig floor at t = 0 (m), UI display
     }
 
 
@@ -243,6 +245,13 @@ def validate(cfg):
                 errs.append(f"Component {r.get('name', '')!r}: ID must be smaller than OD.")
         if float(cfg['simulation'].get('dx', 10)) <= 0:
             errs.append('Cell size must be positive.')
+        st = cfg['simulation'].get('start_time')
+        if st not in (None, ''):
+            from datetime import datetime
+            try:
+                datetime.fromisoformat(str(st).strip().replace(' ', 'T'))
+            except ValueError:
+                errs.append('Start date/time must look like 2021-01-07 06:30:00.')
         b = cfg['parameters'].get('bit', {})
         from .kernel import BIT_MODELS
         if b.get('model', 'coulomb') not in BIT_MODELS:

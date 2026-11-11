@@ -57,6 +57,10 @@ class Session:
         self.sent_chunks = 0
         self.sent_slow = 0
         self.sent_hyd = 0
+        # block height above the rig floor (m), integrated from the block velocity
+        bh = cfg.get('simulation', {}).get('block_height')
+        self.block_pos = 25.0 if bh in (None, '') else float(bh)
+        self.block_t = None
         self.wall = 0.0
         self.touched = time.time()
         self._reference()
@@ -128,12 +132,19 @@ class Session:
         self.sent_chunks = len(sim._records)
         if chunks:
             rows = np.vstack(chunks)
+            # block position: integrate the block velocity (+ down) at the full record rate
+            t = rows[:, K.REC_CHANNELS.index('time')]
+            vb = rows[:, K.REC_CHANNELS.index('v_block')]
+            dt = np.diff(np.concatenate([[t[0] if self.block_t is None else self.block_t], t]))
+            block = self.block_pos - np.cumsum(vb * dt)
+            self.block_pos, self.block_t = float(block[-1]), float(t[-1])
+            rows = np.column_stack([rows, block])
             if len(rows) > MAX_TRACE_ROWS:
                 idx = np.linspace(0, len(rows) - 1, MAX_TRACE_ROWS).round().astype(int)
                 rows = rows[idx]
         else:
-            rows = np.zeros((0, K.N_REC))
-        col = {c: rows[:, i] for i, c in enumerate(K.REC_CHANNELS)}
+            rows = np.zeros((0, K.N_REC + 1))
+        col = {c: rows[:, i] for i, c in enumerate(K.REC_CHANNELS + ('block_pos',))}
         trace = {
             'time': _r(col['time'], 3),
             'rpm_td': _r(units.rads_to_rpm(col['omega_td']), 2),
@@ -148,6 +159,7 @@ class Session:
             'block_mh': _r(col['v_block'] * 3600.0, 2),
             'bit_depth': _r(col['bit_depth'], 3),
             'hole_depth': _r(col['hole_depth'], 3),
+            'block_pos': _r(col['block_pos'], 3),
         }
         prof = sim.profiles()
         sv = sim.wellbore.survey

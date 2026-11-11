@@ -59,6 +59,8 @@ details.sec[open] > summary::after { content: "–"; }
 .field .unit { font-size: 13px; color: var(--steel); }
 .field input[type=number], .field select, .field input[type=text] { width: 100%; }
 .field.check { grid-template-columns: auto 1fr; }
+.field.text { grid-template-columns: 1fr 154px; }
+.field.text input { width: 100%; }
 
 input[type=number], input[type=text], select {
   border: 1px solid var(--line); border-radius: 4px; background: #fff;

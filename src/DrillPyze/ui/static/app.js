@@ -78,6 +78,8 @@ const SECTIONS = [
     fields: [
       ['simulation.bit_depth', 'Bit depth', 'depth'],
       ['simulation.hole_depth', 'Hole depth', 'depth', { hint: 'Equal to bit depth puts the bit on bottom' }],
+      ['simulation.start_time', 'Start date/time', 'text', { blank: 'YYYY-MM-DD hh:mm:ss', hint: 'Clock time of t = 0. The time display shows clock time when set, elapsed seconds otherwise' }],
+      ['simulation.block_height', 'Initial block height', 'length', { blank: '25 m', hint: 'Block position above the rig floor at t = 0, for the Drilling track' }],
     ] },
   { title: 'String friction',
     fields: [
@@ -252,6 +254,16 @@ function fieldRow(spec) {
     return row;
   }
   row.className = 'field';
+  if (kind === 'text') {
+    row.className = 'field text';
+    row.innerHTML = `<label for="${id}">${label}</label><input type="text" id="${id}">`;
+    const el = row.querySelector('input');
+    el.value = get(state.cfg, path) ?? '';
+    if (opt.blank) el.placeholder = opt.blank;
+    if (opt.hint) el.title = opt.hint;
+    el.addEventListener('change', () => { set(state.cfg, path, el.value.trim() === '' ? null : el.value.trim()); markDirty(); });
+    return row;
+  }
   if (kind === 'select') {
     row.innerHTML = `<label for="${id}">${label}</label><select id="${id}"></select><span></span>`;
     const el = row.querySelector('select');
@@ -467,9 +479,25 @@ function drawStringViews(fr) {
 
 function emptyTraces() {
   return { time: [], rpm_td: [], rpm_bit: [], rpm_sp: [], motor_torque_knm: [], pipe_torque_knm: [], tob_knm: [],
-           hookload_kn: [], wob_kn: [], rop_mh: [], block_mh: [], bit_depth: [], hole_depth: [] };
+           hookload_kn: [], wob_kn: [], rop_mh: [], block_mh: [], bit_depth: [], hole_depth: [], block_pos: [],
+           ssi: [], bit_acc: [] };
 }
-function appendTrace(t) { for (const k in state.traces) { const a = t[k]; if (a) for (let i = 0; i < a.length; i++) state.traces[k].push(a[i]); } }
+const SSI_WINDOW = 10;   // s, rolling window of the stick-slip index
+function appendTrace(t) {
+  const T = state.traces, n0 = T.time.length;
+  for (const k in T) { const a = t[k]; if (a) for (let i = 0; i < a.length; i++) T[k].push(a[i]); }
+  // derived downhole channels: stick-slip index (max - min) / (2 mean) of bit rpm over
+  // the last SSI_WINDOW s, and bit angular acceleration (rad/s^2)
+  for (let i = n0; i < T.time.length; i++) {
+    const ti = T.time[i];
+    let lo = Infinity, hi = -Infinity, sum = 0, n = 0;
+    for (let k = i; k >= 0 && T.time[k] >= ti - SSI_WINDOW; k--) { const r = T.rpm_bit[k]; if (r < lo) lo = r; if (r > hi) hi = r; sum += r; n++; }
+    const mean = sum / n;
+    T.ssi.push(mean >= 5 ? (hi - lo) / (2 * mean) : null);   // undefined while the bit is barely turning
+    const dt = i > 0 ? ti - T.time[i - 1] : 0;
+    T.bit_acc.push(dt > 0 ? (T.rpm_bit[i] - T.rpm_bit[i - 1]) * (2 * Math.PI / 60) / dt : null);
+  }
+}
 function emptyHyd() { return { time: [], spp: [], p_bh: [], ecd: [], q_in: [], q_out: [] }; }
 function appendHyd(h) { if (!h) return; for (const k in state.hyd) { const a = h[k]; if (a) for (let i = 0; i < a.length; i++) state.hyd[k].push(a[i]); } }
 function emptySlow() { return { time: [], t_bit: [], t_out: [], t_in: [], t_rock: [], ccs_eff: [], ccs: [], S: [], ecd: [], p_bh: [] }; }
@@ -485,8 +513,8 @@ function timeRange(tNow) {
 // vertical time axis increasing downward (newest data at the bottom), and a
 // header per curve with its name, current value and scale ends.
 const LOG_GAP = 0.014;          // gap between tracks (fraction of plot width)
-const LOG_ROW = 30;             // header height per curve (px)
-const LOG_HEIGHT = 780;         // figure height (px)
+const LOG_ROW = 38;             // header height per curve (px): name line + scale line
+const LOG_HEIGHT = 860;         // figure height (px)
 function logTracks() {
   const T = state.traces, L = state.slow, H = state.hyd;
   const dsp = (k, a) => a.map(v => toDisp(k, v));
@@ -494,11 +522,20 @@ function logTracks() {
   const s = (y, name, color, unit, extra = {}) => Object.assign({ t: L.time, y, name, color, unit }, extra);
   const h = (y, name, color, unit, extra = {}) => Object.assign({ t: H.time, y, name, color, unit }, extra);
   const uT = unitOf('torque'), uF = unitOf('force'), uP = unitOf('pressure'), uE = unitOf('ecd'), uTe = unitOf('temp'), uS = unitOf('stress');
+  const uD = unitOf('depth'), uR = unitOf('rop'), uQ = unitOf('flow');
   return [
+    { title: 'Drilling', curves: [
+      f(srv('depth', T.block_pos), 'Block height', COLORS.steel, uD, { id: 'block_pos' }),
+      f(srv('rop', T.rop_mh), 'ROP', COLORS.ax, uR, { id: 'rop', zero: true }),
+      f(srv('depth', T.bit_depth), 'Bit depth', COLORS.ink, uD, { id: 'bit_depth', group: 'depth' }),
+      f(srv('depth', T.hole_depth), 'Hole depth', COLORS.ref, uD, { id: 'hole_depth', group: 'depth', dash: 'dash' })] },
     { title: 'Rotary speed', curves: [
       f(T.rpm_sp, 'RPM set point', COLORS.ref, 'rpm', { id: 'rpm_sp', dash: 'dash' }),
       f(T.rpm_td, 'Top drive', COLORS.ink, 'rpm', { id: 'rpm_td' }),
       f(T.rpm_bit, 'Bit', COLORS.rot, 'rpm', { id: 'rpm_bit' })] },
+    { title: 'Downhole', curves: [
+      f(T.ssi, `SSI (${SSI_WINDOW} s)`, COLORS.bit, '', { id: 'ssi', zero: true }),
+      f(T.bit_acc, 'Bit ang. accel.', COLORS.rot, 'rad/s²', { id: 'bit_acc' })] },
     { title: 'Torque', curves: [
       f(srv('torque', T.motor_torque_knm), 'Motor', COLORS.ink, uT, { id: 'tq_motor' }),
       f(srv('torque', T.pipe_torque_knm), 'Surface pipe', COLORS.trq, uT, { id: 'tq_pipe' }),
@@ -508,7 +545,9 @@ function logTracks() {
       f(srv('force', T.wob_kn), 'WOB', COLORS.ink, uF, { id: 'wob', zero: true })] },
     { title: 'Hydraulics', curves: [
       h(dsp('pressure', H.spp), 'SPP', COLORS.ink, uP, { id: 'spp' }),
-      h(dsp('ecd', H.ecd), 'ECD', COLORS.ax, uE, { id: 'ecd' })] },
+      h(dsp('ecd', H.ecd), 'ECD', COLORS.ax, uE, { id: 'ecd' }),
+      h(dsp('flow', H.q_in), 'Flow in', COLORS.rot, uQ, { id: 'q_in', zero: true }),
+      h(dsp('flow', H.q_out), 'Flow out', COLORS.trq, uQ, { id: 'q_out', dash: 'dash', zero: true })] },
     { title: 'Bit and rock', curves: [
       s(srv('temp', L.t_rock), 'Rock at bit', COLORS.ref, uTe, { id: 't_rock', dash: 'dash' }),
       s(srv('temp', L.t_bit), 'Mud at bit', '#a3402a', uTe, { id: 't_bit' }),
@@ -526,8 +565,25 @@ function niceRange(lo, hi, zero) {
 }
 function fmtScale(v) { const a = Math.abs(v); return a >= 1000 ? v.toFixed(0) : a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1).replace(/\.0$/, '') : v.toPrecision(2).replace(/\.?0+$/, ''); }
 
+// Clock time of t = 0 from the case (simulation.start_time), as ms for a
+// date axis showing that wall-clock time; null = show elapsed seconds.
+function startClockMs() {
+  const s = state.cfg && state.cfg.simulation && state.cfg.simulation.start_time;
+  if (!s) return null;
+  let iso = String(s).trim().replace(' ', 'T');
+  if (!/[zZ]|[+-]\d\d:?\d\d$/.test(iso)) iso += 'Z';      // no zone: show the time as written
+  const ms = Date.parse(iso);
+  return isFinite(ms) ? ms : null;
+}
+
 function drawTraces(cursor) {
   const T = state.traces; const tNow = T.time.length ? T.time[T.time.length - 1] : 0;
+  const clock0 = startClockMs(), ymap = new Map();
+  // date strings without a zone: Plotly shows them exactly as written (no local-time shift)
+  const wall = (t) => new Date(clock0 + 1000 * t).toISOString().slice(0, 23).replace('T', ' ');
+  const Y = (arr) => { if (clock0 == null) return arr;
+    if (!ymap.has(arr)) ymap.set(arr, arr.map(wall)); return ymap.get(arr); };
+  const yv = (t) => (clock0 == null ? t : wall(t));
   const [t0, t1] = timeRange(tNow);
   const tracks = logTracks();
   const n = tracks.length, wTrack = (1 - (n - 1) * LOG_GAP) / n;
@@ -536,10 +592,19 @@ function drawTraces(cursor) {
   const height = LOG_HEIGHT, top = 30 + rows * LOG_ROW, bottom = 14;
   const px = (p) => p / (height - top - bottom);          // pixels -> paper units above the plot
   const data = [], shapes = [], annotations = [], hits = [];
-  const layout = baseLayout({ height, margin: { l: 64, r: 12, t: top, b: bottom }, showlegend: false, hovermode: 'y unified',
-    datarevision: `${T.time.length}-${SYSTEM}`,
-    yaxis: axis('', { range: [t1, t0], autorange: false, title: { text: 'Time (s)', standoff: 4 },
-                      gridcolor: '#dfe5eb', zeroline: false }) });
+  const layout = baseLayout({ height, margin: { l: clock0 == null ? 64 : 92, r: 12, t: top, b: bottom }, showlegend: false, hovermode: 'y unified',
+    datarevision: `${T.time.length}-${SYSTEM}-${clock0}`,
+    yaxis: axis('', Object.assign({ range: [yv(t1), yv(t0)], autorange: false, gridcolor: '#dfe5eb', zeroline: false },
+      clock0 == null ? { title: { text: 'Time (s)', standoff: 4 } }
+                     : { type: 'date', tickformat: '%H:%M:%S', hoverformat: '%Y-%m-%d %H:%M:%S', title: { text: 'Time', standoff: 12 } })) });
+  // data range in the window per scale group (curves with the same `group` share one scale)
+  const grp = {};
+  for (const tr of tracks) for (const c of tr.curves) {
+    const g = c.group || c.id; const r = grp[g] || (grp[g] = { lo: Infinity, hi: -Infinity, zero: false });
+    r.zero = r.zero || !!c.zero;
+    for (let k = 0; k < c.t.length; k++) { const tk = c.t[k], v = c.y[k];
+      if (v != null && isFinite(v) && tk >= t0 && tk <= t1) { if (v < r.lo) r.lo = v; if (v > r.hi) r.hi = v; } }
+  }
   let ax = 0;
   tracks.forEach((tr, i) => {
     const d0 = i * (wTrack + LOG_GAP), d1 = d0 + wTrack;
@@ -553,36 +618,37 @@ function drawTraces(cursor) {
     tr.curves.forEach((c, j) => {
       ax += 1; const xa = ax === 1 ? 'x' : 'x' + ax, key = ax === 1 ? 'xaxis' : 'xaxis' + ax;
       // scale from the data inside the time window
-      let lo = Infinity, hi = -Infinity, last = null;
-      for (let k = 0; k < c.t.length; k++) { const tk = c.t[k], v = c.y[k]; if (v == null || !isFinite(v)) continue;
-        if (tk >= t0 && tk <= t1) { if (v < lo) lo = v; if (v > hi) hi = v; } last = v; }
-      const auto = niceRange(lo, hi, c.zero);
-      const man = manualScale(c.id);
+      let last = null;
+      for (let k = c.y.length - 1; k >= 0; k--) { const v = c.y[k]; if (v != null && isFinite(v)) { last = v; break; } }
+      const g = grp[c.group || c.id];
+      const auto = niceRange(g.lo, g.hi, g.zero);
+      const man = manualScale(c.group || c.id) || manualScale(c.id);
       const [r0, r1] = man || auto;
-      state.autoScale[c.id] = auto;
+      state.autoScale[c.group || c.id] = auto;
       layout[key] = { domain: [d0, d1], range: [r0, r1], anchor: 'y', showticklabels: false, ticks: '', zeroline: false,
                       showgrid: j === 0, gridcolor: '#eef1f4', nticks: 5, fixedrange: true };
       if (base) layout[key].overlaying = base; else base = xa;
-      data.push({ x: c.y, y: c.t, xaxis: xa, yaxis: 'y', type: c.t === T.time ? 'scattergl' : 'scatter', mode: 'lines', name: c.name,
+      data.push({ x: c.y, y: Y(c.t), xaxis: xa, yaxis: 'y', type: c.t === T.time ? 'scattergl' : 'scatter', mode: 'lines', name: c.name,
                   line: { color: c.color, width: 1.5, dash: c.dash || 'solid' },
                   hovertemplate: `${c.name}: %{x:.4g} ${c.unit}<extra></extra>` });
-      // curve header row (Pason style): scale minimum | name and current value | scale maximum, coloured bar below
+      // curve header (Pason style): name and current value; below it the scale ends beside a coloured bar
       const rowTop = top - 26 - (off + j) * LOG_ROW;              // px above the plot area
-      hits.push({ id: c.id, name: c.name, unit: c.unit, color: c.color, man: !!man, d0, d1, y: top - rowTop - 2, h: 26 });
-      const yt = 1 + px(rowTop - 9), yb = 1 + px(rowTop - 21);
-      const pad = 0.005;
+      hits.push({ id: c.group || c.id, name: c.group ? `${c.name} (shared depth scale)` : c.name, unit: c.unit, color: c.color,
+                  man: !!man, d0, d1, y: top - rowTop - 2, h: LOG_ROW - 4 });
+      const yt = 1 + px(rowTop - 8), ys = 1 + px(rowTop - 22), yb = 1 + px(rowTop - 30);
+      const pad = 0.004;
       annotations.push({ xref: 'paper', yref: 'paper', x: (d0 + d1) / 2, y: yt, xanchor: 'center', yanchor: 'middle', showarrow: false,
                          text: `${man ? '\u{1F512} ' : ''}<b>${c.name}</b> ${last == null ? '–' : fmtScale(last)} ${c.unit}`,
                          font: { size: 11.5, color: c.color } });
-      annotations.push({ xref: 'paper', yref: 'paper', x: d0 + pad, y: yt, xanchor: 'left', yanchor: 'middle', showarrow: false,
+      annotations.push({ xref: 'paper', yref: 'paper', x: d0 + pad, y: ys, xanchor: 'left', yanchor: 'middle', showarrow: false,
                          text: man ? `<b>${fmtScale(r0)}</b>` : fmtScale(r0), font: { size: 10.5, color: c.color } });
-      annotations.push({ xref: 'paper', yref: 'paper', x: d1 - pad, y: yt, xanchor: 'right', yanchor: 'middle', showarrow: false,
+      annotations.push({ xref: 'paper', yref: 'paper', x: d1 - pad, y: ys, xanchor: 'right', yanchor: 'middle', showarrow: false,
                          text: man ? `<b>${fmtScale(r1)}</b>` : fmtScale(r1), font: { size: 10.5, color: c.color } });
       shapes.push({ type: 'line', xref: 'paper', yref: 'paper', x0: d0 + pad, x1: d1 - pad, y0: yb, y1: yb,
                     line: { color: c.color, width: 2.5, dash: c.dash || 'solid' } });
     });
   });
-  if (cursor != null) shapes.push({ type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: cursor, y1: cursor,
+  if (cursor != null) shapes.push({ type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: yv(cursor), y1: yv(cursor),
                                     line: { color: COLORS.ink, width: 1, dash: 'dot' } });
   layout.shapes = shapes; layout.annotations = annotations;
   Plotly.react('t-log', data, layout, PCONF);

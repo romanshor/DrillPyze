@@ -197,11 +197,20 @@ switching never changes it, and the choice is remembered in the browser.
   * rpm, torque and tension against depth, compared with torque-and-drag
     references;
   * drillstring, annulus and formation temperature against depth;
-  * time histories as a drilling-log (EDR-style) display: tracks for rotary
-    speed, torque, axial loads, hydraulics (SPP, ECD) and bit and rock
-    (temperatures, effective CCS) side by side, sharing a time axis that
-    increases downward with the newest data at the bottom; 60 s, 10 min,
-    60 min and full-run windows;
+  * time histories as a drilling-log (EDR-style) display, with seven tracks
+    side by side:
+    * drilling: block height, ROP, bit and hole depth;
+    * rotary speed;
+    * downhole: stick-slip index over 10 s and bit angular acceleration;
+    * torque;
+    * axial loads;
+    * hydraulics: SPP, ECD, flow in and out;
+    * bit and rock: temperatures, effective CCS.
+
+    The tracks share a time axis that increases downward, with the newest
+    data at the bottom; 60 s, 10 min, 60 min and full-run windows. The axis
+    shows clock time when the case has a start date/time
+    (`simulation.start_time`), and elapsed seconds otherwise;
   * per-curve scales: each curve header shows its name, current value and
     scale ends. Click a header to fix that curve's limits or return it to
     automatic. Fixed limits are marked with a lock and remembered in the
