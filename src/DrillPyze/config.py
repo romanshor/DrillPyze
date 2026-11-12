@@ -92,12 +92,14 @@ def default():
 
 # ------------------------------------------------------------------ builder
 def _num(x, default=None):
+    """Float of a case value, or `default` for None / empty string."""
     if x is None or x == '':
         return default
     return float(x)
 
 
 def build_well(cfg):
+    """Wellbore (survey, casing shoe, hole diameter) from the case `well` section."""
     w = cfg['well']
     s = w['survey']
     survey = Survey([_num(r['md']) for r in s], [_num(r['inc']) for r in s],
@@ -106,6 +108,7 @@ def build_well(cfg):
 
 
 def build_drillstring(cfg):
+    """Drillstring from the case `drillstring` rows (listed from the bit up)."""
     comps = []
     for r in cfg['drillstring']:
         comps.append(Component(name=str(r.get('name', '')), length=_num(r['length']),
@@ -135,6 +138,13 @@ def bit_parameters(b, hole_diameter=None):
 
 
 def build_parameters(cfg, zeta_p=None, first_mode=None):
+    """
+    ModelParameters from the case `parameters` section.
+
+    `zeta_p` (pipe impedance) and `first_mode` (first torsional mode, Hz) are needed
+    to build the top-drive controller; without them the controller is left unset and
+    the simulation uses the stiff controller.
+    """
     p = cfg['parameters']
     params = ModelParameters(
         friction=FrictionParameters(**p['friction']),
@@ -181,6 +191,7 @@ def make_controller(c, zeta_p, inertia, first_mode=None):
 
 
 def build_fluid(cfg):
+    """Fluid from the case `fluid` section (unknown keys are ignored)."""
     f = dict(cfg.get('fluid', {}))
     known = Fluid.__dataclass_fields__
     return Fluid(**{k: (_num(v) if k not in ('plastic_viscosity', 'yield_point') or v is not None else None)
@@ -299,11 +310,13 @@ def validate(cfg):
 
 # ----------------------------------------------------------------------- io
 def save(cfg, path):
+    """Write a case to a JSON file."""
     with open(path, 'w') as f:
         json.dump(cfg, f, indent=2)
 
 
 def load(path):
+    """Read a case from a JSON file."""
     with open(path) as f:
         return json.load(f)
 

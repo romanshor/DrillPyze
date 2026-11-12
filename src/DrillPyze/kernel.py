@@ -100,6 +100,7 @@ def _face(aL, bR, ZL, ZR):
 
 @njit(cache=True)
 def _sign(x):
+    """Sign of x (-1, 0 or 1)."""
     if x > 0.0:
         return 1.0
     elif x < 0.0:

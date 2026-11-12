@@ -49,14 +49,17 @@ class Component:
 
     @property
     def area(self):
+        """Steel cross-section (m^2)."""
         return np.pi / 4 * (self.od ** 2 - self.id ** 2)
 
     @property
     def polar_moment(self):
+        """Polar second moment of area (m^4)."""
         return np.pi / 32 * (self.od ** 4 - self.id ** 4)
 
     @property
     def mass_per_length(self):
+        """Mass per length (kg/m): `linear_mass` if given, else steel density x area."""
         return self.linear_mass if self.linear_mass is not None else self.density * self.area
 
     @property
@@ -82,6 +85,7 @@ class Grid:
 
     @property
     def n(self):
+        """Number of cells."""
         return len(self.dx)
 
     @property
@@ -91,14 +95,17 @@ class Grid:
 
     @property
     def x_bottom(self):
+        """Measured depth of the bottom of each cell along the string (m)."""
         return self.x_top + self.dx
 
     @property
     def c_axial(self):
+        """Axial wave speed per cell, sqrt(E/rho) (m/s)."""
         return np.sqrt(self.E / self.rho)
 
     @property
     def c_torsional(self):
+        """Torsional wave speed per cell, sqrt(G/rho) (m/s)."""
         return np.sqrt(self.G / self.rho)
 
 
@@ -131,6 +138,7 @@ class Drillstring:
         comps = []
         for _, r in rows:
             def get(key, scale):
+                """Value of column `key` in this row, times `scale`, or None if absent."""
                 c = cols.get(key)
                 if c is None or pd.isna(r[c]):
                     return None

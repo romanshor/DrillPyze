@@ -77,18 +77,21 @@ class BitParameters:
     Three reduced models (see docs/derivation/bit-models.md); D = hole
     diameter, a = D/2, omega = bit speed, d = depth of cut per revolution.
 
-    ``coulomb`` -- friction-dominated (worn bit / contact regime); 3 parameters
+    ``coulomb`` -- friction-dominated (worn bit / contact regime); 3 parameters::
+
         TOB = mu_kinetic * WOB * D/3 sliding;  |TOB| <= mu_static * WOB * D/3 sticking
         ROP = omega * WOB / (2 pi a S)
 
-    ``cutting`` -- Detournay & Defourny (1992), quasi-static; 3 parameters
+    ``cutting`` -- Detournay & Defourny (1992), quasi-static; 3 parameters::
+
         WOB = W_f + S a d                    (contact threshold + cutting)
         TOB = WOB a / (2 zeta)               (rate independent, no weakening)
         ROP = omega * (WOB - W_f) / (2 pi a S)
 
     ``regenerative`` -- cutting with the depth of cut set by the hole-bottom
-        profile left by the previous blade (Richard, Germay & Detournay 2007);
-        2 rock parameters + the blade count
+    profile left by the previous blade (Richard, Germay & Detournay 2007);
+    2 rock parameters + the blade count::
+
         WOB = S a sum_j d_j,  TOB = WOB a / (2 zeta)
 
     S = zeta * epsilon is the drilling strength (Pa); epsilon the intrinsic
@@ -113,6 +116,7 @@ class BitParameters:
 
 @dataclass
 class TopDriveParameters:
+    """Top-drive inertia and optional torque limit."""
     inertia: float = 2000.0     # kg m^2 (including gearbox, reflected to the quill)
     max_torque: float = 0.0     # N m, 0 = unlimited
 
@@ -179,11 +183,13 @@ class ControllerParameters:
 
 @dataclass
 class DrawworksParameters:
+    """Drawworks limits for prescribed block velocity."""
     block_acceleration: float = 0.0   # m/s^2, optional extra limit on top of the ramp, 0 = none
 
 
 @dataclass
 class AutodrillerParameters:
+    """PI autodriller on surface WOB: gains and maximum block speed."""
     kp: float = 1e-7            # (m/s) per N of WOB error
     ki: float = 1e-8            # (m/s) per N s
     v_max: float = 60.0 / 3600  # m/s
@@ -191,6 +197,10 @@ class AutodrillerParameters:
 
 @dataclass
 class ModelParameters:
+    """
+    All model parameters: friction, damping, bit, top drive, controller,
+    autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.
+    """
     friction: FrictionParameters = field(default_factory=FrictionParameters)
     damping: DampingParameters = field(default_factory=DampingParameters)
     bit: BitParameters = field(default_factory=BitParameters)
@@ -205,7 +215,9 @@ class ModelParameters:
     cfl: float = 0.95           # Courant number on the axial wave speed
 
     def to_dict(self):
+        """Plain-dict form."""
         return asdict(self)
 
     def copy(self, **changes):
+        """Copy with some fields replaced (dataclasses.replace)."""
         return replace(self, **changes)

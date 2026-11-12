@@ -84,6 +84,7 @@ class Survey:
 
     # ------------------------------------------------------------- geometry
     def _compute_positions(self):
+        """Station positions (north, east, TVD) by minimum curvature."""
         t1, t2 = self.t[:-1], self.t[1:]
         dmd = np.diff(self.md)
         dl = _dogleg(t1, t2)

@@ -22,6 +22,7 @@ from . import units
 
 @dataclass
 class CellGeometry:
+    """Per-cell well-path geometry seen by the string at its present position."""
     t_z: np.ndarray        # cos(inclination) at cell centre
     kappa: np.ndarray      # (n, 3) curvature vector dt/ds (1/m)
     z_perp: np.ndarray     # (n, 3) downward unit vector component normal to pipe

@@ -26,6 +26,7 @@ from .geometry import cell_geometry, buoyed_weight, normal_force
 
 @dataclass
 class TorqueDragResult:
+    """Steady torque-and-drag profiles along the string."""
     md: np.ndarray            # MD of cell edges, surface first (n+1)
     tension: np.ndarray       # effective tension at cell edges (N)
     torque: np.ndarray        # torque at cell edges (N m)
@@ -38,11 +39,13 @@ class TorqueDragResult:
 
     @property
     def surface_torque(self):
+        """Torque at the top of the string (N m)."""
         return self.torque[0]
 
 
 @njit(cache=True)
 def _integrate(dx, w_b, t_z, kappa, z_perp, r_c, mu, v, omega, wob, tob, fn_fixed):
+    """Integrate tension and torque from the bit up (numba kernel)."""
     n = len(dx)
     T = np.empty(n + 1)
     M = np.empty(n + 1)

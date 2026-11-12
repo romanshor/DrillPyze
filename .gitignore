@@ -147,3 +147,7 @@ docs/_build/
 *.egg-info/
 # DrillPyze Lite build output
 _site/
+
+# Sphinx build output and generated pages
+docs/build/
+docs/source/_generated/

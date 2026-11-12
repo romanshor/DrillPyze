@@ -64,7 +64,7 @@ def custom(kp, ki, impedance=0.0, t_hp=10.0, t_lp=0.005, t_en=0.001, name='custo
 
 def reflection_coefficient(c: ControllerParameters, zeta_p, inertia, freqs):
     """
-    Top-side torsional reflection coefficient |(C(s)+I s - zeta)/(C(s)+I s + zeta)|
+    Top-side torsional reflection coefficient ``|(C(s)+I s - zeta)/(C(s)+I s + zeta)|``
     at frequencies ``freqs`` (Hz), ignoring the impedance-feedback path (eq. 10).
     """
     s = 2j * np.pi * np.asarray(freqs)

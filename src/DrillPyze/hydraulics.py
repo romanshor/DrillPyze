@@ -4,20 +4,20 @@ Borehole hydraulics (SI units).
 Steady state
     Newtonian and Bingham-plastic pressure losses in pipe and annular flow,
     bit nozzle loss, standpipe pressure, bottomhole pressure and ECD, as in
-    Shor, *Introduction to Drilling Engineering*, ch. 7 (Borehole Hydraulics):
+    Shor, *Introduction to Drilling Engineering*, ch. 7 (Borehole Hydraulics)::
 
-    * apparent viscosity: pipe  mu_a = PV + tau_y D / (6 v)
-                          annulus mu_a = PV + tau_y (D2 - D1) / (8 v)
-    * Reynolds number:    pipe  Re = rho v D / mu_a
-                          annulus Re = rho v 0.816 (D2 - D1) / mu_a
-      laminar below 2100, turbulent (transition treated as turbulent) above
-    * laminar:   pipe     dp/dL = 32 PV v / D^2  + 16 tau_y / (3 D)
-                 annulus  dp/dL = 48 PV v / h^2  + 6 tau_y / h,       h = D2 - D1
-                 (slot flow, 12 PV v / g^2 + 3 tau_y / g with the gap g = h / 2)
-    * turbulent: Fanning, Blasius f = 0.0791 Re^-0.25 with Re on PV,
-                 dp/dL = 2 f rho v^2 / D_e,  D_e = D (pipe), 0.816 h (annulus)
-    * bit:       dp = rho Q^2 / (2 C_d^2 A_n^2)
-    * SPP = dp_surface + dp_string + dp_bit + dp_annulus;  BHP = p_hydrostatic + dp_annulus
+        * apparent viscosity: pipe  mu_a = PV + tau_y D / (6 v)
+                              annulus mu_a = PV + tau_y (D2 - D1) / (8 v)
+        * Reynolds number:    pipe  Re = rho v D / mu_a
+                              annulus Re = rho v 0.816 (D2 - D1) / mu_a
+          laminar below 2100, turbulent (transition treated as turbulent) above
+        * laminar:   pipe     dp/dL = 32 PV v / D^2  + 16 tau_y / (3 D)
+                     annulus  dp/dL = 48 PV v / h^2  + 6 tau_y / h,       h = D2 - D1
+                     (slot flow, 12 PV v / g^2 + 3 tau_y / g with the gap g = h / 2)
+        * turbulent: Fanning, Blasius f = 0.0791 Re^-0.25 with Re on PV,
+                     dp/dL = 2 f rho v^2 / D_e,  D_e = D (pipe), 0.816 h (annulus)
+        * bit:       dp = rho Q^2 / (2 C_d^2 A_n^2)
+        * SPP = dp_surface + dp_string + dp_bit + dp_annulus;  BHP = p_hydrostatic + dp_annulus
 
     (These are the chapter's field-unit equations written in SI.)  A Newtonian
     fluid is the special case tau_y = 0, PV = mu.
@@ -51,6 +51,7 @@ def fluid_velocity(Q, Do, Di=None):
 
 
 def hydraulic_diameter(Do, Di=None):
+    """Hydraulic diameter: Do for a pipe, Do - Di for an annulus."""
     return Do if Di is None else Do - Di
 
 
@@ -232,6 +233,15 @@ def _advance(nsub, dt, c2, pv, ty, k_ann, v_pipe, q_in_a, q_in_b, rho_in, p_back
              m_d, V_d0, V_d1, L_d, z_d, rT_d, D_d, G_d,
              # annulus path (n_a cells), faces G_a[0..n_a-1] (face 0 = outlet), bit enters cell kab
              m_a, V_a0, V_a1, L_a, z_a, rT_a, Do_a, Di_a, G_a, kab, Gb_arr, acc):
+    """
+    Explicit substeps of the transient model (numba kernel).
+
+    Advances the cell masses and face mass fluxes of the drillstring and annulus
+    paths over `nsub` substeps of length `dt`: pump inlet face, interior bore
+    faces, the bit (nozzle) face, interior annulus faces and the outlet face, each
+    updated with `_face`, then the mass balance. Arrays are updated in place;
+    `acc` accumulates the pumped and returned mass.
+    """
     n_d = m_d.shape[0]
     n_a = m_a.shape[0]
     p_d = np.empty(n_d)
@@ -353,10 +363,12 @@ class WellboreHydraulics:
 
     # ------------------------------------------------------------ geometry
     def _edges(self, depth):
+        """Evenly spaced cell edges from surface to `depth`, about `dx` apart."""
         n = max(1, int(round(depth / self.dx)))
         return np.linspace(0.0, depth, n + 1)
 
     def _wall_diameter(self, md):
+        """Wall diameter at `md`: casing ID where cased (if known), else the hole diameter."""
         wb = self.wellbore
         D = np.full(np.shape(md), wb.hole_diameter, dtype=float)
         if wb.casing_id is not None:
@@ -370,6 +382,10 @@ class WellboreHydraulics:
         return np.interp(s, self._s_edges, cum) - np.interp(np.clip(-top, 0.0, self._L_string), self._s_edges, cum)
 
     def _geometry(self):
+        """
+        Cell lengths, TVDs, diameters, areas and volumes of both flow paths for the
+        present bit and hole depth; the string is volume-averaged over each cell.
+        """
         sv = self.wellbore.survey
         e_a, e_d = self.e_a, self.e_d
         self.L_a = np.diff(e_a)
@@ -393,6 +409,10 @@ class WellboreHydraulics:
         self._rho_T()
 
     def _rho_T(self):
+        """
+        Temperature part of the density per cell (kg/m^3), at the reference temperature
+        when no mud temperatures have been set.
+        """
         fl = self.fluid
         Td = np.full(len(self.L_d), fl.reference_temperature) if self.T_d is None else self.T_d
         Ta = np.full(len(self.L_a), fl.reference_temperature) if self.T_a is None else self.T_a
@@ -405,6 +425,7 @@ class WellboreHydraulics:
         self._interp_T()
 
     def _interp_T(self):
+        """Interpolate the stored mud-temperature profiles onto the present cells."""
         if getattr(self, '_T_src', None) is None:
             return
         md_ds, t_ds, md_ann, t_ann = self._T_src
@@ -453,12 +474,14 @@ class WellboreHydraulics:
 
     # ------------------------------------------------------------- states
     def _pressure_profiles(self):
+        """Gauge pressure per cell (Pa) of the drillstring and annulus, from mass and volume."""
         c2 = self.c ** 2
         p_d = c2 * (self.m_d / self.V_d - self.rT_d)
         p_a = c2 * (self.m_a / self.V_a - self.rT_a)
         return p_d, p_a
 
     def _rho_of_p(self, p, rT):
+        """Density at pressure `p` for temperature density `rT`."""
         return rT + p / self.c ** 2
 
     def set_static(self):
@@ -590,6 +613,7 @@ class WellboreHydraulics:
                     pit_gain=float((self.acc[0] - self.acc[1]) / self.fluid.density) * -1.0)
 
     def profiles(self):
+        """Pressure and density per cell of both paths (DataFrame with a `path` column)."""
         import pandas as pd
         p_d, p_a = self._pressure_profiles()
         ann = pd.DataFrame(dict(md=0.5 * (self.e_a[:-1] + self.e_a[1:]), tvd=self.z_a, p=p_a,
@@ -599,4 +623,5 @@ class WellboreHydraulics:
         return pd.concat([ds, ann], ignore_index=True)
 
     def mass(self):
+        """Total mud mass in the well (kg), for balance checks."""
         return float(self.m_d.sum() + self.m_a.sum())
