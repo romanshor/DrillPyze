@@ -1,0 +1,183 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.units &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.units</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.units</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Unit conversions.</span>
+
+<span class="sd">DrillPyze works in SI units internally (m, s, kg, N, rad, Pa).  Field data are</span>
+<span class="sd">often in oilfield units; these helpers convert at the input/output boundary.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># length</span>
+<span class="n">FT</span> <span class="o">=</span> <span class="mf">0.3048</span>                 <span class="c1"># m per ft</span>
+<span class="n">IN</span> <span class="o">=</span> <span class="mf">0.0254</span>                 <span class="c1"># m per in</span>
+
+<span class="c1"># mass / force</span>
+<span class="n">LBM</span> <span class="o">=</span> <span class="mf">0.45359237</span>            <span class="c1"># kg per lbm</span>
+<span class="n">LBF</span> <span class="o">=</span> <span class="mf">4.4482216152605</span>       <span class="c1"># N per lbf</span>
+<span class="n">KLBF</span> <span class="o">=</span> <span class="mf">1000.0</span> <span class="o">*</span> <span class="n">LBF</span>         <span class="c1"># N per klbf</span>
+<span class="n">TONNE_F</span> <span class="o">=</span> <span class="mf">9806.65</span>           <span class="c1"># N per metric tonne-force</span>
+
+<span class="c1"># torque</span>
+<span class="n">FTLBF</span> <span class="o">=</span> <span class="n">FT</span> <span class="o">*</span> <span class="n">LBF</span>            <span class="c1"># N m per ft lbf</span>
+<span class="n">KFTLBF</span> <span class="o">=</span> <span class="mf">1000.0</span> <span class="o">*</span> <span class="n">FTLBF</span>     <span class="c1"># N m per kft lbf</span>
+
+<span class="c1"># pressure</span>
+<span class="n">PSI</span> <span class="o">=</span> <span class="mf">6894.757293168</span>        <span class="c1"># Pa per psi</span>
+
+<span class="c1"># density</span>
+<span class="n">PPG</span> <span class="o">=</span> <span class="mf">119.8264273</span>           <span class="c1"># kg/m^3 per lbm/gal</span>
+<span class="n">LBM_FT3</span> <span class="o">=</span> <span class="n">LBM</span> <span class="o">/</span> <span class="n">FT</span><span class="o">**</span><span class="mi">3</span>       <span class="c1"># kg/m^3 per lbm/ft^3</span>
+<span class="n">SG</span> <span class="o">=</span> <span class="mf">1000.0</span>                 <span class="c1"># kg/m^3 per specific gravity</span>
+
+<span class="c1"># flow</span>
+<span class="n">GPM</span> <span class="o">=</span> <span class="mf">6.30901964e-5</span>         <span class="c1"># m^3/s per US gal/min</span>
+
+<span class="c1"># linear weight</span>
+<span class="n">LB_FT</span> <span class="o">=</span> <span class="n">LBM</span> <span class="o">/</span> <span class="n">FT</span>            <span class="c1"># kg/m per lb/ft</span>
+
+<span class="c1"># angular velocity</span>
+<span class="n">RPM</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">60.0</span>    <span class="c1"># rad/s per rev/min</span>
+
+<span class="c1"># velocity</span>
+<span class="n">FT_HR</span> <span class="o">=</span> <span class="n">FT</span> <span class="o">/</span> <span class="mf">3600.0</span>         <span class="c1"># m/s per ft/hr</span>
+<span class="n">M_HR</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3600.0</span>         <span class="c1"># m/s per m/hr</span>
+
+<span class="c1"># gravity</span>
+<span class="n">G</span> <span class="o">=</span> <span class="mf">9.80665</span>                 <span class="c1"># m/s^2</span>
+
+<span class="c1"># steel defaults</span>
+<span class="n">STEEL_DENSITY</span> <span class="o">=</span> <span class="mf">7850.0</span>      <span class="c1"># kg/m^3</span>
+<span class="n">STEEL_E</span> <span class="o">=</span> <span class="mf">207e9</span>             <span class="c1"># Pa</span>
+<span class="n">STEEL_G</span> <span class="o">=</span> <span class="mf">79.3e9</span>            <span class="c1"># Pa</span>
+
+
+<div class="viewcode-block" id="rpm_to_rads">
+<a class="viewcode-back" href="../../api.html#DrillPyze.units.rpm_to_rads">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rpm_to_rads</span><span class="p">(</span><span class="n">rpm</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Convert rev/min to rad/s."""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rpm</span><span class="p">)</span> <span class="o">*</span> <span class="n">RPM</span></div>
+
+
+
+<div class="viewcode-block" id="rads_to_rpm">
+<a class="viewcode-back" href="../../api.html#DrillPyze.units.rads_to_rpm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rads_to_rpm</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Convert rad/s to rev/min."""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="o">/</span> <span class="n">RPM</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

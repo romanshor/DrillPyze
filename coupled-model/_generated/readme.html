@@ -1,0 +1,587 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze — coupled drillstring dynamics &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Bit–rock interaction: from the Bit Model Library to three reduced models" href="derivation-bit-models.html" />
+    <link rel="prev" title="DrillPyze: coupled drillstring model" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">DrillPyze — coupled drillstring dynamics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#mathematical-model">Mathematical model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interactive-simulator">Interactive simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#workflow-set-up-initialise-step">Workflow: set up, initialise, step</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance">Performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#verification-tests">Verification (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">DrillPyze — coupled drillstring dynamics</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_generated/readme.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="drillpyze-coupled-drillstring-dynamics">
+<span id="drillpyze--coupled-drillstring-dynamics"></span><h1>DrillPyze — coupled drillstring dynamics<a class="headerlink" href="#drillpyze-coupled-drillstring-dynamics" title="Link to this heading"></a></h1>
+<p>DrillPyze simulates the coupled axial and torsional dynamics of a drillstring
+in a 3-D wellbore, together with steady-state torque and drag. It is built to:</p>
+<ul class="simple">
+<li><p>calibrate along-string friction factors from field data,</p></li>
+<li><p>study stick-slip in its off-bottom, on-bottom and axially driven forms, and</p></li>
+<li><p>develop and benchmark top-drive RPM controllers.</p></li>
+</ul>
+<p>All quantities are <strong>SI</strong> internally. Conversion helpers in <code class="docutils literal notranslate"><span class="pre">DrillPyze.units</span></code>
+handle oilfield units at input and output.</p>
+<blockquote>
+<div><p><strong>Branch <code class="docutils literal notranslate"><span class="pre">coupled-model</span></code>:</strong> a rewrite of the 2023 prototype. The full
+mathematical derivation is in <a class="reference internal" href="derivation-readme.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/</span></code></span></a>.</p>
+</div></blockquote>
+<section id="mathematical-model">
+<h2>Mathematical model<a class="headerlink" href="#mathematical-model" title="Link to this heading"></a></h2>
+<p>The string is a slender elastic rod with <span class="math notranslate nohighlight">\(x \in [0, L]\)</span> measured from the top
+drive to the bit. Torsion follows Aarsnes &amp; Shor (2018). The axial direction
+uses the <strong>identical</strong> formulation, with Young’s modulus <span class="math notranslate nohighlight">\(E\)</span> and area <span class="math notranslate nohighlight">\(A\)</span> in
+place of <span class="math notranslate nohighlight">\(G\)</span> and <span class="math notranslate nohighlight">\(J\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{aligned}
+&amp;\partial_t \tau + JG\,\partial_x\omega = 0, &amp;\qquad
+&amp;\rho J\,\partial_t\omega + \partial_x\tau = -k_t\rho J\omega - \mathcal F_t,\\
+&amp;\partial_t q + EA\,\partial_x v = 0, &amp;\qquad
+&amp;\rho A\,\partial_t v + \partial_x q = w_b\cos\theta - k_a\rho A v - \mathcal F_a,
+\end{aligned}\end{split}\]</div>
+<p>where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\omega, \tau\)</span> are angular velocity and torque;</p></li>
+<li><p><span class="math notranslate nohighlight">\(v, q\)</span> are axial velocity and compressive force (tension <span class="math notranslate nohighlight">\(T = -q\)</span>);</p></li>
+<li><p><span class="math notranslate nohighlight">\(w_b\)</span> is the buoyed weight per length;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathcal F_t, \mathcal F_a\)</span> are Coulomb friction inclusions with static and
+kinetic factors, separately for cased and open hole.</p></li>
+</ul>
+<p>In Riemann invariants <span class="math notranslate nohighlight">\(\alpha = \omega + \tau/Z_t\)</span> and
+<span class="math notranslate nohighlight">\(\beta = \omega - \tau/Z_t\)</span>, with impedance <span class="math notranslate nohighlight">\(Z_t = J\sqrt{G\rho}\)</span> (axially
+<span class="math notranslate nohighlight">\(Z_a = A\sqrt{E\rho}\)</span>), each direction is a pair of transport equations at
+<span class="math notranslate nohighlight">\(\pm c\)</span>, with <span class="math notranslate nohighlight">\(c_t = \sqrt{G/\rho}\)</span> and <span class="math notranslate nohighlight">\(c_a = \sqrt{E/\rho}\)</span>.</p>
+<p><strong>The two directions are cross-coupled in two places.</strong></p>
+<p><em>Along the string</em>, friction is a single 2-D Coulomb force on the sliding
+velocity <span class="math notranslate nohighlight">\(\mathbf V = (v,\ \omega r_c)\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\boldsymbol{\mathcal F} = \mu_k F_N\,\frac{\mathbf V}{\|\mathbf V\|}\ \ \text{(sliding)},
+\qquad
+\|\boldsymbol{\mathcal F}\| \le \mu_s F_N\ \ \text{(sticking)},
+\qquad
+\mathcal F_t = r_c\,\mathcal F_\theta,\]</div>
+<p>and the soft-string normal force <span class="math notranslate nohighlight">\(F_N\)</span> follows the live tension. As a result:</p>
+<ul class="simple">
+<li><p>rotation reduces drag, and axial motion reduces rotary torque (velocity
+split);</p></li>
+<li><p>axial load changes torque through <span class="math notranslate nohighlight">\(F_N\)</span>;</p></li>
+<li><p>combined axial and torsional loads overcome static friction sooner than either alone.</p></li>
+</ul>
+<p><em>At the bit</em>, the characteristic relations</p>
+<div class="math notranslate nohighlight">
+\[\omega_b = \alpha_t - \text{TOB}/Z_t, \qquad v_b = \alpha_a - \text{WOB}/Z_a,\]</div>
+<p>are closed by one of three reduced bit–rock laws. Each has two or three
+parameters and was derived from the
+<a class="reference external" href="https://github.com/Kartikay100/Bit-Model-Library">Bit Model Library</a>; see
+<a class="reference internal" href="derivation-bit-models.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/bit-models.md</span></code></span></a>. With
+<span class="math notranslate nohighlight">\(a = D/2\)</span> and the drilling strength <span class="math notranslate nohighlight">\(S = \zeta\varepsilon\)</span>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>model</p></th>
+<th class="head"><p>parameters</p></th>
+<th class="head"><p>torque on bit</p></th>
+<th class="head"><p>penetration</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Coulomb (friction-dominated)</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_s, \mu_k, S\)</span></p></td>
+<td><p>sticking <span class="math notranslate nohighlight">\(\le \mu_s\,\text{WOB}\,D/3\)</span>, sliding <span class="math notranslate nohighlight">\(\mu_k\,\text{WOB}\,D/3\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{ROP} = \omega\,\text{WOB}/(2\pi a S)\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>Cutting (Detournay &amp; Defourny)</p></td>
+<td><p><span class="math notranslate nohighlight">\(S, \zeta, W_f\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{WOB}\,a/(2\zeta)\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{ROP} = \omega\,(\text{WOB}-W_f)^+/(2\pi a S)\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>Regenerative cutting</p></td>
+<td><p><span class="math notranslate nohighlight">\(S, \zeta\)</span> + blades</p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{WOB}\,a/(2\zeta)\)</span></p></td>
+<td><p>depth of cut from the hole bottom left by the previous blade</p></td>
+</tr>
+</tbody>
+</table>
+<p>In every model TOB is proportional to WOB, and penetration needs rotation.</p>
+<p><strong>Rock strength, pore pressure and temperature.</strong> With
+<code class="docutils literal notranslate"><span class="pre">strength_source='formation'</span></code> the drilling strength is taken from the rock at
+the bit: <span class="math notranslate nohighlight">\(S = \zeta\,\text{CCS}_\text{eff}/\eta\)</span>. The effective CCS combines
+three terms:</p>
+<ul class="simple">
+<li><p>Mohr–Coulomb confinement by the overbalance. Low-porosity,
+low-permeability rock such as granite uses an undrained (Skempton) pore
+pressure (Caicedo, Calhoun &amp; Ewy 2005).</p></li>
+<li><p>Thermal weakening above a threshold, fitted to granite data.</p></li>
+<li><p>Weakening of the cooled skin at the hole bottom by thermoelastic stress.</p></li>
+</ul>
+<p>The mud temperature at the bit, and the bottomhole pressure, come from the
+growing-wellbore drift-flux model of <strong>Wang, Khaled, Luu, Ashok &amp; van Oort
+(2023), SPE-214836-MS</strong>, implemented for single-phase mud. It reproduces their
+Utah FORGE case: downhole temperature falls from about 310 °F to 210 °F in
+30 min at 550 gpm, and drilling adds 1.3–2.2 °F, linear in ROP. See
+<a class="reference internal" href="derivation-rock-strength-and-temperature.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/rock-strength-and-temperature.md</span></code></span></a>.
+The regenerative model adds the delay of one blade passage, which can
+self-excite bit bounce and stick-slip.</p>
+<p>Static friction is anisotropic. The torsional static/kinetic contrast of
+Aarsnes &amp; Shor applies to rotation. Axially, the static factor defaults to the
+kinetic one (<code class="docutils literal notranslate"><span class="pre">axial_static_contrast=0</span></code>). Applying the torsional contrast
+axially produces artificial axial stick-slip when tripping; see the derivation,
+§5.5.</p>
+<p>For comparison, <code class="docutils literal notranslate"><span class="pre">along_string_coupling=False</span></code> uses independent 1-D axial and
+torsional friction with a static normal force, leaving the bit as the only
+coupling. With no axial motion, both friction models reduce exactly to
+Aarsnes &amp; Shor (2018).</p>
+<p>Other model components:</p>
+<ul class="simple">
+<li><p><strong>Top drive:</strong> an inertia driven by a stiff, SoftTorque or ZTorque
+controller, by an external torque, or by a prescribed speed.</p></li>
+<li><p><strong>Drawworks:</strong> a prescribed block velocity, or an autodriller. The hook can
+only hold the string up, so hookload is never negative.</p></li>
+<li><p><strong>Wellbore temperature:</strong> the drift-flux model of Wang et al. (2023),
+coupled every 2 s of simulated time.</p></li>
+<li><p><strong>Hydraulics</strong> (<a class="reference internal" href="derivation-hydraulics.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/hydraulics.md</span></code></span></a>):
+standpipe pressure, bottomhole pressure and ECD.</p>
+<ul>
+<li><p><strong>Steady losses:</strong> Newtonian or Bingham pipe and annular losses, bit
+nozzle loss and the SPP sum, from the borehole-hydraulics chapter of
+<em>Introduction to Drilling Engineering</em> (ch. 7).</p></li>
+<li><p><strong>Transients:</strong> pump start and stop, water hammer, surge and swab, from
+the single-phase drift-flux model of Wang et al. (2023). It uses fixed
+cells with volume-averaged sections, ρ(T, p), a pump inlet, a pressure
+outlet and the bit nozzles between the two flow paths.</p></li>
+<li><p><strong>Coupling:</strong> updated every ~1 s. Its BHP feeds the rock-strength model.</p></li>
+</ul>
+</li>
+<li><p><strong>Set-point ramps:</strong> inputs without a controller approach a new value
+linearly over a short ramp time (<code class="docutils literal notranslate"><span class="pre">ModelParameters.ramps</span></code>). Defaults:
+prescribed top-drive speed 1 s, block speed 2 s, pump rate and inlet
+temperature 3 s. Set points that feed a controller (RPM, autodriller WOB)
+step, and the controller shapes the response.</p></li>
+<li><p><strong>Damping</strong> (derivation §5.6): no tuning knob is needed; the coefficients
+come from the mud report and the string.</p>
+<ul>
+<li><p><strong>F1, mud:</strong> steady laminar Couette drag on the full velocity, plus a
+Stokes boundary layer <span class="math notranslate nohighlight">\(\sqrt{\rho_f\mu\omega_1/2}\)</span> on the inner and outer
+pipe walls. The Stokes term acts on the oscillatory part of the velocity
+and is evaluated at the first axial and torsional modes.</p></li>
+<li><p><strong>F2, mud yield stress:</strong> a Bingham yield drag <span class="math notranslate nohighlight">\(\tau_y\pi d_o\)</span> added to
+the Coulomb capacity, by default only with the pumps off.</p></li>
+<li><p><strong>M1, steel:</strong> Rayleigh / Kelvin–Voigt damping fitted to <span class="math notranslate nohighlight">\(\zeta = \eta/2\)</span>
+at the first mode and at 10 Hz, solved implicitly.</p></li>
+<li><p><strong>Calibration:</strong> <span class="math notranslate nohighlight">\(k_t, k_a\)</span> remain as optional extra rates.</p></li>
+<li><p><strong>Limitation:</strong> the model resolves and damps vibrations <strong>up to 10 Hz</strong>.
+Above the first mode, fluid damping is under-predicted by
+<span class="math notranslate nohighlight">\(\sqrt{f/f_1}\)</span>. For torsional content above about 2 Hz, the grid
+spacing should be reduced (about 2.5 m for 10 Hz) so numerical
+dissipation stays below the physical damping.</p></li>
+</ul>
+</li>
+<li><p><strong>Gravity:</strong> handled by a well-balanced static/dynamic split.</p></li>
+<li><p><strong>Numerics:</strong> a Godunov finite-volume scheme (upwind on the invariants,
+exact at section changes) with a CFL-limited time step. Coulomb friction is
+applied implicitly (backward Euler), so it opposes the sliding direction
+exactly and sticking is exact.</p></li>
+</ul>
+<p>The derivation, boundary conditions, discrete scheme and analytic limits are
+in <a class="reference internal" href="derivation-readme.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/README.md</span></code></span></a>.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[test]"</span>
+pytest<span class="w"> </span>-q
+</pre></div>
+</div>
+</section>
+<section id="interactive-simulator">
+<h2>Interactive simulator<a class="headerlink" href="#interactive-simulator" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[ui]"</span>
+drillpyze-ui<span class="w">            </span><span class="c1"># opens http://127.0.0.1:8050 in your browser</span>
+</pre></div>
+</div>
+<p>The UI starts with the Well A example case preloaded: the Aarsnes &amp; Shor
+geometry in FORGE-like granite, with the wellbore temperature model on. The <strong>SI / Field</strong>
+switch at the top of the input panel changes every input, readout, plot axis
+and CSV import between SI (m, mm, kN, kN·m, kg/m³, m/h) and field units (ft,
+in, klbf, kft·lbf, ppg, ft/h). The case itself is always stored in SI, so
+switching never changes it, and the choice is remembered in the browser.</p>
+<ul>
+<li><p><strong>Edit the case</strong> in the left panel: survey, drillstring, bit position,
+string and bit friction, damping, top-drive controller and numerics.</p>
+<ul class="simple">
+<li><p><em>Apply and reset</em> restarts the simulation with the new inputs.</p></li>
+<li><p>The survey and drillstring tables can be imported from CSV files.</p></li>
+<li><p>The whole case can be saved and reopened as JSON (<code class="docutils literal notranslate"><span class="pre">DrillPyze.config</span></code>).</p></li>
+</ul>
+</li>
+<li><p><strong>Play, pause and step</strong> through the simulation.</p>
+<ul class="simple">
+<li><p>Choose the frame length and the playback speed (from ¼× real time to as
+fast as possible).</p></li>
+<li><p><em>Run ahead</em> jumps forward without animating each frame. Space toggles
+play; the right arrow steps one frame.</p></li>
+</ul>
+</li>
+<li><p><strong>Drive the rig from the driller’s display</strong> at the top of the workspace.
+It has six dials (WOB, rotary speed, torque, ROP, standpipe pressure,
+bottomhole pressure) and two bars (pump rate, mud weight / ECD).</p>
+<ul class="simple">
+<li><p>Each dial’s needle and large number are the surface measurement. The
+model’s downhole estimate is an orange arrow outside the dial, and a band
+shows its range over the last 10 s, so stick-slip is visible as a wide
+band on the rotary dial.</p></li>
+<li><p>Bottomhole pressure (a model value, orange needle) shows the static
+mud-weight pressure as a grey tick. The mud-weight bar shows static mud
+weight as the bar and ECD as an arrow. Both show the pore- and
+fracture-pressure window.</p></li>
+<li><p>Set points are cyan diamonds on the dials themselves: drag one, or focus
+it and use the arrow keys. They cover the top-drive set point (or
+prescribed speed), the autodriller WOB or block speed (the chips choose
+which), and the pump rate. The mud inlet temperature sits under the pump bar.</p></li>
+<li><p>Surface WOB comes from the weight indicator: off-bottom hookload minus
+hookload. <em>Zero</em> takes the present hookload as off-bottom. Choosing the
+autodriller while off bottom zeroes it automatically
+(<code class="docutils literal notranslate"><span class="pre">Simulation.tare_hookload</span></code>).</p></li>
+<li><p>Limits are red markers and zones, set in the <em>Driller’s display</em> section
+of the inputs (<code class="docutils literal notranslate"><span class="pre">display.*</span></code> in the case). They change the display only.</p></li>
+<li><p>The status strip shows bit and hole depth, hookload, mud temperature at
+the bit, rock strength, the drawworks mode and a stick-slip alarm.</p></li>
+</ul>
+</li>
+<li><p><strong>Watch the string</strong>:</p>
+<ul>
+<li><p>the well path, with the casing, drill pipe, BHA and bit positions. The open
+hole is drawn to the current hole depth; any survey beyond it is a light
+dashed line;</p></li>
+<li><p>rpm, torque and tension against depth, compared with torque-and-drag
+references;</p></li>
+<li><p>drillstring, annulus and formation temperature against depth;</p></li>
+<li><p>time histories as a drilling-log (EDR-style) display, with seven tracks
+side by side:</p>
+<ul class="simple">
+<li><p>drilling: block height, ROP, bit and hole depth;</p></li>
+<li><p>rotary speed;</p></li>
+<li><p>downhole: stick-slip index over 10 s and bit angular acceleration;</p></li>
+<li><p>torque;</p></li>
+<li><p>axial loads;</p></li>
+<li><p>hydraulics: SPP, ECD, flow in and out;</p></li>
+<li><p>bit and rock: temperatures, effective CCS.</p></li>
+</ul>
+<p>The tracks share a time axis that increases downward, with the newest
+data at the bottom; 60 s, 10 min, 60 min and full-run windows. The axis
+shows clock time when the case has a start date/time
+(<code class="docutils literal notranslate"><span class="pre">simulation.start_time</span></code>), and elapsed seconds otherwise;</p>
+</li>
+<li><p>per-curve scales: each curve header shows its name, current value and
+scale ends. Click a header to fix that curve’s limits or return it to
+automatic. Fixed limits are marked with a lock and remembered in the
+browser, separately for SI and field units. Curves of the same quantity
+share one scale, and setting it on either sets both: bit and hole depth,
+RPM set point and top drive, motor and surface-pipe torque, flow in and
+out, and rock and mud temperature at the bit.</p></li>
+</ul>
+</li>
+<li><p><strong>Scrub back</strong> through earlier frames with the replay slider.</p></li>
+<li><p><strong>Download</strong> the recorded channels as CSV.</p></li>
+</ul>
+<p>The server runs the same <code class="docutils literal notranslate"><span class="pre">Simulation</span></code> objects as the Python API (see
+<code class="docutils literal notranslate"><span class="pre">DrillPyze/ui/server.py</span></code>). Plotly is served from the installed <code class="docutils literal notranslate"><span class="pre">plotly</span></code>
+package, so the UI also works offline.</p>
+</section>
+<section id="workflow-set-up-initialise-step">
+<h2>Workflow: set up, initialise, step<a class="headerlink" href="#workflow-set-up-initialise-step" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DrillPyze</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">Survey</span><span class="p">,</span> <span class="n">Component</span><span class="p">,</span> <span class="n">Drillstring</span><span class="p">,</span> <span class="n">Wellbore</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">,</span> <span class="n">Simulation</span><span class="p">,</span>
+                       <span class="n">ModelParameters</span><span class="p">,</span> <span class="n">FrictionParameters</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">controllers</span><span class="p">,</span> <span class="n">statics</span><span class="p">)</span>
+
+<span class="c1"># 1. describe the well and string (SI; convert with units.FT, units.IN, ...)</span>
+<span class="n">survey</span> <span class="o">=</span> <span class="n">Survey</span><span class="p">(</span><span class="n">md</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1500</span><span class="p">,</span> <span class="mi">2100</span><span class="p">,</span> <span class="mi">3000</span><span class="p">],</span> <span class="n">inc</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">],</span> <span class="n">azi</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">well</span> <span class="o">=</span> <span class="n">Wellbore</span><span class="p">(</span><span class="n">survey</span><span class="p">,</span> <span class="n">casing_shoe</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span> <span class="n">hole_diameter</span><span class="o">=</span><span class="mf">8.5</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">IN</span><span class="p">)</span>
+<span class="n">string</span> <span class="o">=</span> <span class="n">Drillstring</span><span class="p">([</span>                       <span class="c1"># listed from the bit up</span>
+    <span class="n">Component</span><span class="p">(</span><span class="s1">'Collars'</span><span class="p">,</span> <span class="mf">230.0</span><span class="p">,</span> <span class="n">od</span><span class="o">=</span><span class="mf">5.75</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">IN</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="mf">2.8125</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">IN</span><span class="p">),</span>
+    <span class="n">Component</span><span class="p">(</span><span class="s1">'DP'</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="n">od</span><span class="o">=</span><span class="mf">5.0</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">IN</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="mf">4.276</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">IN</span><span class="p">),</span>  <span class="c1"># stretched to surface</span>
+<span class="p">])</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">ModelParameters</span><span class="p">(</span><span class="n">friction</span><span class="o">=</span><span class="n">FrictionParameters</span><span class="p">(</span><span class="mf">0.40</span><span class="p">,</span> <span class="mf">0.22</span><span class="p">,</span> <span class="mf">0.45</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">))</span>
+
+<span class="c1"># 2. set up and initialise</span>
+<span class="n">sim</span> <span class="o">=</span> <span class="n">Simulation</span><span class="p">(</span><span class="n">well</span><span class="p">,</span> <span class="n">string</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">(</span><span class="mf">1200.0</span><span class="p">),</span> <span class="n">params</span><span class="p">)</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">bit_depth</span><span class="o">=</span><span class="mf">2500.0</span><span class="p">,</span> <span class="n">hole_depth</span><span class="o">=</span><span class="mf">2505.0</span><span class="p">,</span> <span class="n">dx</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+
+<span class="c1"># 3. step: pause, change inputs, resume at any time</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">omega_sp</span><span class="o">=</span><span class="mi">60</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">RPM</span><span class="p">)</span>      <span class="c1"># internal controller</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">v_block</span><span class="o">=-</span><span class="mf">0.05</span><span class="p">)</span>                <span class="c1"># pick up while rotating</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mf">60.0</span><span class="p">,</span> <span class="n">flow_rate</span><span class="o">=</span><span class="mf">0.03</span><span class="p">)</span>               <span class="c1"># pumps ramp to 0.03 m3/s over params.ramps.flow_rate</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">results</span><span class="p">()</span>                           <span class="c1"># recorded channels (DataFrame, SI)</span>
+<span class="n">hyd</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">hydraulics_results</span><span class="p">()</span>               <span class="c1"># SPP, BHP, ECD, flow in / out, once per ~1 s</span>
+<span class="n">prof</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">profiles</span><span class="p">()</span>                        <span class="c1"># along-string state now</span>
+
+<span class="c1"># steady-state torque and drag on the same grid</span>
+<span class="n">td</span> <span class="o">=</span> <span class="n">statics</span><span class="o">.</span><span class="n">torque_drag</span><span class="p">(</span><span class="n">well</span><span class="p">,</span> <span class="n">sim</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="mf">1200.0</span><span class="p">,</span> <span class="n">mu_cased</span><span class="o">=</span><span class="mf">0.22</span><span class="p">,</span> <span class="n">mu_open</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">omega</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Calling <code class="docutils literal notranslate"><span class="pre">step</span></code> repeatedly with short durations gives exactly the same result
+as one long call. That allows live streaming, and controllers in Python that
+run at their own sample rate via <code class="docutils literal notranslate"><span class="pre">step(dt,</span> <span class="pre">motor_torque=u)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">snapshot()</span></code> returns an independent copy of the whole simulation, for
+ensembles.</p></li>
+</ul>
+<p>See <code class="docutils literal notranslate"><span class="pre">examples/well_a_controllers.py</span></code>, which compares the stiff, SoftTorque and
+ZTorque controllers on an off-bottom start-up.</p>
+</section>
+<section id="performance">
+<h2>Performance<a class="headerlink" href="#performance" title="Link to this heading"></a></h2>
+<p>The time-stepping kernel is compiled with Numba. Its time step is set by the
+axial wave speed (CFL 0.95), so cost scales with the square of the number of
+cells per unit length. Measured on a 3,337 m string in a 2-core sandbox:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>cell size</p></th>
+<th class="head"><p>cells</p></th>
+<th class="head"><p>time step</p></th>
+<th class="head"><p>coupled friction (default)</p></th>
+<th class="head"><p>decoupled option</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>10 m</p></td>
+<td><p>334</p></td>
+<td><p>1.85 ms</p></td>
+<td><p>85× real time (~42 s per 60 min)</p></td>
+<td><p>200× (~18 s)</p></td>
+</tr>
+<tr class="row-odd"><td><p>5 m</p></td>
+<td><p>668</p></td>
+<td><p>0.92 ms</p></td>
+<td><p>22× (~2.7 min)</p></td>
+<td><p>49× (~1.2 min)</p></td>
+</tr>
+<tr class="row-even"><td><p>2.5 m</p></td>
+<td><p>1,335</p></td>
+<td><p>0.46 ms</p></td>
+<td><p>6× (~10 min)</p></td>
+<td><p>12× (~5 min)</p></td>
+</tr>
+</tbody>
+</table>
+<p>The coupled model costs about 2× more because it solves an implicit 2-D
+friction update (a short Newton iteration) in every cell, every step.</p>
+<p>The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.</p>
+</section>
+<section id="verification-tests">
+<h2>Verification (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)<a class="headerlink" href="#verification-tests" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Survey: minimum-curvature arc geometry, and azimuth crossing north.</p></li>
+<li><p>Torque and drag: analytic hanging weight; analytic straight inclined-hole
+pick-up, slack-off and rotating torque; rotation reduces drag.</p></li>
+<li><p>Dynamics:</p>
+<ul>
+<li><p>torsional and axial wave arrival times (within 1%);</p></li>
+<li><p>fundamental torsional period c/4L (within 0.2%), with less than 1%
+numerical decay;</p></li>
+<li><p>a string at rest stays exactly at rest;</p></li>
+<li><p>steady rotation, pick-up and slack-off match torque and drag (within 2%);</p></li>
+<li><p>rotating while picking up or slacking off matches velocity-split torque
+and drag (within 2%);</p></li>
+<li><p>rotation reduces pick-up drag with coupled friction, and has no effect with
+the decoupled option;</p></li>
+<li><p>the implicit 2-D friction is exact, including combined-load breakout;</p></li>
+<li><p>off-bottom stick-slip appears only when μ_s &gt; μ_k;</p></li>
+<li><p>ZTorque suppresses the limit cycle that a stiff controller sustains;</p></li>
+<li><p>on-bottom steady state satisfies the ROP law and the torque balance;</p></li>
+<li><p>the bit breaks out at each model’s sticking limit, and the Coulomb bit’s
+sliding TOB is linear in WOB;</p></li>
+<li><p>steady drilling matches each bit law; the regenerative model converges
+to the cutting state when damped and self-excites when lightly damped;</p></li>
+<li><p>every bit model drills off WOB at a fixed block position;</p></li>
+</ul>
+</li>
+<li><p>Damping:</p>
+<ul>
+<li><p>measured free-decay damping ratios of the first axial and torsional modes
+match the predictions within 0.5% (lumped, fluid, material, combined);</p></li>
+<li><p>steady rotation sees only the Couette drag;</p></li>
+<li><p>the yield drag applies with the pumps off only;</p></li>
+<li><p>the Kelvin–Voigt solve conserves momentum;</p></li>
+<li><p>pause and resume are exact.</p></li>
+</ul>
+</li>
+<li><p>Rock strength and temperature:</p>
+<ul>
+<li><p>drained and undrained CCS, the porosity blend, the thermal-weakening fit,
+and the thermal stress and skin ratio;</p></li>
+<li><p>a static well stays at the geothermal profile;</p></li>
+<li><p>the energy balance closes within 3% while circulating;</p></li>
+<li><p>the SPE-214836 FORGE cooling curve and the linear rise of downhole
+temperature with ROP are reproduced;</p></li>
+<li><p>ROP → 0 converges to the static wellbore;</p></li>
+<li><p>the formation-driven drilling strength reproduces the cutting law;</p></li>
+<li><p>pause and resume stay exact with the slow models running;</p></li>
+<li><p>the bit lifts off when picked up;</p></li>
+</ul>
+</li>
+<li><p>Hydraulics:</p>
+<ul>
+<li><p>chapter 7 Example 7.1 and Practice Problems 7.1 and 7.2: velocities,
+apparent viscosities, Reynolds numbers, regimes, section losses, bit loss
+and ECD reproduced (three printed turbulent losses in the chapter are
+arithmetic errata; see the hydraulics derivation);</p></li>
+<li><p>the transient model’s discrete steady state matches the textbook SPP and
+BHP;</p></li>
+<li><p>a pump start converges to it, and mass is conserved to round-off;</p></li>
+<li><p>the Joukowsky surge is within 1% and the acoustic travel time exact;</p></li>
+<li><p>surge and swab have the right sign and are symmetric;</p></li>
+<li><p>set-point ramps are linear in time;</p></li>
+<li><p>pause and resume stay exact with hydraulics running;</p></li>
+</ul>
+</li>
+<li><p>General:</p>
+<ul>
+<li><p>pause and resume are exact;</p></li>
+<li><p>an external Python PI reproduces the internal controller.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading"></a></h2>
+<p>The API reference (from the docstrings), this README and the model
+derivations are built with Sphinx:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docs_generator.sh<span class="w">          </span><span class="c1"># or: sphinx-build -b html docs/source docs/build</span>
+</pre></div>
+</div>
+<p>The workflow <code class="docutils literal notranslate"><span class="pre">.github/workflows/docs-coupled.yml</span></code> builds them on every push to
+<code class="docutils literal notranslate"><span class="pre">coupled-model</span></code> that changes the code or the docs. It treats Sphinx warnings as
+errors and publishes the pages to
+<code class="docutils literal notranslate"><span class="pre">https://&lt;owner&gt;.github.io/&lt;repo&gt;/coupled-model/</span></code>, next to the <code class="docutils literal notranslate"><span class="pre">main</span></code>
+documentation.</p>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Aarsnes, U.J.F. and Shor, R.J., 2018. Torsional vibrations with bit off bottom: Modeling, characterization and field data validation. <em>J. Petroleum Science and Engineering</em>, 163, 712–721.</p></li>
+<li><p>Aarsnes, U.J.F., di Meglio, F. and Shor, R.J., 2018. Benchmarking of industrial stick-slip mitigation controllers. <em>IFAC-PapersOnLine</em>, 51(8), 233–238.</p></li>
+<li><p>Aarsnes, U.J.F., Auriol, J., Di Meglio, F. and Shor, R.J., 2019. Estimating friction factors while drilling. <em>J. Petroleum Science and Engineering</em>, 179, 80–91.</p></li>
+<li><p>Auriol, J., Aarsnes, U.J.F. and Shor, R.J., 2020. Self-tuning torsional drilling model for real-time applications. <em>ACC 2020</em>, 3091–3096.</p></li>
+<li><p>Auriol, J., Boussaada, I., Shor, R.J., Mounier, H. and Niculescu, S.-I., 2022. Comparing advanced control strategies to eliminate stick-slip oscillations in drillstrings. <em>IEEE Access</em>, 10, 10949–10969.</p></li>
+<li><p>Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. <em>JPT</em>, 36, 987–992.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../index.html" class="btn btn-neutral float-left" title="DrillPyze: coupled drillstring model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="derivation-bit-models.html" class="btn btn-neutral float-right" title="Bit–rock interaction: from the Bit Model Library to three reduced models" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,272 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.statics &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.statics</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.statics</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Steady-state soft-string torque and drag (SI units).</span>
+
+<span class="sd">Friction on each element opposes the sliding velocity of the pipe surface,</span>
+<span class="sd">which has an axial component ``v`` (positive downhole) and a tangential</span>
+<span class="sd">component ``omega * r``.  Rotation therefore reduces drag, the classic</span>
+<span class="sd">velocity-split model.  Normal force uses the vector soft-string relation in</span>
+<span class="sd">:mod:`DrillPyze.geometry` and is updated with the local tension while</span>
+<span class="sd">integrating from the bit up (Johancsik et al. 1984; Sheppard et al. 1987).</span>
+
+<span class="sd">Sign conventions</span>
+<span class="sd">----------------</span>
+<span class="sd">* ``tension`` is effective tension, positive in tension.  At the bit it is</span>
+<span class="sd">  ``-WOB``.</span>
+<span class="sd">* ``torque`` is the torque transmitted downward, positive in the rotation</span>
+<span class="sd">  direction.  At the bit it is ``TOB``.</span>
+<span class="sd">* ``v &gt; 0`` is moving downhole (slack-off / RIH), ``v &lt; 0`` is pick-up.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">njit</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">cell_geometry</span><span class="p">,</span> <span class="n">buoyed_weight</span><span class="p">,</span> <span class="n">normal_force</span>
+
+
+<div class="viewcode-block" id="TorqueDragResult">
+<a class="viewcode-back" href="../../api.html#DrillPyze.statics.TorqueDragResult">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TorqueDragResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Steady torque-and-drag profiles along the string."""</span>
+    <span class="n">md</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>            <span class="c1"># MD of cell edges, surface first (n+1)</span>
+    <span class="n">tension</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>       <span class="c1"># effective tension at cell edges (N)</span>
+    <span class="n">torque</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>        <span class="c1"># torque at cell edges (N m)</span>
+    <span class="n">normal_force</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>  <span class="c1"># normal force per length on each cell (N/m)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hookload</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Effective tension at surface (N), excluding block weight."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tension</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">surface_torque</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Torque at the top of the string (N m)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_integrate</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">w_b</span><span class="p">,</span> <span class="n">t_z</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">z_perp</span><span class="p">,</span> <span class="n">r_c</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">fn_fixed</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Integrate tension and torque from the bit up (numba kernel)."""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">FN</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">T</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">wob</span>
+    <span class="n">M</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">tob</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">fn_fixed</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">n</span><span class="p">:</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">fn_fixed</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">normal_force</span><span class="p">(</span><span class="n">T</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">w_b</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">kappa</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">kappa</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">kappa</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+                              <span class="n">z_perp</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">z_perp</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">z_perp</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="n">vt</span> <span class="o">=</span> <span class="n">omega</span> <span class="o">*</span> <span class="n">r_c</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="n">vt</span> <span class="o">*</span> <span class="n">vt</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">speed</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">ca</span> <span class="o">=</span> <span class="n">v</span> <span class="o">/</span> <span class="n">speed</span>
+            <span class="n">ct</span> <span class="o">=</span> <span class="n">vt</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ca</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">ct</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">mu</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span>
+        <span class="c1"># dT/ds = f*ca - w_b*t_z  -&gt;  integrate upward</span>
+        <span class="n">T</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">T</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">w_b</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">t_z</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span> <span class="o">*</span> <span class="n">ca</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">M</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">M</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">f</span> <span class="o">*</span> <span class="n">ct</span> <span class="o">*</span> <span class="n">r_c</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">FN</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">fn</span>
+    <span class="k">return</span> <span class="n">T</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">FN</span>
+
+
+<div class="viewcode-block" id="friction_profile">
+<a class="viewcode-back" href="../../api.html#DrillPyze.statics.friction_profile">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">friction_profile</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">mu_cased</span><span class="p">,</span> <span class="n">mu_open</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Per-cell friction factor: ``mu_cased`` above the shoe, ``mu_open`` below."""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">wellbore</span><span class="o">.</span><span class="n">is_cased</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">mu_cased</span><span class="p">,</span> <span class="n">mu_open</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="torque_drag">
+<a class="viewcode-back" href="../../api.html#DrillPyze.statics.torque_drag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">torque_drag</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">fluid_density</span><span class="p">,</span> <span class="n">mu_cased</span><span class="p">,</span> <span class="n">mu_open</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">v</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">omega</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">wob</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tob</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">normal_force</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Soft-string torque and drag for one operating state.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    wellbore : Wellbore</span>
+<span class="sd">    grid : drillstring.Grid</span>
+<span class="sd">        Discretised string (from ``Drillstring.discretize``).</span>
+<span class="sd">    fluid_density : float</span>
+<span class="sd">        Mud density (kg/m^3) for buoyancy.</span>
+<span class="sd">    mu_cased, mu_open : float</span>
+<span class="sd">        Friction factors inside casing and in open hole.  ``mu_open`` defaults</span>
+<span class="sd">        to ``mu_cased``.</span>
+<span class="sd">    v : float</span>
+<span class="sd">        Axial pipe velocity (m/s), positive downhole.  Only its direction</span>
+<span class="sd">        relative to ``omega * r`` matters.</span>
+<span class="sd">    omega : float</span>
+<span class="sd">        Rotary speed (rad/s).</span>
+<span class="sd">    wob, tob : float</span>
+<span class="sd">        Weight on bit (N) and torque on bit (N m).</span>
+<span class="sd">    normal_force : array, optional</span>
+<span class="sd">        Fixed normal force per length for each cell (N/m).  By default it is</span>
+<span class="sd">        computed from the local tension (soft string).</span>
+
+<span class="sd">    Common states</span>
+<span class="sd">    -------------</span>
+<span class="sd">    rotating off bottom: ``omega&gt;0, v=0``;  pick-up: ``v&lt;0, omega=0``;</span>
+<span class="sd">    slack-off: ``v&gt;0, omega=0``;  drilling: ``omega&gt;0, v=ROP, wob, tob``.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">mu_open</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mu_open</span> <span class="o">=</span> <span class="n">mu_cased</span>
+    <span class="n">geo</span> <span class="o">=</span> <span class="n">geometry</span> <span class="k">if</span> <span class="n">geometry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cell_geometry</span><span class="p">(</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">w_b</span> <span class="o">=</span> <span class="n">buoyed_weight</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">fluid_density</span><span class="p">)</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">friction_profile</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">mu_cased</span><span class="p">,</span> <span class="n">mu_open</span><span class="p">)</span>
+    <span class="n">T</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">FN</span> <span class="o">=</span> <span class="n">_integrate</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dx</span><span class="p">,</span> <span class="n">w_b</span><span class="p">,</span> <span class="n">geo</span><span class="o">.</span><span class="n">t_z</span><span class="p">,</span> <span class="n">geo</span><span class="o">.</span><span class="n">kappa</span><span class="p">,</span> <span class="n">geo</span><span class="o">.</span><span class="n">z_perp</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">r_contact</span><span class="p">,</span>
+                          <span class="n">mu</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">omega</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">wob</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">tob</span><span class="p">),</span>
+                          <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">normal_force</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">normal_force</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">md</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">grid</span><span class="o">.</span><span class="n">x_top</span><span class="p">,</span> <span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">x_top</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">grid</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]])</span>
+    <span class="k">return</span> <span class="n">TorqueDragResult</span><span class="p">(</span><span class="n">md</span><span class="o">=</span><span class="n">md</span><span class="p">,</span> <span class="n">tension</span><span class="o">=</span><span class="n">T</span><span class="p">,</span> <span class="n">torque</span><span class="o">=</span><span class="n">M</span><span class="p">,</span> <span class="n">normal_force</span><span class="o">=</span><span class="n">FN</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="broomstick">
+<a class="viewcode-back" href="../../api.html#DrillPyze.statics.broomstick">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">broomstick</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">fluid_density</span><span class="p">,</span> <span class="n">mu_values</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'rotating'</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Hookload or surface torque over a list of friction factors (the classic</span>
+<span class="sd">    broomstick plot).  ``mode`` is 'rotating', 'pickup' or 'slackoff'.</span>
+<span class="sd">    Returns an array with one value per friction factor.</span>
+<span class="sd">    """</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">mu_values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">'rotating'</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">torque_drag</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">fluid_density</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">omega</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">surface_torque</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">'pickup'</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">torque_drag</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">fluid_density</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">v</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">hookload</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">'slackoff'</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">torque_drag</span><span class="p">(</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">fluid_density</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">hookload</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">out</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

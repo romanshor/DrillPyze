@@ -1,0 +1,1313 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Derivation of the DrillPyze coupled axial–torsional model &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Rock strength, pore pressure and temperature at the bit" href="derivation-rock-strength-and-temperature.html" />
+    <link rel="prev" title="Hydraulics: steady losses and drift-flux transients" href="derivation-hydraulics.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Derivation of the DrillPyze coupled axial–torsional model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#assumptions">1. Assumptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#kinematics-and-constitutive-relations">2. Kinematics and constitutive relations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#torsion">2.1 Torsion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#axial-identical-structure-g-to-e-j-to-a">2.2 Axial (identical structure, <span class="math notranslate nohighlight">\(G \to E\)</span>, <span class="math notranslate nohighlight">\(J \to A\)</span>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#balance-of-momentum">3. Balance of momentum</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">3.1 Torsion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#axial">3.2 Axial</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-equations">3.3 Wave equations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#characteristic-form">4. Characteristic form</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#hyperbolic-system">4.1 Hyperbolic system</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemann-invariants-and-impedance">4.2 Riemann invariants and impedance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#junctions-between-sections">4.3 Junctions between sections</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gravity-well-balanced-split">4.4 Gravity: well-balanced split</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#along-string-friction">5. Along-string friction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#normal-force-soft-string">5.1 Normal force (soft string)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cross-coupled-coulomb-inclusion-default">5.2 Cross-coupled Coulomb inclusion (default)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#special-case-no-axial-motion">5.3 Special case: no axial motion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#decoupled-variant-along-string-coupling-false">5.4 Decoupled variant (<code class="docutils literal notranslate"><span class="pre">along_string_coupling=False</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#axial-static-friction">5.5 Axial static friction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#distributed-damping-fluid-and-material">5.6 Distributed damping: fluid and material</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#boundary-conditions">6. Boundary conditions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#top-drive-torsion">6.1 Top drive (torsion)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#drawworks-axial">6.2 Drawworks (axial)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#drill-bit-coupling-at-the-bit">6.3 Drill bit: coupling at the bit</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#top-drive-controllers-aarsnes-di-meglio-shor-2018">7. Top-drive controllers (Aarsnes, di Meglio &amp; Shor 2018)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#numerical-scheme">8. Numerical scheme</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#finite-volumes-with-godunov-fluxes">8.1 Finite volumes with Godunov fluxes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#time-step">8.2 Time step</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#source-terms-operator-splitting">8.3 Source terms (operator splitting)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#moving-string">8.4 Moving string</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pausing">8.5 Pausing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#steady-state-limits-and-analytic-results">9. Steady-state limits and analytic results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#verification-summary-tests">10. Verification summary (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notation">11. Notation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Derivation of the DrillPyze coupled axial–torsional model</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_generated/derivation-readme.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="derivation-of-the-drillpyze-coupled-axialtorsional-model">
+<h1>Derivation of the DrillPyze coupled axial–torsional model<a class="headerlink" href="#derivation-of-the-drillpyze-coupled-axialtorsional-model" title="Link to this heading"></a></h1>
+<p>This document derives the model implemented in <code class="docutils literal notranslate"><span class="pre">DrillPyze</span></code> (kernel:
+<code class="docutils literal notranslate"><span class="pre">src/DrillPyze/kernel.py</span></code>), from the governing equations to the discrete
+scheme.</p>
+<ul class="simple">
+<li><p>The torsional model follows Aarsnes &amp; Shor (2018) and the control papers of
+Aarsnes, di Meglio &amp; Shor (2018) and Auriol et al. (2022).</p></li>
+<li><p>The axial model uses an identical formulation, with Young’s modulus in place
+of the shear modulus.</p></li>
+<li><p>The two directions are cross-coupled in two places:</p>
+<ol class="arabic simple">
+<li><p><strong>along the string</strong>, through a single 2-D Coulomb friction acting on the
+combined axial and rotational sliding velocity, with a normal force that
+follows the live tension (§5);</p></li>
+<li><p><strong>at the drill bit</strong>, through a Coulomb-type bit–rock interaction (§6.3).</p></li>
+</ol>
+</li>
+<li><p>A decoupled variant (<code class="docutils literal notranslate"><span class="pre">along_string_coupling=False</span></code>), in which the only
+coupling is at the bit, is kept for comparison (§5.4).</p></li>
+</ul>
+<p>All quantities are SI. Notation is collected in §11.</p>
+<hr class="docutils" />
+<section id="assumptions">
+<span id="1-assumptions"></span><h2>1. Assumptions<a class="headerlink" href="#assumptions" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>The drillstring is a slender, linearly elastic rod of length <span class="math notranslate nohighlight">\(L\)</span>, with
+curvilinear coordinate <span class="math notranslate nohighlight">\(x \in [0, L]\)</span> measured from the top drive (<span class="math notranslate nohighlight">\(x=0\)</span>)
+to the bit (<span class="math notranslate nohighlight">\(x=L\)</span>).</p></li>
+<li><p>Only axial and torsional motion is modelled; lateral (bending/whirl)
+dynamics are not. The string lies on the low or high side of the borehole
+as determined by the soft-string normal force (§5.1).</p></li>
+<li><p>Material properties are piecewise constant over sections (drill pipe, HWDP,
+collars, …). Tool-joint mass is included through an effective density
+<span class="math notranslate nohighlight">\(\rho = m/A\)</span>, where <span class="math notranslate nohighlight">\(m\)</span> is the mass per unit length and <span class="math notranslate nohighlight">\(A\)</span> the body area.</p></li>
+<li><p>Small strains, so axial and torsional wave speeds are independent of load.</p></li>
+<li><p>Drilling fluid enters through buoyancy (weight), linear viscous damping
+(steady Couette drag plus an oscillatory Stokes boundary layer) and, with
+the pumps off, a Bingham yield-stress drag (§5.6). Steel damping enters
+through a Rayleigh / Kelvin–Voigt term (§5.6). Hydraulics do not otherwise
+enter the mechanics.</p></li>
+<li><p>Contact with the borehole is Coulomb friction with distinct static and
+kinetic coefficients, separately for cased and open hole.</p></li>
+<li><p><strong>Frequency range.</strong> The damping models are fitted at the first mode and at
+<span class="math notranslate nohighlight">\(f_\max = 10\)</span> Hz. Together with the numerical dissipation of the
+first-order scheme, this limits the model to vibrations below 10 Hz
+(§5.6.6). High-frequency torsional oscillations (HFTO, 50–500 Hz) and bit
+bounce harmonics are out of scope.</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="kinematics-and-constitutive-relations">
+<span id="2-kinematics-and-constitutive-relations"></span><h2>2. Kinematics and constitutive relations<a class="headerlink" href="#kinematics-and-constitutive-relations" title="Link to this heading"></a></h2>
+<section id="torsion">
+<span id="21-torsion"></span><h3>2.1 Torsion<a class="headerlink" href="#torsion" title="Link to this heading"></a></h3>
+<p>Let <span class="math notranslate nohighlight">\(\phi(t,x)\)</span> be the angular displacement and
+<span class="math notranslate nohighlight">\(\omega = \partial\phi/\partial t\)</span> the angular velocity. Following Aarsnes &amp;
+Shor (2018), the torque transmitted downward through a cross-section is
+proportional to the twist per unit length:</p>
+<div class="math notranslate nohighlight">
+\[\tau(t,x) = J G \,\frac{\phi(t,x) - \phi(t,x+\mathrm{d}x)}{\mathrm{d}x} = -JG\,\frac{\partial \phi}{\partial x},\]</div>
+<p>where <span class="math notranslate nohighlight">\(J = \tfrac{\pi}{32}(D_o^4 - D_i^4)\)</span> is the polar moment of area and <span class="math notranslate nohighlight">\(G\)</span>
+the shear modulus. Differentiating in time gives the <strong>compatibility
+equation</strong></p>
+<div class="math notranslate nohighlight">
+\[\frac{\partial \tau}{\partial t} + JG\,\frac{\partial \omega}{\partial x} = 0. \tag{2.1}\]</div>
+</section>
+<section id="axial-identical-structure-g-to-e-j-to-a">
+<span id="22-axial-identical-structure--"></span><h3>2.2 Axial (identical structure, <span class="math notranslate nohighlight">\(G \to E\)</span>, <span class="math notranslate nohighlight">\(J \to A\)</span>)<a class="headerlink" href="#axial-identical-structure-g-to-e-j-to-a" title="Link to this heading"></a></h3>
+<p>Let <span class="math notranslate nohighlight">\(u(t,x)\)</span> be the axial displacement (positive downhole) and
+<span class="math notranslate nohighlight">\(v = \partial u/\partial t\)</span> the axial velocity. The axial force transmitted
+downward is the <strong>compressive</strong> force</p>
+<div class="math notranslate nohighlight">
+\[q(t,x) = -EA\,\frac{\partial u}{\partial x},\]</div>
+<p>with <span class="math notranslate nohighlight">\(A = \tfrac{\pi}{4}(D_o^2 - D_i^2)\)</span>, so <span class="math notranslate nohighlight">\(q &gt; 0\)</span> is compression and the
+effective tension is <span class="math notranslate nohighlight">\(T = -q\)</span>. Differentiating in time:</p>
+<div class="math notranslate nohighlight">
+\[\frac{\partial q}{\partial t} + EA\,\frac{\partial v}{\partial x} = 0. \tag{2.2}\]</div>
+<p>Choosing <span class="math notranslate nohighlight">\(q\)</span> (compression) rather than <span class="math notranslate nohighlight">\(T\)</span> makes the axial equations term for
+term identical to the torsional ones under <span class="math notranslate nohighlight">\((\omega, \tau, J, G) \to (v, q, A, E)\)</span>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="balance-of-momentum">
+<span id="3-balance-of-momentum"></span><h2>3. Balance of momentum<a class="headerlink" href="#balance-of-momentum" title="Link to this heading"></a></h2>
+<p>Consider an element <span class="math notranslate nohighlight">\([x, x + \mathrm{d}x]\)</span>.</p>
+<section id="id1">
+<span id="31-torsion"></span><h3>3.1 Torsion<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p>The rotational inertia of the element is <span class="math notranslate nohighlight">\(\rho J\,\mathrm{d}x\)</span>. The net
+transmitted torque is <span class="math notranslate nohighlight">\(\tau(x) - \tau(x+\mathrm{d}x)\)</span>, and the distributed
+torques are viscous damping and Coulomb wall friction:</p>
+<div class="math notranslate nohighlight">
+\[\rho J\,\frac{\partial \omega}{\partial t} + \frac{\partial \tau}{\partial x} = -k_t\,\rho J\,\omega - \mathcal{F}_t(t,x), \tag{3.1}\]</div>
+<p>where <span class="math notranslate nohighlight">\(k_t\)</span> (1/s) stands for the linear damping operators of §5.6 (fluid and
+material; in the original model a single constant rate), and
+<span class="math notranslate nohighlight">\(\mathcal{F}_t\)</span> is the frictional torque per unit length (an inclusion, §5).</p>
+</section>
+<section id="axial">
+<span id="32-axial"></span><h3>3.2 Axial<a class="headerlink" href="#axial" title="Link to this heading"></a></h3>
+<p>The mass of the element is <span class="math notranslate nohighlight">\(\rho A\,\mathrm{d}x\)</span>. In addition to the
+transmitted force, the element carries its buoyed weight per length <span class="math notranslate nohighlight">\(w_b\)</span>
+projected on the pipe axis, <span class="math notranslate nohighlight">\(w_b \cos\theta\)</span>, where <span class="math notranslate nohighlight">\(\theta(x)\)</span> is the
+inclination:</p>
+<div class="math notranslate nohighlight">
+\[\rho A\,\frac{\partial v}{\partial t} + \frac{\partial q}{\partial x} = w_b\cos\theta - k_a\,\rho A\, v - \mathcal{F}_a(t,x), \tag{3.2}\]</div>
+<p>with</p>
+<div class="math notranslate nohighlight">
+\[w_b = m\,g\left(1 - \frac{\rho_\text{mud}}{\rho_\text{steel}}\right),\]</div>
+<p><span class="math notranslate nohighlight">\(k_a\)</span> the axial damping rate, and <span class="math notranslate nohighlight">\(\mathcal{F}_a\)</span> the axial friction force per
+unit length.</p>
+</section>
+<section id="wave-equations">
+<span id="33-wave-equations"></span><h3>3.3 Wave equations<a class="headerlink" href="#wave-equations" title="Link to this heading"></a></h3>
+<p>Eliminating <span class="math notranslate nohighlight">\(\tau\)</span> from (2.1) and (3.1) in a uniform section without sources
+gives <span class="math notranslate nohighlight">\(\partial_t^2\phi = c_t^2\,\partial_x^2\phi\)</span>. Likewise, (2.2) and (3.2)
+give <span class="math notranslate nohighlight">\(\partial_t^2 u = c_a^2\,\partial_x^2 u\)</span>. The wave speeds are</p>
+<div class="math notranslate nohighlight">
+\[c_t = \sqrt{G/\rho}, \qquad c_a = \sqrt{E/\rho}.\]</div>
+<p>For steel, <span class="math notranslate nohighlight">\(c_t \approx 3{,}180\)</span> m/s and <span class="math notranslate nohighlight">\(c_a \approx 5{,}140\)</span> m/s.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="characteristic-form">
+<span id="4-characteristic-form"></span><h2>4. Characteristic form<a class="headerlink" href="#characteristic-form" title="Link to this heading"></a></h2>
+<section id="hyperbolic-system">
+<span id="41-hyperbolic-system"></span><h3>4.1 Hyperbolic system<a class="headerlink" href="#hyperbolic-system" title="Link to this heading"></a></h3>
+<p>Write the torsional system as <span class="math notranslate nohighlight">\(U_t + \mathbf{A}\,U_x = S\)</span> with
+<span class="math notranslate nohighlight">\(U = (\tau, \omega)^\top\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{A} = \begin{pmatrix} 0 &amp; JG \\ 1/(\rho J) &amp; 0 \end{pmatrix},
+\qquad
+S = \begin{pmatrix} 0 \\ S_t/(\rho J) \end{pmatrix},
+\qquad
+S_t = -k_t\rho J\omega - \mathcal{F}_t .\end{split}\]</div>
+<p>The eigenvalues are <span class="math notranslate nohighlight">\(\pm\sqrt{G/\rho} = \pm c_t\)</span>.</p>
+</section>
+<section id="riemann-invariants-and-impedance">
+<span id="42-riemann-invariants-and-impedance"></span><h3>4.2 Riemann invariants and impedance<a class="headerlink" href="#riemann-invariants-and-impedance" title="Link to this heading"></a></h3>
+<p>Define the <strong>characteristic impedance</strong></p>
+<div class="math notranslate nohighlight">
+\[Z_t = \frac{JG}{c_t} = \rho J\,c_t = J\sqrt{G\rho}
+\qquad\text{(axial: } Z_a = A\sqrt{E\rho}\text{)},\]</div>
+<p>and the Riemann invariants (Aarsnes &amp; Shor 2018, eq. 11)</p>
+<div class="math notranslate nohighlight">
+\[\alpha = \omega + \frac{\tau}{Z_t}, \qquad \beta = \omega - \frac{\tau}{Z_t}. \tag{4.1}\]</div>
+<p>Using (2.1), (3.1) and <span class="math notranslate nohighlight">\(JG/Z_t = c_t\)</span>, <span class="math notranslate nohighlight">\(1/(\rho J) = c_t/Z_t\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\partial_t\alpha
+= \partial_t\omega + \tfrac{1}{Z_t}\partial_t\tau
+= \frac{S_t - \partial_x\tau}{\rho J} - \frac{JG}{Z_t}\partial_x\omega
+= -c_t\,\partial_x\!\left(\omega + \tfrac{\tau}{Z_t}\right) + \frac{S_t}{\rho J},\]</div>
+<p>so</p>
+<div class="math notranslate nohighlight">
+\[\frac{\partial \alpha}{\partial t} + c_t\,\frac{\partial \alpha}{\partial x} = \frac{S_t}{\rho J},
+\qquad
+\frac{\partial \beta}{\partial t} - c_t\,\frac{\partial \beta}{\partial x} = \frac{S_t}{\rho J}. \tag{4.2}\]</div>
+<p><span class="math notranslate nohighlight">\(\alpha\)</span> is a wave travelling <strong>down</strong> the string and <span class="math notranslate nohighlight">\(\beta\)</span> a wave
+travelling <strong>up</strong>. The physical variables are recovered as
+<span class="math notranslate nohighlight">\(\omega = (\alpha+\beta)/2\)</span> and <span class="math notranslate nohighlight">\(\tau = Z_t(\alpha-\beta)/2\)</span>.</p>
+<p>The axial invariants are
+<span class="math notranslate nohighlight">\(\alpha_a = v + q/Z_a\)</span>, <span class="math notranslate nohighlight">\(\beta_a = v - q/Z_a\)</span>, which travel at <span class="math notranslate nohighlight">\(\pm c_a\)</span>
+with source <span class="math notranslate nohighlight">\(S_a/(\rho A)\)</span>.</p>
+</section>
+<section id="junctions-between-sections">
+<span id="43-junctions-between-sections"></span><h3>4.3 Junctions between sections<a class="headerlink" href="#junctions-between-sections" title="Link to this heading"></a></h3>
+<p>At a change of section at <span class="math notranslate nohighlight">\(x_i\)</span> (e.g. pipe to collar), continuity requires
+<span class="math notranslate nohighlight">\(\omega^- = \omega^+\)</span> and <span class="math notranslate nohighlight">\(\tau^- = \tau^+\)</span>. Given the incoming invariants,
+<span class="math notranslate nohighlight">\(\alpha^-\)</span> from above and <span class="math notranslate nohighlight">\(\beta^+\)</span> from below, these two conditions give the
+interface state</p>
+<div class="math notranslate nohighlight">
+\[\tau^\ast = \frac{\alpha^- - \beta^+}{1/Z^- + 1/Z^+},
+\qquad
+\omega^\ast = \alpha^- - \frac{\tau^\ast}{Z^-}. \tag{4.3}\]</div>
+<p>The outgoing waves then follow from (4.1). For
+<span class="math notranslate nohighlight">\(\bar Z = Z^+/Z^-\)</span> (for one material, <span class="math notranslate nohighlight">\(\bar Z = J_c/J_p\)</span>), this reproduces the
+transmission and reflection relations of Aarsnes &amp; Shor (2018), eqs. 16–17.
+Equation (4.3) is also the exact Riemann solution used at <strong>every</strong> cell face
+in the numerical scheme (§8).</p>
+</section>
+<section id="gravity-well-balanced-split">
+<span id="44-gravity-well-balanced-split"></span><h3>4.4 Gravity: well-balanced split<a class="headerlink" href="#gravity-well-balanced-split" title="Link to this heading"></a></h3>
+<p>The weight term in (3.2) is time-invariant. Write <span class="math notranslate nohighlight">\(q = q_s(x) + q_d(t,x)\)</span>,
+where <span class="math notranslate nohighlight">\(q_s\)</span> is the compression of the frictionless string hanging freely with
+the bit off bottom:</p>
+<div class="math notranslate nohighlight">
+\[\frac{\mathrm{d}q_s}{\mathrm{d}x} = w_b\cos\theta, \qquad q_s(L) = 0
+\;\;\Rightarrow\;\;
+q_s(x) = -\int_x^L w_b\cos\theta\,\mathrm{d}\xi \;(\le 0,\ \text{i.e. tension}).\]</div>
+<p>Then <span class="math notranslate nohighlight">\(q_d\)</span> satisfies (2.2) and (3.2) <strong>without</strong> the weight term. Only <span class="math notranslate nohighlight">\(q_d\)</span> is
+transported. This makes the discrete scheme well balanced: a hanging string at
+rest is an exact discrete equilibrium. Hookload and WOB are reconstructed as
+<span class="math notranslate nohighlight">\(\text{HKLD} = -(q_s(0) + q_d(0))\)</span> and <span class="math notranslate nohighlight">\(\text{WOB} = q(L) = q_d(L)\)</span>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="along-string-friction">
+<span id="5-along-string-friction"></span><h2>5. Along-string friction<a class="headerlink" href="#along-string-friction" title="Link to this heading"></a></h2>
+<section id="normal-force-soft-string">
+<span id="51-normal-force-soft-string"></span><h3>5.1 Normal force (soft string)<a class="headerlink" href="#normal-force-soft-string" title="Link to this heading"></a></h3>
+<p>For a cable element with unit tangent <span class="math notranslate nohighlight">\(\mathbf{t}(x)\)</span> and effective tension
+<span class="math notranslate nohighlight">\(T\)</span>, equilibrium normal to the pipe gives the contact force per unit length
+(Johancsik et al. 1984, in vector form):</p>
+<div class="math notranslate nohighlight">
+\[F_N(x) = \left\| T\,\frac{\mathrm{d}\mathbf{t}}{\mathrm{d}x} + w_b\,\mathbf{z}_\perp \right\|,
+\qquad
+\mathbf{z}_\perp = \hat{\mathbf{z}} - (\hat{\mathbf{z}}\cdot\mathbf{t})\,\mathbf{t}, \tag{5.1}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\hat{\mathbf z}\)</span> points vertically down. The tangent is interpolated
+along the minimum-curvature arcs of the survey. In a 2-D build section,
+(5.1) reduces to <span class="math notranslate nohighlight">\(|T\,\mathrm{d}\theta/\mathrm{d}x - w_b\sin\theta|\)</span>: tension
+pulls the pipe against the high side and gravity against the low side. In a
+straight inclined hole it reduces to <span class="math notranslate nohighlight">\(w_b\sin\theta\)</span>, the normal force of
+Aarsnes &amp; Shor (2018), eq. 6.</p>
+<p>In the coupled model (default) the normal force is evaluated with the <strong>live</strong>
+tension <span class="math notranslate nohighlight">\(T = -(q_s + q_d)\)</span>. Axial loading (pick-up, slack-off, WOB transfer)
+therefore changes the normal force, and through it the rotary friction torque.</p>
+<p>In the decoupled variant (§5.4) it is evaluated with the tension of the static
+hanging string, <span class="math notranslate nohighlight">\(T_s = -q_s\)</span>, so <span class="math notranslate nohighlight">\(F_N = F_N(x)\)</span> does not depend on the dynamic
+state. In both cases it is re-evaluated whenever the string has moved more
+than <code class="docutils literal notranslate"><span class="pre">refresh_distance</span></code> along the hole.</p>
+</section>
+<section id="cross-coupled-coulomb-inclusion-default">
+<span id="52-cross-coupled-coulomb-inclusion-default"></span><h3>5.2 Cross-coupled Coulomb inclusion (default)<a class="headerlink" href="#cross-coupled-coulomb-inclusion-default" title="Link to this heading"></a></h3>
+<p>The pipe surface at <span class="math notranslate nohighlight">\(x\)</span> slides against the borehole with the velocity</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf V = \begin{pmatrix} v \\ \omega\, r_c \end{pmatrix}
+\qquad\text{(axial, tangential)},\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(r_c\)</span> is the contact radius (tool joint or stabiliser). Coulomb’s law
+for a contact with normal force <span class="math notranslate nohighlight">\(F_N\)</span> is a <strong>single</strong> friction force in the
+plane of sliding, <span class="math notranslate nohighlight">\(\boldsymbol{\mathcal F} = (\mathcal F_a,\ \mathcal F_\theta)\)</span>,
+with</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\boldsymbol{\mathcal F} \in
+\begin{cases}
+\left\{\,\mu_k F_N\,\dfrac{\mathbf V}{\|\mathbf V\|}\,\right\}, &amp; \text{sliding},\\[8pt]
+\left\{\,\boldsymbol{\mathcal F} : \|\boldsymbol{\mathcal F}\| \le \mu_s F_N\,\right\}, &amp; \text{sticking}.
+\end{cases} \tag{5.2}\end{split}\]</div>
+<p>The regime is set by the normalised sliding speed: the contact is <strong>sticking</strong>
+when</p>
+<div class="math notranslate nohighlight">
+\[\left(\frac{v}{v_c}\right)^2 + \left(\frac{\omega}{\omega_c}\right)^2 \le 1,\]</div>
+<p>and sliding otherwise. The axial friction force per length is <span class="math notranslate nohighlight">\(\mathcal F_a\)</span>,
+and the frictional torque per length in (3.1) is</p>
+<div class="math notranslate nohighlight">
+\[\mathcal F_t = r_c\,\mathcal F_\theta .\]</div>
+<p>Two cross-coupling mechanisms follow from (5.2):</p>
+<ul>
+<li><p><strong>Velocity split.</strong> Kinetic friction has fixed magnitude <span class="math notranslate nohighlight">\(\mu_k F_N\)</span> but is
+shared between the two directions in proportion to the velocity components:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal F_a = \mu_k F_N\,\frac{v}{\sqrt{v^2 + \omega^2 r_c^2}},
+\qquad
+\mathcal F_t = \mu_k F_N\,r_c\,\frac{\omega r_c}{\sqrt{v^2 + \omega^2 r_c^2}} .\]</div>
+<p>Rotating while tripping therefore reduces axial drag. Conversely, axial
+motion reduces the rotary torque and can change the stick-slip behaviour.</p>
+</li>
+<li><p><strong>Normal-force coupling.</strong> <span class="math notranslate nohighlight">\(F_N\)</span> depends on the live tension (5.1), so axial
+loads change the torque along the string. This is the effect that Aarsnes &amp;
+Shor (2018, §5.5) observed as a phase shift once axial motion started.</p></li>
+</ul>
+<p>A sticking contact also breaks out under <strong>combined</strong> load. The friction capacity
+<span class="math notranslate nohighlight">\(\mu_s F_N\)</span> is shared, so torque and axial pull together can free the string
+when neither alone would.</p>
+</section>
+<section id="special-case-no-axial-motion">
+<span id="53-special-case-no-axial-motion"></span><h3>5.3 Special case: no axial motion<a class="headerlink" href="#special-case-no-axial-motion" title="Link to this heading"></a></h3>
+<p>For <span class="math notranslate nohighlight">\(v \equiv 0\)</span>, (5.2) reduces exactly to the torsional inclusion of Aarsnes &amp;
+Shor (2018, eqs. 4–5), with limits
+<span class="math notranslate nohighlight">\(\mathcal F_{c,s} = \mu_s F_N r_c\)</span> and <span class="math notranslate nohighlight">\(\mathcal F_{c,k} = \mu_k F_N r_c\)</span> and
+<span class="math notranslate nohighlight">\(f_\text{rat} = \mu_k/\mu_s\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathcal{F}_t(\omega, x) \in
+\begin{cases}
+\{\,\mathcal{F}_{c,k}(x)\,\}, &amp; \omega &gt; \omega_c,\\[2pt]
+[-\mathcal{F}_{c,s}(x),\ \mathcal{F}_{c,s}(x)], &amp; |\omega| \le \omega_c,\\[2pt]
+\{-\mathcal{F}_{c,k}(x)\}, &amp; \omega &lt; -\omega_c .
+\end{cases}\end{split}\]</div>
+<p>The published off-bottom results (break-off torque, stick-slip amplitude and
+period, §9) therefore carry over unchanged.</p>
+</section>
+<section id="decoupled-variant-along-string-coupling-false">
+<span id="54-decoupled-variant-along_string_couplingfalse"></span><h3>5.4 Decoupled variant (<code class="docutils literal notranslate"><span class="pre">along_string_coupling=False</span></code>)<a class="headerlink" href="#decoupled-variant-along-string-coupling-false" title="Link to this heading"></a></h3>
+<p>For comparison, the axial and torsional inclusions can be applied
+independently, each in the 1-D form above, with thresholds <span class="math notranslate nohighlight">\(v_c\)</span> and
+<span class="math notranslate nohighlight">\(\omega_c\)</span>. The normal force is then taken from the static hanging string
+(§5.1). There is no velocity split and no normal-force coupling, so the only
+axial–torsional coupling is at the bit.</p>
+</section>
+<hr class="docutils" />
+<section id="axial-static-friction">
+<span id="55-axial-static-friction"></span><h3>5.5 Axial static friction<a class="headerlink" href="#axial-static-friction" title="Link to this heading"></a></h3>
+<p>The static and kinetic factors <span class="math notranslate nohighlight">\(\mu_s &gt; \mu_k\)</span> were identified from
+<strong>torsional</strong> start-ups (Aarsnes &amp; Shor 2018). Axial friction factors from
+pick-up and slack-off are kinetic values (Johancsik et al. 1984).</p>
+<p><strong>What goes wrong if the torsional contrast is also applied axially.</strong> Applying
+the full contrast axially, with the step law and <span class="math notranslate nohighlight">\(v_c = 0.01\)</span> m/s, gives
+sustained axial stick-slip at 0 rpm. In slack-off at 200 m/h on Well A:</p>
+<ul class="simple">
+<li><p>the bit alternates between rest and 600 m/h;</p></li>
+<li><p>the cycle is about 3 s;</p></li>
+<li><p>hookload swings by 40 kN.</p></li>
+</ul>
+<p>The mechanism is the classic one for velocity-weakening friction on a long,
+compliant string driven at constant speed: a step from <span class="math notranslate nohighlight">\(\mu_s\)</span> to <span class="math notranslate nohighlight">\(\mu_k\)</span> is
+infinitely steep weakening.</p>
+<p><strong>Options evaluated.</strong> All were run on Well A at 0 rpm, using the bit axial
+speed after 40 s; the bit is off bottom.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>option</p></th>
+<th class="head"><p>slack-off 200 m/h</p></th>
+<th class="head"><p>slack-off 20 m/h</p></th>
+<th class="head"><p>pick-up 200 m/h</p></th>
+<th class="head"><p>torsional stick-slip kept</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>full contrast (previous default)</p></td>
+<td><p>5–658 m/h</p></td>
+<td><p>5–28</p></td>
+<td><p>−1128 to −2</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(v_c\)</span> = 10⁻³ m/s</p></td>
+<td><p>154–245</p></td>
+<td><p>4–367 (stick-slip moves to lower speed)</p></td>
+<td><p>−236 to −165</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(v_c\)</span> = 10⁻⁴ m/s</p></td>
+<td><p>154–245</p></td>
+<td><p>4–658</p></td>
+<td><p>−806 to −3</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>axial contrast 0.25</p></td>
+<td><p>4–605</p></td>
+<td><p>6–32</p></td>
+<td><p>−805 to 0</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p>exponential weakening <span class="math notranslate nohighlight">\(\mu_k + (\mu_s-\mu_k)e^{-s}\)</span></p></td>
+<td><p>5–644</p></td>
+<td><p>5–28</p></td>
+<td><p>−1267 to 1</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>block acceleration ≤ 0.5 m/s²</p></td>
+<td><p>5–658</p></td>
+<td><p>5–28</p></td>
+<td><p>−1115 to −2</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p>raise axial damping <span class="math notranslate nohighlight">\(k_a\)</span> to 1–5 /s</p></td>
+<td><p>190–206</p></td>
+<td><p>–</p></td>
+<td><p>–</p></td>
+<td><p>yes, but not physical: steady Couette mud drag is about 10⁻² /s and the oscillatory Stokes layer about 0.1 /s (§5.6)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>axial contrast 0</strong> (new default)</p></td>
+<td><p><strong>170–225</strong>, settling to ±5 within 100 s</p></td>
+<td><p><strong>6–33</strong></p></td>
+<td><p><strong>−233 to −172</strong></p></td>
+<td><p><strong>yes</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Default.</strong> Static friction now acts on an <strong>ellipse</strong> in force space:</p>
+<div class="math notranslate nohighlight">
+\[\left(\frac{\mathcal F_a}{\mu_{s,a}F_N}\right)^2 + \left(\frac{\mathcal F_\theta}{\mu_s F_N}\right)^2 \le 1,
+\qquad \mu_{s,a} = \mu_k + c_a(\mu_s - \mu_k),\]</div>
+<p>with <span class="math notranslate nohighlight">\(c_a\)</span> = <code class="docutils literal notranslate"><span class="pre">axial_static_contrast</span></code> = 0 by default. A cell that breaks out
+slides with the ellipse radius in the direction of motion for that step, then
+with <span class="math notranslate nohighlight">\(\mu_k\)</span>. The torsional behaviour, and the cross-coupling of §5.2, are
+unchanged. The full contrast (<span class="math notranslate nohighlight">\(c_a = 1\)</span>) and the exponential weakening law
+remain available for research, for example to study axial breakover after
+connections.</p>
+<p>The ±10% start-up ringing that remains is the first axial mode (0.42 Hz),
+excited by the step change in block speed. It decays with the axial damping,
+which §5.6 now derives from the mud and the steel rather than setting by hand.</p>
+</section>
+<section id="distributed-damping-fluid-and-material">
+<span id="56-distributed-damping-fluid-and-material"></span><h3>5.6 Distributed damping: fluid and material<a class="headerlink" href="#distributed-damping-fluid-and-material" title="Link to this heading"></a></h3>
+<p>The lumped rates <span class="math notranslate nohighlight">\(k_t, k_a\)</span> of (3.1)–(3.2) had no physical basis and damped
+every mode at the same rate. They are replaced by three mechanisms with
+parameters from the mud report and the string. The constant rates remain as
+optional calibration terms (<code class="docutils literal notranslate"><span class="pre">DampingParameters.k_t</span></code>, <code class="docutils literal notranslate"><span class="pre">k_a</span></code>, default 0).</p>
+<p><strong>Choice of mechanisms.</strong> Five candidates were considered:</p>
+<ul class="simple">
+<li><p>steady laminar (Couette) annular shear;</p></li>
+<li><p>the oscillatory Stokes boundary layer;</p></li>
+<li><p>the yield stress of a Bingham or Herschel–Bulkley mud;</p></li>
+<li><p>surge/swab piston flow;</p></li>
+<li><p>material damping of steel and tool joints.</p></li>
+</ul>
+<p>For 5” drill pipe in an 8½” hole with a 20 cP mud:</p>
+<ul class="simple">
+<li><p><strong>Couette</strong> drag is <span class="math notranslate nohighlight">\(c_0 \approx 0.24\)</span> N s/m², so <span class="math notranslate nohighlight">\(k \approx 0.008\)</span> /s.</p></li>
+<li><p><strong>Stokes layer</strong> at the 0.4 Hz first axial mode (<span class="math notranslate nohighlight">\(\delta \approx 3.6\)</span> mm) gives <span class="math notranslate nohighlight">\(c_1 \approx 4\)</span> N s/m², so <span class="math notranslate nohighlight">\(k \approx 0.1\)</span> /s and <span class="math notranslate nohighlight">\(\zeta \approx 0.02\)</span>–0.03.</p></li>
+<li><p><strong>Surge/swab</strong> through the DP annulus is <span class="math notranslate nohighlight">\(\approx 0.06\)</span> N s/m² per metre. It matters only across tight BHA annuli and is left to a future lumped BHA term.</p></li>
+<li><p><strong>Steel:</strong> the measured loss factor of a steel member is <span class="math notranslate nohighlight">\(\eta \approx 0.014\)</span>, and jointed metal structures are higher (Orban 2011). This gives <span class="math notranslate nohighlight">\(\zeta = \eta/2 \approx 0.005\)</span> for the string.</p></li>
+</ul>
+<p>The oscillatory fluid layer therefore dominates, as Moharrami et al. (2024) and
+Jansen &amp; van den Steen (1995) assume with lumped coefficients. The
+confined-annulus added mass of Chen et al. (1976) and Dolfo et al. (2020)
+applies to lateral motion and is not used here.</p>
+<section id="f1-fluid-steady-couette-drag">
+<h4>5.6.1 F1 — fluid: steady Couette drag<a class="headerlink" href="#f1-fluid-steady-couette-drag" title="Link to this heading"></a></h4>
+<p>Laminar flow between the pipe (radius <span class="math notranslate nohighlight">\(r_o\)</span>) and the hole or casing (radius
+<span class="math notranslate nohighlight">\(R\)</span>), with viscosity <span class="math notranslate nohighlight">\(\mu\)</span> (the Bingham plastic viscosity if given), gives
+drag per unit length</p>
+<div class="math notranslate nohighlight">
+\[f_{a,0} = \frac{2\pi\mu}{\ln(R/r_o)}\, v,
+\qquad
+m_{t,0} = \frac{4\pi\mu\, r_o^2 R^2}{R^2 - r_o^2}\,\omega. \tag{5.6}\]</div>
+<p>These act on the full velocity and are the only viscous loads in steady
+rotation or tripping, so they enter torque-and-drag directly.</p>
+</section>
+<section id="f1-fluid-oscillatory-stokes-layer">
+<h4>5.6.2 F1 — fluid: oscillatory Stokes layer<a class="headerlink" href="#f1-fluid-oscillatory-stokes-layer" title="Link to this heading"></a></h4>
+<p>A wall oscillating tangentially at frequency <span class="math notranslate nohighlight">\(\omega_f\)</span> in a viscous fluid
+drives a boundary layer of thickness <span class="math notranslate nohighlight">\(\delta = \sqrt{2\nu/\omega_f}\)</span>, with
+<span class="math notranslate nohighlight">\(\nu = \mu/\rho_f\)</span> (Stokes’ second problem). The in-phase (dissipative) part
+of the wall shear stress is</p>
+<div class="math notranslate nohighlight">
+\[\tau_w = \sqrt{\rho_f\mu\,\omega_f/2}\; u_w .\]</div>
+<p>For <span class="math notranslate nohighlight">\(\delta \ll r_i\)</span> and <span class="math notranslate nohighlight">\(\delta \ll R - r_o\)</span> (both hold for <span class="math notranslate nohighlight">\(f \gtrsim 0.1\)</span>
+Hz), each wall acts as a flat plate. Summing the inner and outer walls of the
+pipe, and integrating the moment <span class="math notranslate nohighlight">\(\tau_w r\)</span> for torsion, gives the drag per
+unit length</p>
+<div class="math notranslate nohighlight">
+\[f_{a,1} = \underbrace{\sqrt{\tfrac{\rho_f\mu\omega_a}{2}}\;2\pi(r_o + r_i)}_{c_{a,1}}\; \tilde v,
+\qquad
+m_{t,1} = \underbrace{\sqrt{\tfrac{\rho_f\mu\omega_t}{2}}\;2\pi(r_o^3 + r_i^3)}_{c_{t,1}}\; \tilde\omega . \tag{5.7}\]</div>
+<p>The mud inside the pipe is not entrained, consistent with the steel-only mass
+<span class="math notranslate nohighlight">\(\rho A\)</span>. The coefficient grows as <span class="math notranslate nohighlight">\(\sqrt{\omega_f}\)</span>, which is a fractional
+(half-order) time derivative. It is evaluated once at a reference frequency:
+by default the first (quarter-wave) mode of the string held at the top,</p>
+<div class="math notranslate nohighlight">
+\[f_{a,1} = \frac{1}{4\sum_j h_j/c_{a,j}}, \qquad f_{t,1} = \frac{1}{4\sum_j h_j/c_{t,j}} . \tag{5.8}\]</div>
+<p>This is the mode that dominates stick-slip and the tripping transients.</p>
+<p><span class="math notranslate nohighlight">\(\tilde v, \tilde\omega\)</span> are the <strong>oscillatory</strong> parts of the velocities. A
+uniformly moving pipe has no Stokes layer, only (5.6). Each cell therefore
+carries a low-pass state</p>
+<div class="math notranslate nohighlight">
+\[\dot{\bar v} = \omega_c(v - \bar v), \qquad \tilde v = v - \bar v, \qquad \omega_c = \phi\,\omega_{a,1},\]</div>
+<p>with <span class="math notranslate nohighlight">\(\phi\)</span> = <code class="docutils literal notranslate"><span class="pre">high_pass_fraction</span></code> = 0.25. At the reference frequency the
+filter passes <span class="math notranslate nohighlight">\(1/(1+\phi^2) = 94\%\)</span> of the Stokes damping; at steady state it
+passes none.</p>
+</section>
+<section id="f2-fluid-yield-stress-drag">
+<h4>5.6.3 F2 — fluid: yield-stress drag<a class="headerlink" href="#f2-fluid-yield-stress-drag" title="Link to this heading"></a></h4>
+<p>A Bingham mud with yield point <span class="math notranslate nohighlight">\(\tau_y\)</span> resists the start of motion of a gelled
+column with a velocity-independent wall stress. Following the
+Herschel–Bulkley drag form <span class="math notranslate nohighlight">\(F_d = A_d\tau_y + k_f A_d(V/\Delta)^n\)</span>
+(Lyons &amp; Plisga 2005, as used in the Swansea thesis), the yield part per unit
+length,</p>
+<div class="math notranslate nohighlight">
+\[f_y = \tau_y\,\pi d_o, \tag{5.9}\]</div>
+<p>is added to the Coulomb capacity of §5.2 for both directions:
+<span class="math notranslate nohighlight">\(\mu F_N \to \mu F_N + f_y\)</span>, in the static ellipse and while sliding. It is
+applied with the sliding velocity at the contact radius, which is a
+simplification when <span class="math notranslate nohighlight">\(r_c \ne r_o\)</span>. While the mud circulates, it is already
+yielded in the annulus, so by default (5.9) applies only with the pumps off
+(<code class="docutils literal notranslate"><span class="pre">yield_drag='pumps_off'</span></code>; also <code class="docutils literal notranslate"><span class="pre">'always'</span></code>, <code class="docutils literal notranslate"><span class="pre">'off'</span></code>).</p>
+</section>
+<section id="m1-material-rayleigh-kelvinvoigt">
+<h4>5.6.4 M1 — material: Rayleigh / Kelvin–Voigt<a class="headerlink" href="#m1-material-rayleigh-kelvinvoigt" title="Link to this heading"></a></h4>
+<p>For a linear viscoelastic (Kelvin–Voigt) rod, <span class="math notranslate nohighlight">\(\sigma = E(\varepsilon + \beta\dot\varepsilon)\)</span>.
+The strain rate is <span class="math notranslate nohighlight">\(\dot\varepsilon = \partial_x v\)</span>, which adds</p>
+<div class="math notranslate nohighlight">
+\[\rho A\,\partial_t v \mathrel{+}= \partial_x\!\left(\beta EA\,\partial_x v\right),
+\qquad
+\rho J\,\partial_t \omega \mathrel{+}= \partial_x\!\left(\beta GJ\,\partial_x \omega\right) \tag{5.10}\]</div>
+<p>to the momentum equations, with modal damping ratio <span class="math notranslate nohighlight">\(\zeta_n = \beta\omega_n/2\)</span>.
+Steel and its connections dissipate a nearly frequency-independent fraction
+of energy per cycle (hysteretic damping, <span class="math notranslate nohighlight">\(\zeta = \eta/2\)</span>). That law is not
+causal in the time domain, so it is approximated by a Rayleigh pair, adding a
+mass-proportional rate <span class="math notranslate nohighlight">\(\alpha\)</span> that acts on <span class="math notranslate nohighlight">\(\tilde v, \tilde\omega\)</span> like the
+Stokes term:</p>
+<div class="math notranslate nohighlight">
+\[\zeta(\omega) = \frac{\alpha}{2\omega} + \frac{\beta\omega}{2},
+\qquad
+\alpha = \frac{\eta\,\omega_1\omega_2}{\omega_1+\omega_2},
+\quad
+\beta = \frac{\eta}{\omega_1+\omega_2}, \tag{5.11}\]</div>
+<p>which gives <span class="math notranslate nohighlight">\(\zeta = \eta/2\)</span> exactly at the first mode <span class="math notranslate nohighlight">\(\omega_1\)</span> and at
+<span class="math notranslate nohighlight">\(\omega_2 = 2\pi f_\max\)</span>, and <span class="math notranslate nohighlight">\(\zeta &lt; \eta/2\)</span> in between. Moharrami et al.
+(2024) fit Rayleigh damping over modes 1–10 in the same way. A Kelvin–Voigt
+term tuned only at the first mode (<span class="math notranslate nohighlight">\(\beta = \eta/\omega_1\)</span>) was rejected: its
+<span class="math notranslate nohighlight">\(\zeta \propto f\)</span> over-damps 10 Hz content by roughly 40×. The default is
+<span class="math notranslate nohighlight">\(\eta = 0.01\)</span>.</p>
+</section>
+<section id="discretisation">
+<h4>5.6.5 Discretisation<a class="headerlink" href="#discretisation" title="Link to this heading"></a></h4>
+<p>Each step, after the Godunov flux update (§8.1):</p>
+<ol class="arabic">
+<li><p><strong>Linear fluid and <span class="math notranslate nohighlight">\(\alpha\)</span> terms, implicitly per cell:</strong></p>
+<div class="math notranslate nohighlight">
+\[\omega^{**} = \frac{\omega^* + \Delta t\,k_{t,1}\bar\omega}{1 + \Delta t(k_{t,0} + k_{t,1})},
+\qquad
+k_{t,0} = \frac{c_{t,0}}{\rho J} + k_t,\quad k_{t,1} = \frac{c_{t,1}}{\rho J} + \alpha_t,\]</div>
+<p>and likewise for <span class="math notranslate nohighlight">\(v\)</span>.</p>
+</li>
+<li><p><strong>Kelvin–Voigt, implicitly, by one tridiagonal (Thomas) solve per
+direction:</strong></p>
+<div class="math notranslate nohighlight">
+\[\frac{m_j h_j}{\Delta t}(x_j' - x_j) = \kappa_{j+\frac12}(x'_{j+1} - x'_j) - \kappa_{j-\frac12}(x'_j - x'_{j-1}),
+\qquad
+\kappa_{j+\frac12} = \beta\,\frac{\overline{EA}}{\bar h},\]</div>
+<p>with <span class="math notranslate nohighlight">\(\kappa = 0\)</span> at the top-drive and bit faces. An explicit step would be
+unstable: on a 10 m grid the diffusion limit <span class="math notranslate nohighlight">\(h^2/(2\beta c^2)\)</span> is far below
+the CFL step. The implicit step:</p>
+<ul class="simple">
+<li><p>conserves momentum <span class="math notranslate nohighlight">\(\sum m_j h_j x_j\)</span>;</p></li>
+<li><p>dissipates <span class="math notranslate nohighlight">\(\sum\kappa\,(\Delta x')^2 \ge 0\)</span>;</p></li>
+<li><p>costs <span class="math notranslate nohighlight">\(O(N)\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Friction</strong> (§8.3), with capacity <span class="math notranslate nohighlight">\(\mu F_N + f_y\)</span>.</p></li>
+<li><p><strong>Low-pass update:</strong> <span class="math notranslate nohighlight">\(\bar x \leftarrow \bar x + (1 - e^{-\omega_c\Delta t})(x - \bar x)\)</span>.</p></li>
+</ol>
+<p>The low-pass states are part of the simulation state, so pausing stays exact
+(§8.5).</p>
+</section>
+<section id="damping-ratios-numerical-dissipation-and-the-10-hz-limit">
+<h4>5.6.6 Damping ratios, numerical dissipation and the 10 Hz limit<a class="headerlink" href="#damping-ratios-numerical-dissipation-and-the-10-hz-limit" title="Link to this heading"></a></h4>
+<p>For a mode of frequency <span class="math notranslate nohighlight">\(f\)</span> (<span class="math notranslate nohighlight">\(\omega = 2\pi f\)</span>), the model gives</p>
+<div class="math notranslate nohighlight">
+\[\zeta_\text{fluid} = \frac{k_0 + k_{1,S}H}{2\omega},\quad
+\zeta_\text{mat} = \frac{\alpha H}{2\omega} + \frac{\beta\omega}{2},\quad
+\zeta_\text{num} = \frac{\pi f h (1-\nu)}{c},\quad H = \frac{1}{1 + (\phi f_1/f)^2}, \tag{5.12}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\zeta_\text{num}\)</span> is the amplitude loss of first-order upwinding.
+Upwinding has modified-equation diffusion <span class="math notranslate nohighlight">\(c h(1-\nu)/2\)</span>, with <span class="math notranslate nohighlight">\(\nu\)</span> the
+Courant number of that wave. <code class="docutils literal notranslate"><span class="pre">Simulation.damping_summary(f)</span></code> tabulates these
+per component.</p>
+<p>For Well A drill pipe (<span class="math notranslate nohighlight">\(f_{a,1}\)</span> = 0.51 Hz, <span class="math notranslate nohighlight">\(f_{t,1}\)</span> = 0.32 Hz), the first
+modes have <span class="math notranslate nohighlight">\(\zeta_\text{fluid}\)</span> = 0.027 (axial) and 0.037 (torsional), with
+<span class="math notranslate nohighlight">\(\zeta_\text{mat}\)</span> = 0.0047. Previously the default <span class="math notranslate nohighlight">\(k\)</span> = 0.1 /s gave 0.016
+and 0.025.</p>
+<p><strong>Limitations (stated validity: <span class="math notranslate nohighlight">\(f \le 10\)</span> Hz).</strong></p>
+<ul class="simple">
+<li><p>The Stokes coefficient is fixed at <span class="math notranslate nohighlight">\(f_1\)</span>. Above it, fluid damping is
+under-predicted by <span class="math notranslate nohighlight">\(\sqrt{f/f_1}\)</span>: 4–6× at 10 Hz, an absolute shortfall of
+<span class="math notranslate nohighlight">\(\zeta \approx 0.005\)</span>.</p></li>
+<li><p>Frequency-dependent Stokes damping would need a fractional-derivative
+(Prony / auxiliary-state) form; it is deferred.</p></li>
+<li><p>Material damping follows (5.11) within the band and over-damps above <span class="math notranslate nohighlight">\(f_\max\)</span>.</p></li>
+<li><p>Numerical dissipation grows as <span class="math notranslate nohighlight">\(f\,h\)</span>. With <span class="math notranslate nohighlight">\(h\)</span> = 10 m, the torsional
+<span class="math notranslate nohighlight">\(\zeta_\text{num}\)</span> reaches 0.04 at 10 Hz and exceeds the physical damping
+above about 2 Hz; the axial <span class="math notranslate nohighlight">\(\zeta_\text{num}\)</span> stays below 0.003. For
+torsional content up to 10 Hz, use <span class="math notranslate nohighlight">\(h \lesssim 2.5\)</span> m
+(<span class="math notranslate nohighlight">\(\zeta_\text{num} \approx 0.01\)</span>), at about 4× the run time.</p></li>
+<li><p>Herschel–Bulkley shear thinning in the Stokes layer, which depends on
+amplitude, and the gel-strength build-up with time are not modelled.</p></li>
+</ul>
+<p><strong>Verification</strong> (<code class="docutils literal notranslate"><span class="pre">tests/test_damping.py</span></code>, <code class="docutils literal notranslate"><span class="pre">docs/derivation/damping_verification.py</span></code>).
+Free decay of the first mode of 3000 m of 5” DP gives measured
+vs (5.12)-predicted damping ratios. The measured ratio is the slope of the
+log envelope of the FFT band-passed bit velocity (numpy only, zero-padded):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>model</p></th>
+<th class="head"><p>axial measured / predicted</p></th>
+<th class="head"><p>torsional measured / predicted</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>lumped <span class="math notranslate nohighlight">\(k\)</span> = 0.1 /s</p></td>
+<td><p>0.0187 / 0.0187</p></td>
+<td><p>0.0312 / 0.0311</p></td>
+</tr>
+<tr class="row-odd"><td><p>F1 fluid</p></td>
+<td><p>0.0293 / 0.0293</p></td>
+<td><p>0.0416 / 0.0415</p></td>
+</tr>
+<tr class="row-even"><td><p>M1 material, <span class="math notranslate nohighlight">\(\eta\)</span> = 0.02</p></td>
+<td><p>0.0096 / 0.0096</p></td>
+<td><p>0.0105 / 0.0105</p></td>
+</tr>
+<tr class="row-odd"><td><p>F1 + M1, <span class="math notranslate nohighlight">\(\eta\)</span> = 0.01</p></td>
+<td><p>0.0340 / 0.0340</p></td>
+<td><p>0.0463 / 0.0462</p></td>
+</tr>
+</tbody>
+</table>
+<p>For Well A tripping in at 200 m/h and 0 rpm, the bit-speed range after 30 s
+narrows from 154–248 m/h (lumped <span class="math notranslate nohighlight">\(k\)</span> = 0.1 /s) to 172–230 m/h (F1 + M1).</p>
+<p>Figures: <code class="docutils literal notranslate"><span class="pre">docs/figures/damping_free_decay.png</span></code>, <code class="docutils literal notranslate"><span class="pre">damping_vs_frequency.png</span></code>,
+<code class="docutils literal notranslate"><span class="pre">damping_trip_well_a.png</span></code>.</p>
+</section>
+</section>
+</section>
+<section id="boundary-conditions">
+<span id="6-boundary-conditions"></span><h2>6. Boundary conditions<a class="headerlink" href="#boundary-conditions" title="Link to this heading"></a></h2>
+<p>At each boundary one invariant arrives from the interior. The boundary model
+supplies one relation, which closes the system.</p>
+<section id="top-drive-torsion">
+<span id="61-top-drive-torsion"></span><h3>6.1 Top drive (torsion)<a class="headerlink" href="#top-drive-torsion" title="Link to this heading"></a></h3>
+<p>At <span class="math notranslate nohighlight">\(x = 0\)</span> the incoming invariant is <span class="math notranslate nohighlight">\(\beta_1\)</span> (travelling up). The
+characteristic relation <span class="math notranslate nohighlight">\(\beta = \omega - \tau/Z_t\)</span> gives the pipe torque at
+the top drive:</p>
+<div class="math notranslate nohighlight">
+\[\tau_0 = Z_t\,(\omega_{TD} - \beta_1). \tag{6.1}\]</div>
+<p>The top drive is a rigid inertia <span class="math notranslate nohighlight">\(I_{TD}\)</span> driven by motor torque <span class="math notranslate nohighlight">\(\tau_m\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[I_{TD}\,\dot\omega_{TD} = \tau_m - \tau_0 = \tau_m - Z_t\,(\omega_{TD} - \beta_1). \tag{6.2}\]</div>
+<p>Seen from the string, (6.2) is a damper of impedance <span class="math notranslate nohighlight">\(Z_t\)</span> in parallel with
+the inertia. It is integrated implicitly in <span class="math notranslate nohighlight">\(\omega_{TD}\)</span>, which is
+unconditionally stable:</p>
+<div class="math notranslate nohighlight">
+\[\omega_{TD}^{k+1} = \frac{\dfrac{I_{TD}}{\Delta t}\,\omega_{TD}^{k} + \tau_m + Z_t\,\beta_1}{\dfrac{I_{TD}}{\Delta t} + Z_t}.\]</div>
+<p>The motor torque comes from a controller (§7), from an external source, or is
+implied by a prescribed <span class="math notranslate nohighlight">\(\omega_{TD}(t)\)</span> via
+<span class="math notranslate nohighlight">\(\tau_m = \tau_0 + I_{TD}\,\dot\omega_{TD}\)</span>.</p>
+</section>
+<section id="drawworks-axial">
+<span id="62-drawworks-axial"></span><h3>6.2 Drawworks (axial)<a class="headerlink" href="#drawworks-axial" title="Link to this heading"></a></h3>
+<p>At <span class="math notranslate nohighlight">\(x = 0\)</span> the block velocity <span class="math notranslate nohighlight">\(v_\text{blk}\)</span> (positive lowering) is
+prescribed. The incoming axial invariant <span class="math notranslate nohighlight">\(\beta_{a,1}\)</span> gives</p>
+<div class="math notranslate nohighlight">
+\[q_d(0) = Z_a\,(v_\text{blk} - \beta_{a,1}),
+\qquad
+\text{HKLD} = -\bigl(q_s(0) + q_d(0)\bigr).\]</div>
+<p>In autodriller mode, <span class="math notranslate nohighlight">\(v_\text{blk}\)</span> is the output of a PI controller acting on
+the surface WOB estimate <span class="math notranslate nohighlight">\(\text{HKLD}_\text{off-bottom} - \text{HKLD}\)</span>.</p>
+<p><strong>The hook cannot push.</strong> If the prescribed block speed would make
+<span class="math notranslate nohighlight">\(\text{HKLD} &lt; 0\)</span>, the block stacks out. Hookload is then held at zero, so
+<span class="math notranslate nohighlight">\(q_d(0) = -q_s(0)\)</span>, and the top of the string moves freely with
+<span class="math notranslate nohighlight">\(v(0) = \beta_{a,1} + q_d(0)/Z_a\)</span>. For example, with the bit on bottom at
+0 rpm, WOB levels off at the buoyed string weight less friction, instead of
+growing without limit.</p>
+<p><strong>Set-point ramps.</strong> Inputs without a controller approach a new value
+linearly over a short ramp time (<code class="docutils literal notranslate"><span class="pre">ModelParameters.ramps</span></code>). Defaults: the
+prescribed top-drive speed 1 s, the block velocity 2 s, the pump rate and the
+inlet temperature 3 s. The ramp is evaluated inside the time stepping from a
+table of (start value, start time, ramp time, target). Set points that feed a
+controller (the speed set point of §7, the autodriller WOB set point) are not
+ramped. See <a class="reference internal" href="derivation-hydraulics.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">hydraulics.md</span></code></span></a> §6.</p>
+<p><strong>Hydraulics.</strong> Standpipe pressure, bottomhole pressure and ECD come from
+<a class="reference internal" href="derivation-hydraulics.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">hydraulics.md</span></code></span></a>: chapter 7 steady losses, plus single-phase
+drift-flux transients after Wang et al. (2023).</p>
+<p>An optional block-acceleration limit (<code class="docutils literal notranslate"><span class="pre">DrawworksParameters.block_acceleration</span></code>)
+rate-limits changes in <span class="math notranslate nohighlight">\(v_\text{blk}\)</span>.</p>
+</section>
+<section id="drill-bit-coupling-at-the-bit">
+<span id="63-drill-bit-coupling-at-the-bit"></span><h3>6.3 Drill bit: coupling at the bit<a class="headerlink" href="#drill-bit-coupling-at-the-bit" title="Link to this heading"></a></h3>
+<p>At <span class="math notranslate nohighlight">\(x = L\)</span> the incoming invariants are <span class="math notranslate nohighlight">\(\alpha_t\)</span> (torsion) and <span class="math notranslate nohighlight">\(\alpha_a\)</span>
+(axial). The characteristic relations are</p>
+<div class="math notranslate nohighlight">
+\[\omega_b = \alpha_t - \frac{\text{TOB}}{Z_t}, \qquad v_b = \alpha_a - \frac{\text{WOB}}{Z_a}. \tag{6.3}\]</div>
+<p>Both directions are closed by the bit–rock interaction law below. Because TOB
+depends on WOB and the penetration rate depends on <span class="math notranslate nohighlight">\(\omega_b\)</span>, this law is the
+coupling between the two systems.</p>
+<p><strong>Off bottom</strong> (bit depth <span class="math notranslate nohighlight">\(&lt;\)</span> hole depth): <span class="math notranslate nohighlight">\(\text{WOB} = \text{TOB} = 0\)</span>, so
+<span class="math notranslate nohighlight">\(\omega_b = \alpha_t\)</span> and <span class="math notranslate nohighlight">\(v_b = \alpha_a\)</span>. Each free end reflects its incident
+wave with the same sign.</p>
+<p><strong>Unilateral contact.</strong> On bottom, the bit can only push on the rock:
+<span class="math notranslate nohighlight">\(\text{WOB} \ge 0\)</span>. If <span class="math notranslate nohighlight">\(\alpha_a \le 0\)</span> (the string is pulling the bit up),
+the bit lifts off: <span class="math notranslate nohighlight">\(\text{WOB} = 0\)</span> and <span class="math notranslate nohighlight">\(v_b = \alpha_a\)</span>.</p>
+<p><strong>Rock strength.</strong> The drilling strength <span class="math notranslate nohighlight">\(S\)</span> is either a constant or, with
+<code class="docutils literal notranslate"><span class="pre">strength_source='formation'</span></code>, <span class="math notranslate nohighlight">\(S = \zeta\,\text{CCS}_\text{eff}/\eta\)</span>. In the
+second case <span class="math notranslate nohighlight">\(S\)</span> is computed from the formation, pore pressure, bottomhole
+pressure and temperatures at the bit. See
+<a class="reference internal" href="derivation-rock-strength-and-temperature.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">rock-strength-and-temperature.md</span></code></span></a>, which
+also derives the wellbore temperature model (Wang et al. 2023,
+SPE-214836-MS).</p>
+<p><strong>Bit–rock law.</strong> Three reduced models are available
+(<code class="docutils literal notranslate"><span class="pre">BitParameters.model</span></code>). Their derivation from the Bit Model Library is in
+<a class="reference internal" href="derivation-bit-models.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">bit-models.md</span></code></span></a>. With <span class="math notranslate nohighlight">\(a = D/2\)</span> and the drilling strength
+<span class="math notranslate nohighlight">\(S = \zeta\varepsilon\)</span>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>model</p></th>
+<th class="head"><p>parameters</p></th>
+<th class="head"><p>torque</p></th>
+<th class="head"><p>penetration</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">coulomb</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_s, \mu_k, S\)</span></p></td>
+<td><p>sticking <span class="math notranslate nohighlight">\(\lvert\text{TOB}\rvert \le \mu_s\,\text{WOB}\,D/3\)</span>; sliding <span class="math notranslate nohighlight">\(\mu_k\,\text{WOB}\,D/3\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{ROP} = \omega\,\text{WOB}/(2\pi a S)\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cutting</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(S, \zeta, W_f\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{WOB}\,a/(2\zeta)\)</span>, both sticking and sliding</p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{ROP} = \omega\,(\text{WOB}-W_f)^+/(2\pi a S)\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">regenerative</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(S, \zeta\)</span> + blades <span class="math notranslate nohighlight">\(n\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{WOB}\,a/(2\zeta)\)</span></p></td>
+<td><p>from the hole-bottom profile (below)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quasi-static models (<code class="docutils literal notranslate"><span class="pre">coulomb</span></code>, <code class="docutils literal notranslate"><span class="pre">cutting</span></code>).</strong> Sticking applies when
+<span class="math notranslate nohighlight">\(|\omega_b| \le \omega_c\)</span>: the bit stays at rest, and <span class="math notranslate nohighlight">\(\text{TOB} = Z_t\alpha_t\)</span>
+from (6.3), as long as that is within the sticking limit. When sliding,
+<span class="math notranslate nohighlight">\(\text{TOB}\)</span> is limited to <span class="math notranslate nohighlight">\(|Z_t\alpha_t|\)</span>, so the bit is never driven backwards
+within a step. Combining the penetration law with (6.3): if
+<span class="math notranslate nohighlight">\(Z_a\alpha_a \le W_0\)</span> (with <span class="math notranslate nohighlight">\(W_0 = W_f\)</span>, or 0 for Coulomb) or <span class="math notranslate nohighlight">\(\omega_b = 0\)</span>, then
+<span class="math notranslate nohighlight">\(v_b = 0\)</span> and <span class="math notranslate nohighlight">\(\text{WOB} = Z_a\alpha_a\)</span>. Otherwise</p>
+<div class="math notranslate nohighlight">
+\[\text{WOB} = \frac{\alpha_a + k_r W_0 |\omega_b|}{1/Z_a + k_r|\omega_b|},
+\qquad k_r = \frac{1}{2\pi a S}.\]</div>
+<p>These are solved by fixed-point iteration on <span class="math notranslate nohighlight">\(\omega_b\)</span>.</p>
+<p><strong>Regenerative model.</strong></p>
+<ul class="simple">
+<li><p><strong>Profile.</strong> The hole bottom is stored as a profile <span class="math notranslate nohighlight">\(s(\theta)\)</span> over 720
+angular bins.</p></li>
+<li><p><strong>Depth of cut.</strong> Blade <span class="math notranslate nohighlight">\(j\)</span>, at angle <span class="math notranslate nohighlight">\(\varphi_b + 2\pi j/n\)</span>, cuts to depth
+<span class="math notranslate nohighlight">\(d_j = (u_b - s(\theta_j))^+\)</span>, measured against the surface left by the
+previous blade:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\text{WOB} = S a \sum_j d_j, \qquad \text{TOB} = \frac{a}{2\zeta}\,\text{WOB}.\]</div>
+<ul class="simple">
+<li><p><strong>Axial contact.</strong> The contact is solved implicitly for the new bit depth,
+<span class="math notranslate nohighlight">\(u_b^{k+1} = u_b^k + \Delta t\,(\alpha_a - \text{WOB}/Z_a)\)</span>, by iterating on
+the set of blades in contact. If the bit rises above the profile, WOB is
+zero (lift-off).</p></li>
+<li><p><strong>Sweep.</strong> After each step the blades sweep from <span class="math notranslate nohighlight">\(\varphi_b^k\)</span> to
+<span class="math notranslate nohighlight">\(\varphi_b^{k+1}\)</span>, and the bins they leave are set to the bit depth. The
+depth of cut therefore carries the delay of one blade passage. That delay is
+the regenerative effect, a coupling between axial and torsional motion that
+can self-excite.</p></li>
+<li><p><strong>Hole depth.</strong> The hole depth is the deepest point of the profile.</p></li>
+</ul>
+<p><strong>Coupling mechanisms at the bit.</strong> These act in addition to the along-string
+friction coupling of §5.2.</p>
+<ul class="simple">
+<li><p>Torsion depends on axial: TOB is proportional to WOB in every model, so
+axial waves that change WOB modulate the torsional boundary and can trigger
+or suppress stick-slip.</p></li>
+<li><p>Axial depends on torsion: penetration needs rotation. A stalled bit stops
+penetrating, WOB rises, and the sticking limit rises with it.</p></li>
+<li><p>In the regenerative model the depth of cut also remembers the previous
+blade passage. That delay can destabilise steady drilling, producing bit
+bounce and stick-slip.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="top-drive-controllers-aarsnes-di-meglio-shor-2018">
+<span id="7-top-drive-controllers-aarsnes-di-meglio--shor-2018"></span><h2>7. Top-drive controllers (Aarsnes, di Meglio &amp; Shor 2018)<a class="headerlink" href="#top-drive-controllers-aarsnes-di-meglio-shor-2018" title="Link to this heading"></a></h2>
+<p>All three industrial controllers fit one block diagram. A set
+point <span class="math notranslate nohighlight">\(\omega_{SP}\)</span>, a filtered measured speed <span class="math notranslate nohighlight">\(\hat\omega_0\)</span> (time constant
+<span class="math notranslate nohighlight">\(t_{en}\)</span>) and an optional impedance feedback of band-pass filtered pipe torque
+give</p>
+<div class="math notranslate nohighlight">
+\[e = \omega_{SP} - \hat\omega_0 - Z\,\frac{s}{(s + 1/t_{hp})(1 + t_{lp}s)}\,\tau_0,
+\qquad
+\tau_m = K_p\,e + K_i\!\int e\,\mathrm{d}t,\]</div>
+<p>with saturation <span class="math notranslate nohighlight">\(|\tau_m| \le \tau_\text{max}\)</span> and anti-windup. With the pipe
+impedance <span class="math notranslate nohighlight">\(\zeta_p = Z_t(0)\)</span>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>controller</p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(K_p\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(K_i\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(Z\)</span></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>stiff</p></td>
+<td><p><span class="math notranslate nohighlight">\(100\,\zeta_p\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(5\,I_{TD}\)</span></p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>SoftTorque</p></td>
+<td><p><span class="math notranslate nohighlight">\(4\,\zeta_p\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\((2\pi f_c)^2 I_{TD}\)</span></p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>ZTorque</p></td>
+<td><p><span class="math notranslate nohighlight">\(100\,\zeta_p\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(5\,I_{TD}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1/\zeta_p\)</span></p></td>
+</tr>
+</tbody>
+</table>
+<p>For SoftTorque, <span class="math notranslate nohighlight">\(f_c\)</span> is the frequency of minimum reflection, usually the
+first torsional mode. ZTorque requires a stiff inner loop so the top drive
+actually follows the impedance-corrected reference; combining impedance
+feedback with soft gains is unstable in this model.</p>
+<p>The top-side reflection coefficient, ignoring the impedance path, is</p>
+<div class="math notranslate nohighlight">
+\[R(\omega) = \left|\frac{\bar C(j\omega) - \zeta_p}{\bar C(j\omega) + \zeta_p}\right|,
+\qquad
+\bar C(s) = K_p + \frac{K_i}{s} + I_{TD}\,s .\]</div>
+</section>
+<hr class="docutils" />
+<section id="numerical-scheme">
+<span id="8-numerical-scheme"></span><h2>8. Numerical scheme<a class="headerlink" href="#numerical-scheme" title="Link to this heading"></a></h2>
+<section id="finite-volumes-with-godunov-fluxes">
+<span id="81-finite-volumes-with-godunov-fluxes"></span><h3>8.1 Finite volumes with Godunov fluxes<a class="headerlink" href="#finite-volumes-with-godunov-fluxes" title="Link to this heading"></a></h3>
+<p>The string is divided into cells <span class="math notranslate nohighlight">\(j = 1..N\)</span> of length <span class="math notranslate nohighlight">\(h_j \le \Delta x\)</span>,
+aligned with section boundaries so each cell has uniform properties. Cell
+averages <span class="math notranslate nohighlight">\((\omega_j, \tau_j)\)</span> and <span class="math notranslate nohighlight">\((v_j, q_{d,j})\)</span> are stored.</p>
+<p>At each face <span class="math notranslate nohighlight">\(j+\tfrac12\)</span> the exact Riemann solution (4.3) is evaluated from
+<span class="math notranslate nohighlight">\(\alpha_j\)</span> (cell above) and <span class="math notranslate nohighlight">\(\beta_{j+1}\)</span> (cell below). The boundary faces use
+§6. The conservative update is</p>
+<div class="math notranslate nohighlight">
+\[\tau_j^{*} = \tau_j^k - \frac{\Delta t\,J_jG_j}{h_j}\left(\omega^\ast_{j+1/2} - \omega^\ast_{j-1/2}\right),
+\qquad
+\omega_j^{*} = \omega_j^k - \frac{\Delta t}{\rho_j J_j h_j}\left(\tau^\ast_{j+1/2} - \tau^\ast_{j-1/2}\right),\]</div>
+<p>and identically for <span class="math notranslate nohighlight">\((q_d, v)\)</span> with <span class="math notranslate nohighlight">\((EA, \rho A)\)</span>.</p>
+<p>Inside a uniform section this is exactly the first-order upwind scheme on the
+Riemann invariants (Aarsnes &amp; Shor 2018, eqs. 23–24). At junctions it enforces
+(4.3) without special cases. First-order upwinding is used deliberately: the
+set-valued friction introduces temporal discontinuities that make higher-order
+schemes oscillate.</p>
+</section>
+<section id="time-step">
+<span id="82-time-step"></span><h3>8.2 Time step<a class="headerlink" href="#time-step" title="Link to this heading"></a></h3>
+<p>Stability requires <span class="math notranslate nohighlight">\(\Delta t \le h_j / c\)</span> for both waves. The axial wave is
+faster, so</p>
+<div class="math notranslate nohighlight">
+\[\Delta t = \text{CFL}\cdot\min_j \frac{h_j}{c_{a,j}}, \qquad \text{CFL} = 0.95,\]</div>
+<p>and the torsional Courant number is <span class="math notranslate nohighlight">\(\text{CFL}\,c_t/c_a \approx 0.59\)</span>. At
+this Courant number upwinding is slightly diffusive, but the tests show
+negligible amplitude loss for the low modes that dominate stick-slip (§10).</p>
+</section>
+<section id="source-terms-operator-splitting">
+<span id="83-source-terms-operator-splitting"></span><h3>8.3 Source terms (operator splitting)<a class="headerlink" href="#source-terms-operator-splitting" title="Link to this heading"></a></h3>
+<p>After the flux update, each cell applies its sources:</p>
+<ol class="arabic">
+<li><p><strong>Damping, implicitly:</strong> the fluid and Rayleigh-<span class="math notranslate nohighlight">\(\alpha\)</span> rates per cell,
+then the Kelvin–Voigt tridiagonal solve (§5.6.5). With only the
+calibration rates this reduces to <span class="math notranslate nohighlight">\(\omega^{**} = \omega^*/(1 + k_t\Delta t)\)</span>.</p></li>
+<li><p><strong>Friction, implicitly (coupled model).</strong> Let
+<span class="math notranslate nohighlight">\(\mathbf V^{*} = (v^{**},\ \omega^{**} r_c)\)</span> be the predicted sliding
+velocity and <span class="math notranslate nohighlight">\(M = \operatorname{diag}(m_a, m_\theta)\)</span> the mass per length in
+each direction, with <span class="math notranslate nohighlight">\(m_a = \rho A\)</span> and <span class="math notranslate nohighlight">\(m_\theta = \rho J / r_c^2\)</span>. Coulomb
+friction (5.2) is applied with a backward-Euler step:</p>
+<div class="math notranslate nohighlight">
+\[\mathbf V^{k+1} = \mathbf V^{*} - \Delta t\, M^{-1}\,\mu F_N\,\frac{\mathbf V^{k+1}}{\|\mathbf V^{k+1}\|},
+\qquad
+c \equiv \Delta t\,\mu F_N,\]</div>
+<p>with <span class="math notranslate nohighlight">\(\mu = \mu_s\)</span> if the cell was sticking at step <span class="math notranslate nohighlight">\(k\)</span> and <span class="math notranslate nohighlight">\(\mu = \mu_k\)</span>
+otherwise. Two cases follow:</p>
+<ul>
+<li><p><strong>Stick.</strong> If <span class="math notranslate nohighlight">\(\|M\mathbf V^{*}\| \le c\)</span>, the friction impulse can absorb
+the cell’s momentum, and <span class="math notranslate nohighlight">\(\mathbf V^{k+1} = 0\)</span> exactly. The impulse needed
+to stop the cell, <span class="math notranslate nohighlight">\(M\mathbf V^*/\Delta t\)</span>, is the 2-D form of
+<span class="math notranslate nohighlight">\(\tilde{\mathcal F}\)</span> in Aarsnes &amp; Shor (2018, eqs. 20–21).</p></li>
+<li><p><strong>Slide.</strong> Otherwise each component satisfies</p>
+<div class="math notranslate nohighlight">
+\[V_i^{k+1} = \frac{m_i V_i^{*}\, s}{m_i s + c},
+\qquad
+g(s) = \sum_i \left(\frac{m_i V_i^{*}}{m_i s + c}\right)^2 - 1 = 0,\]</div>
+<p>where <span class="math notranslate nohighlight">\(s = \|\mathbf V^{k+1}\|\)</span>. The function <span class="math notranslate nohighlight">\(g\)</span> is convex and
+decreasing, with <span class="math notranslate nohighlight">\(g(0) &gt; 0 \ge g(\|\mathbf V^*\|)\)</span>, so Newton’s method
+from <span class="math notranslate nohighlight">\(s = \|\mathbf V^*\|\)</span> converges monotonically after the first step.
+For equal masses this reduces to <span class="math notranslate nohighlight">\(s = \|\mathbf V^*\| - c/m\)</span>.</p>
+</li>
+</ul>
+<p>The implicit form guarantees three properties:</p>
+<ul class="simple">
+<li><p>friction opposes the <strong>new</strong> sliding direction exactly;</p></li>
+<li><p>friction never reverses the motion within a step;</p></li>
+<li><p>sticking is exact.</p></li>
+</ul>
+<p>An explicit update with each component clipped separately would distort the
+friction direction when one component is small.</p>
+<p><strong>Decoupled variant.</strong> Each direction is projected separately:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal F = \operatorname{sign}(\tilde{\mathcal F})\,\min\!\left(|\tilde{\mathcal F}|,\ \mathcal F_c\right),
+\qquad
+\tilde{\mathcal F}_t = \rho J\,\omega^{**}/\Delta t,
+\qquad
+\tilde{\mathcal F}_a = \rho A\,v^{**}/\Delta t,\]</div>
+<p>which is the published scheme (eq. 22). For <span class="math notranslate nohighlight">\(v \equiv 0\)</span> the coupled update
+reduces to exactly this.</p>
+</li>
+</ol>
+</section>
+<section id="moving-string">
+<span id="84-moving-string"></span><h3>8.4 Moving string<a class="headerlink" href="#moving-string" title="Link to this heading"></a></h3>
+<p>The grid is attached to the pipe. As the bit advances by <span class="math notranslate nohighlight">\(s\)</span>, cell <span class="math notranslate nohighlight">\(j\)</span> moves
+to <span class="math notranslate nohighlight">\(x_j + s\)</span>. Every <code class="docutils literal notranslate"><span class="pre">refresh_distance</span></code> of travel, the cell geometry, the
+cased/open friction zones, <span class="math notranslate nohighlight">\(q_s\)</span> and <span class="math notranslate nohighlight">\(F_N\)</span> are re-evaluated. Total compression
+is kept continuous across a refresh by setting
+<span class="math notranslate nohighlight">\(q_d \leftarrow q_d + q_s^\text{old} - q_s^\text{new}\)</span>.</p>
+</section>
+<section id="pausing">
+<span id="85-pausing"></span><h3>8.5 Pausing<a class="headerlink" href="#pausing" title="Link to this heading"></a></h3>
+<p>The state consists of the cell arrays, the top-drive, controller and filter
+states, and the bit and hole depths. All of it persists between calls, and
+inputs are held constant within a call. A sequence of short <code class="docutils literal notranslate"><span class="pre">step</span></code> calls is
+therefore bit-identical to one long call; the steps are counted in integers
+against the accumulated requested time.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="steady-state-limits-and-analytic-results">
+<span id="9-steady-state-limits-and-analytic-results"></span><h2>9. Steady-state limits and analytic results<a class="headerlink" href="#steady-state-limits-and-analytic-results" title="Link to this heading"></a></h2>
+<p>These limits connect the model to classical results and are used in the tests.</p>
+<ul>
+<li><p><strong>Torque and drag.</strong> Setting <span class="math notranslate nohighlight">\(\partial_t = 0\)</span> in (3.1)–(3.2) with kinetic
+friction (5.2) gives the soft-string torque and drag equations, integrated from
+the bit up:</p>
+<div class="math notranslate nohighlight">
+\[\frac{\mathrm{d}T}{\mathrm{d}x} = \mathcal F_a - w_b\cos\theta,
+\qquad
+\frac{\mathrm{d}\tau}{\mathrm{d}x} = -\mathcal F_t,
+\qquad
+T(L) = -\text{WOB},\ \tau(L) = \text{TOB}.\]</div>
+<p>This is <code class="docutils literal notranslate"><span class="pre">statics.torque_drag</span></code>, with friction split by the velocity direction
+exactly as in (5.2). The coupled dynamic model converges to it in steady
+combined motion. The decoupled variant is compared with it using the static
+normal force (<code class="docutils literal notranslate"><span class="pre">normal_force=sim.fn0</span></code>).</p>
+</li>
+<li><p><strong>Break-off torque</strong> (bit off bottom; Aarsnes &amp; Shor 2018, eqs. 26–27):</p>
+<div class="math notranslate nohighlight">
+\[\tau_\text{max}(x) = \int_x^L \mathcal F_{c,s}\,\mathrm{d}\xi .\]</div>
+</li>
+<li><p><strong>Stick-slip amplitude and period</strong> (Aarsnes &amp; Shor 2018, eqs. 39–40):</p>
+<div class="math notranslate nohighlight">
+\[\Delta\tau_m \approx 2\,\tau_\text{max}(0)\,(1 - f_\text{rat}),
+\qquad
+t_p \approx \frac{\Delta\phi(0)}{\omega_{TD}} + t_{fp},
+\qquad
+\Delta\phi(0) = 2(1-f_\text{rat})\int_0^L\frac{\tau_\text{max}}{JG}\,\mathrm{d}x .\]</div>
+</li>
+<li><p><strong>Free vibration</strong> of a uniform string with a fixed top and free bit: wave
+arrival at the bit after <span class="math notranslate nohighlight">\(L/c\)</span>, and fundamental frequency <span class="math notranslate nohighlight">\(f_1 = c/(4L)\)</span>.</p></li>
+<li><p><strong>Bit.</strong></p>
+<ul class="simple">
+<li><p>Coulomb: breakout at <span class="math notranslate nohighlight">\(\mu_s\,\text{WOB}\,D/3\)</span>; while sliding,
+<span class="math notranslate nohighlight">\(\text{TOB}/\text{WOB} = \mu_k D/3\)</span>.</p></li>
+<li><p>Cutting: steady drilling at block speed <span class="math notranslate nohighlight">\(V\)</span> and bit speed <span class="math notranslate nohighlight">\(\Omega\)</span> gives
+<span class="math notranslate nohighlight">\(\text{WOB} = W_f + 2\pi a S V/\Omega\)</span> and
+<span class="math notranslate nohighlight">\(\text{TOB} = a\,\text{WOB}/(2\zeta)\)</span>.</p></li>
+<li><p>Regenerative: the same steady state as cutting with <span class="math notranslate nohighlight">\(W_f = 0\)</span> when it is
+stable.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="verification-summary-tests">
+<span id="10-verification-summary-tests"></span><h2>10. Verification summary (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)<a class="headerlink" href="#verification-summary-tests" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>check</p></th>
+<th class="head"><p>result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>torsional / axial wave arrival at <span class="math notranslate nohighlight">\(L/c\)</span></p></td>
+<td><p>within 1%</p></td>
+</tr>
+<tr class="row-odd"><td><p>fundamental period <span class="math notranslate nohighlight">\(4L/c_t\)</span></p></td>
+<td><p>within 0.2%; amplitude loss &lt; 1% over 8 round trips</p></td>
+</tr>
+<tr class="row-even"><td><p>hanging string at rest</p></td>
+<td><p>exactly at rest (well balanced)</p></td>
+</tr>
+<tr class="row-odd"><td><p>steady rotation, pick-up, slack-off vs torque &amp; drag (both friction models)</p></td>
+<td><p>within 2%</p></td>
+</tr>
+<tr class="row-even"><td><p>tripping at 0 rpm (±200, 20 m/h): no axial stick-slip; the full axial contrast reproduces it</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>on bottom at 0 rpm: hookload ≥ 0, WOB levels off</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p>coupled friction vs velocity-split torque &amp; drag (rotate while picking up / slacking off)</p></td>
+<td><p>within 2%</p></td>
+</tr>
+<tr class="row-odd"><td><p>rotation reduces pick-up drag (coupled); has no effect (decoupled)</p></td>
+<td><p>yes / within 0.2%</p></td>
+</tr>
+<tr class="row-even"><td><p>combined axial + torsional breakout, implicit friction exact</p></td>
+<td><p>to <span class="math notranslate nohighlight">\(10^{-10}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>off-bottom stick-slip only when <span class="math notranslate nohighlight">\(\mu_s &gt; \mu_k\)</span></p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p>ZTorque suppresses the stiff-controller limit cycle</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>bit breakout torque, TOB/WOB slope, drill-off at constant block</p></td>
+<td><p>exact / 1%</p></td>
+</tr>
+<tr class="row-even"><td><p>pause–resume, external Python PI vs internal PI</p></td>
+<td><p>exact / 2%</p></td>
+</tr>
+<tr class="row-odd"><td><p>free decay of first axial / torsional mode vs (5.12): lumped, F1, M1, F1+M1</p></td>
+<td><p>within 0.5% (8 cases)</p></td>
+</tr>
+<tr class="row-even"><td><p>steady rotation with F1+M1: surface torque = Couette (5.6) only</p></td>
+<td><p>within 2%</p></td>
+</tr>
+<tr class="row-odd"><td><p>yield drag (5.9) with pumps off; absent with pumps on</p></td>
+<td><p>within 5%</p></td>
+</tr>
+<tr class="row-even"><td><p>Kelvin–Voigt solve conserves momentum, dissipates energy</p></td>
+<td><p>to <span class="math notranslate nohighlight">\(10^{-12}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="notation">
+<span id="11-notation"></span><h2>11. Notation<a class="headerlink" href="#notation" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>symbol</p></th>
+<th class="head"><p>meaning</p></th>
+<th class="head"><p>unit</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(x\)</span></p></td>
+<td><p>measured depth from surface</p></td>
+<td><p>m</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\omega, \tau\)</span></p></td>
+<td><p>angular velocity, torque (transmitted downward)</p></td>
+<td><p>rad/s, N m</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(v, q\)</span></p></td>
+<td><p>axial velocity (+ down), compressive force; <span class="math notranslate nohighlight">\(T=-q\)</span></p></td>
+<td><p>m/s, N</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(J, A\)</span></p></td>
+<td><p>polar moment of area, cross-sectional area</p></td>
+<td><p>m⁴, m²</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G, E, \rho\)</span></p></td>
+<td><p>shear modulus, Young’s modulus, effective density</p></td>
+<td><p>Pa, Pa, kg/m³</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(c_t, c_a\)</span></p></td>
+<td><p>torsional, axial wave speed</p></td>
+<td><p>m/s</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(Z_t, Z_a\)</span></p></td>
+<td><p>torsional, axial characteristic impedance</p></td>
+<td><p>N m s, N s/m</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha, \beta\)</span></p></td>
+<td><p>down- and up-going Riemann invariants</p></td>
+<td><p>rad/s or m/s</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(w_b\)</span></p></td>
+<td><p>buoyed weight per length</p></td>
+<td><p>N/m</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\theta, \mathbf{t}\)</span></p></td>
+<td><p>inclination, unit tangent</p></td>
+<td><p>rad, –</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(F_N\)</span></p></td>
+<td><p>normal force per length</p></td>
+<td><p>N/m</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mu_s, \mu_k\)</span></p></td>
+<td><p>static, kinetic friction factors (cased/open)</p></td>
+<td><p>–</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_c, v_c\)</span></p></td>
+<td><p>static → kinetic thresholds</p></td>
+<td><p>rad/s, m/s</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(k_t, k_a\)</span></p></td>
+<td><p>additional (calibration) viscous damping rates</p></td>
+<td><p>1/s</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(c_{\cdot,0}, c_{\cdot,1}\)</span></p></td>
+<td><p>Couette, Stokes-layer damping coefficients per length</p></td>
+<td><p>N s/m², N m s</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\delta = \sqrt{2\nu/\omega}\)</span></p></td>
+<td><p>Stokes layer thickness</p></td>
+<td><p>m</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\eta;\ \alpha, \beta\)</span></p></td>
+<td><p>material loss factor; Rayleigh coefficients</p></td>
+<td><p>–; 1/s, s</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\tau_y, f_y\)</span></p></td>
+<td><p>mud yield point, yield drag per length</p></td>
+<td><p>Pa, N/m</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(f_1, f_\max\)</span></p></td>
+<td><p>first-mode and maximum modelled frequency</p></td>
+<td><p>Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(I_{TD}, \tau_m, \tau_0\)</span></p></td>
+<td><p>top-drive inertia, motor torque, pipe torque at top</p></td>
+<td><p>kg m², N m, N m</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(a = D/2\)</span></p></td>
+<td><p>bit radius</p></td>
+<td><p>m</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(S = \zeta\varepsilon\)</span></p></td>
+<td><p>drilling strength (axial cutting force per unit cut area)</p></td>
+<td><p>Pa</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\zeta, \varepsilon\)</span></p></td>
+<td><p>normal/tangential cutting force ratio, intrinsic specific energy</p></td>
+<td><p>–, Pa</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mu_s, \mu_k\)</span> (bit)</p></td>
+<td><p>Coulomb bit static/kinetic friction (lever <span class="math notranslate nohighlight">\(D/3\)</span>)</p></td>
+<td><p>–</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(W_f\)</span></p></td>
+<td><p>wear-flat contact WOB (cutting model)</p></td>
+<td><p>N</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(n\)</span></p></td>
+<td><p>blades (regenerative model)</p></td>
+<td><p>–</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Aarsnes, U.J.F. and Shor, R.J., 2018. Torsional vibrations with bit off bottom: Modeling, characterization and field data validation. <em>J. Petroleum Science and Engineering</em>, 163, 712–721.</p></li>
+<li><p>Aarsnes, U.J.F., di Meglio, F. and Shor, R.J., 2018. Benchmarking of industrial stick-slip mitigation controllers. <em>IFAC-PapersOnLine</em>, 51(8), 233–238.</p></li>
+<li><p>Auriol, J., Boussaada, I., Shor, R.J., Mounier, H. and Niculescu, S.-I., 2022. Comparing advanced control strategies to eliminate stick-slip oscillations in drillstrings. <em>IEEE Access</em>, 10, 10949–10969.</p></li>
+<li><p>Chen, S.S., Wambsganss, M.W. and Jendrzejczyk, J.A., 1976. Added mass and damping of a vibrating rod in confined viscous fluids. <em>J. Applied Mechanics</em>, 43(2), 325–329.</p></li>
+<li><p>Dolfo, G., Vigué, J. and Lhuillier, D., 2020. Motion of a cylinder oscillating in a confined viscous fluid. arXiv:2011.12000.</p></li>
+<li><p>Jansen, J.D. and van den Steen, L., 1995. Active damping of self-excited torsional vibrations in oil well drillstrings. <em>J. Sound and Vibration</em>, 179(4), 647–668.</p></li>
+<li><p>Lyons, W.C. and Plisga, G.J., 2005. <em>Standard Handbook of Petroleum and Natural Gas Engineering</em>, 2nd ed. Gulf Professional Publishing.</p></li>
+<li><p>Moharrami, M.J., Shiri, H. and Martins, C.A., 2024. Vibration (MDPI), 7(4), 56. https://www.mdpi.com/2571-631X/7/4/56</p></li>
+<li><p>Orban, F., 2011. Damping of materials and members in structures. <em>J. Physics: Conference Series</em>, 268, 012022.</p></li>
+<li><p>Stokes, G.G., 1851. On the effect of the internal friction of fluids on the motion of pendulums. <em>Trans. Cambridge Phil. Soc.</em>, 9, 8–106.</p></li>
+<li><p>Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. <em>JPT</em>, 36, 987–992.</p></li>
+<li><p>Shor, R.J. and Aarsnes, U.J.F. Coupled axial-torsional vibrations in a drillstring: modelling and validation. Draft manuscript.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="derivation-hydraulics.html" class="btn btn-neutral float-left" title="Hydraulics: steady losses and drift-flux transients" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="derivation-rock-strength-and-temperature.html" class="btn btn-neutral float-right" title="Rock strength, pore pressure and temperature at the bit" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

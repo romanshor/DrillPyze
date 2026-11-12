@@ -1,0 +1,4 @@
+Physics specification
+=====================
+
+The implementation-level physics specification (``docs/spec``) is not part of this branch.

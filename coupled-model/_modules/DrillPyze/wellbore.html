@@ -1,0 +1,195 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.wellbore &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.wellbore</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.wellbore</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Wellbore (survey + casing/open-hole geometry) and drilling fluid.  SI units.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.survey</span><span class="w"> </span><span class="kn">import</span> <span class="n">Survey</span>
+
+
+<div class="viewcode-block" id="Fluid">
+<a class="viewcode-back" href="../../api.html#DrillPyze.wellbore.Fluid">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Fluid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Drilling fluid.</span>
+
+<span class="sd">    Mechanical:</span>
+<span class="sd">        density            mud density at the reference temperature and surface (kg/m^3)</span>
+<span class="sd">        plastic_viscosity  Bingham PV (Pa s); not used by the mechanics yet</span>
+<span class="sd">        yield_point        Bingham YP (Pa); not used yet</span>
+<span class="sd">    Thermal and hydraulic (Wang et al. 2023, SPE-214836-MS, Table 2 defaults):</span>
+<span class="sd">        viscosity              effective viscosity for hydraulics and heat transfer (Pa s)</span>
+<span class="sd">        heat_capacity          J/(kg K)</span>
+<span class="sd">        thermal_conductivity   W/(m K)</span>
+<span class="sd">        thermal_expansion      volumetric expansion coefficient (1/K), eq. 2</span>
+<span class="sd">        sound_speed            m/s, sets compressibility in eq. 2</span>
+<span class="sd">        reference_temperature  C, temperature at which ``density`` applies</span>
+<span class="sd">    """</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span>
+    <span class="n">plastic_viscosity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">yield_point</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">viscosity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.020</span>
+    <span class="n">heat_capacity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3750.0</span>
+    <span class="n">thermal_conductivity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span>
+    <span class="n">thermal_expansion</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+    <span class="n">sound_speed</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1500.0</span>
+    <span class="n">reference_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">20.0</span>
+
+<div class="viewcode-block" id="Fluid.density_at">
+<a class="viewcode-back" href="../../api.html#DrillPyze.wellbore.Fluid.density_at">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">density_at</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Mud density at temperature T (C) and gauge pressure p (Pa), Wang et al. (2023) eq. 2."""</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="n">T</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">reference_temperature</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_expansion</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span> <span class="o">+</span> <span class="n">p</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sound_speed</span> <span class="o">**</span> <span class="mi">2</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Wellbore">
+<a class="viewcode-back" href="../../api.html#DrillPyze.wellbore.Wellbore">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Wellbore</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A wellbore: survey, casing shoe depth and hole sizes.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    survey : Survey</span>
+<span class="sd">    casing_shoe : float</span>
+<span class="sd">        Measured depth of the deepest casing shoe (m).  Friction above the shoe</span>
+<span class="sd">        uses the cased-hole friction factors.</span>
+<span class="sd">    hole_diameter : float</span>
+<span class="sd">        Open-hole (bit) diameter (m).</span>
+<span class="sd">    casing_id : float, optional</span>
+<span class="sd">        Inner diameter of the casing (m); informational.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">survey</span><span class="p">:</span> <span class="n">Survey</span><span class="p">,</span> <span class="n">casing_shoe</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">hole_diameter</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">casing_id</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">survey</span> <span class="o">=</span> <span class="n">survey</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">casing_shoe</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">casing_shoe</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hole_diameter</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">hole_diameter</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">casing_id</span> <span class="o">=</span> <span class="n">casing_id</span>
+
+<div class="viewcode-block" id="Wellbore.is_cased">
+<a class="viewcode-back" href="../../api.html#DrillPyze.wellbore.Wellbore.is_cased">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_cased</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">md</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Boolean mask: True where ``md`` is inside casing."""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">md</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">casing_shoe</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

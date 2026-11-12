@@ -1,0 +1,378 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.parameters &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.parameters</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.parameters</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Model parameters (SI).  Defaults are order-of-magnitude placeholders; friction</span>
+<span class="sd">and damping are meant to be calibrated against field data.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">replace</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.thermal</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThermalParameters</span>
+
+
+<div class="viewcode-block" id="FrictionParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.FrictionParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FrictionParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Along-string Coulomb friction (static/kinetic, cased/open hole)."""</span>
+    <span class="n">mu_static_cased</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.30</span>
+    <span class="n">mu_kinetic_cased</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.20</span>
+    <span class="n">mu_static_open</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.35</span>
+    <span class="n">mu_kinetic_open</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
+    <span class="n">omega_c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>        <span class="c1"># rad/s, torsional static-&gt;kinetic threshold</span>
+    <span class="n">v_c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span>           <span class="c1"># m/s, axial static-&gt;kinetic threshold</span>
+    <span class="c1"># True (default): one 2-D Coulomb inclusion on the combined sliding velocity</span>
+    <span class="c1">#   (v, omega r) with the normal force from the live tension, so axial and</span>
+    <span class="c1">#   torsional motion are coupled along the string as well as at the bit.</span>
+    <span class="c1"># False: independent 1-D axial and torsional inclusions with the normal force</span>
+    <span class="c1">#   of the static hanging string; the only coupling is then at the bit.</span>
+    <span class="n">along_string_coupling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="c1"># fraction of the static-kinetic difference that applies axially:</span>
+    <span class="c1"># mu_s,axial = mu_k + axial_static_contrast * (mu_s - mu_k).</span>
+    <span class="c1"># Default 0: the mu_s / mu_k contrast was identified from torsional start-ups</span>
+    <span class="c1"># (Aarsnes &amp; Shor 2018); with a step law along a multi-km string any axial</span>
+    <span class="c1"># contrast produces slack-off / pick-up stick-slip (docs/derivation, sec. 5.5).</span>
+    <span class="n">axial_static_contrast</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="c1"># 'step': mu_s below the threshold, mu_k above (Aarsnes &amp; Shor 2018)</span>
+    <span class="c1"># 'exponential': mu_k + (mu_s - mu_k) exp(-s) with s the normalised sliding speed</span>
+    <span class="n">weakening</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'step'</span></div>
+
+
+
+<div class="viewcode-block" id="DampingParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.DampingParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DampingParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Distributed damping (docs/derivation/README.md, sec. 5.6).</span>
+
+<span class="sd">    Fluid (F1, from the mud and the string/hole geometry, no free parameter):</span>
+<span class="sd">        steady annular Couette drag on the full velocity, plus Stokes-layer</span>
+<span class="sd">        drag sqrt(rho mu omega_ref / 2) on the inner and outer walls acting on</span>
+<span class="sd">        the oscillatory part of the velocity (high-passed below</span>
+<span class="sd">        ``high_pass_fraction * omega_ref``).  omega_ref defaults to the first</span>
+<span class="sd">        (quarter-wave) mode of the string, axial and torsional separately.</span>
+<span class="sd">    Fluid (F2): Bingham yield-stress drag tau_y * pi * OD per length, added to the</span>
+<span class="sd">        Coulomb wall friction; applied per ``yield_drag``.</span>
+<span class="sd">    Material (M1): Rayleigh damping zeta(f) = alpha/(2 omega) + beta omega/2 fitted so</span>
+<span class="sd">        zeta = loss_factor/2 at f_ref and at max_frequency (and below it in</span>
+<span class="sd">        between); beta is Kelvin-Voigt strain-rate damping sigma = E (eps + beta deps/dt),</span>
+<span class="sd">        alpha acts on the oscillatory velocity.</span>
+<span class="sd">    Calibration: k_t, k_a are additional mass-proportional rates (1/s) on the</span>
+<span class="sd">        full velocity (the original lumped model), default 0.</span>
+
+<span class="sd">    Validity: the fluid terms are evaluated at a single reference frequency, so</span>
+<span class="sd">    modes above it are under-damped by sqrt(f / f_ref); together with the</span>
+<span class="sd">    numerical dissipation of the first-order scheme this limits the model to</span>
+<span class="sd">    vibrations below ``max_frequency`` (10 Hz).</span>
+<span class="sd">    """</span>
+    <span class="n">k_t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>            <span class="c1"># additional torsional viscous damping rate (1/s)</span>
+    <span class="n">k_a</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>            <span class="c1"># additional axial viscous damping rate (1/s)</span>
+    <span class="n">fluid</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>          <span class="c1"># F1: Couette + Stokes-layer mud damping</span>
+    <span class="n">loss_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span>   <span class="c1"># M1: material loss factor eta (zeta = eta/2 at f_ref and max_frequency); 0 = off</span>
+    <span class="n">reference_frequency_axial</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>       <span class="c1"># Hz; None = first axial mode</span>
+    <span class="n">reference_frequency_torsional</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># Hz; None = first torsional mode</span>
+    <span class="n">high_pass_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>   <span class="c1"># Stokes term acts above this fraction of f_ref</span>
+    <span class="n">yield_drag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'pumps_off'</span>      <span class="c1"># F2: 'always' | 'pumps_off' | 'off'</span>
+    <span class="n">max_frequency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>        <span class="c1"># Hz, validity limit; upper fit point of the material damping</span></div>
+
+
+
+<div class="viewcode-block" id="BitParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.BitParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">BitParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Bit-rock interaction: the axial-torsional coupling point at the bit.</span>
+<span class="sd">    Three reduced models (see docs/derivation/bit-models.md); D = hole</span>
+<span class="sd">    diameter, a = D/2, omega = bit speed, d = depth of cut per revolution.</span>
+
+<span class="sd">    ``coulomb`` -- friction-dominated (worn bit / contact regime); 3 parameters::</span>
+
+<span class="sd">        TOB = mu_kinetic * WOB * D/3 sliding;  |TOB| &lt;= mu_static * WOB * D/3 sticking</span>
+<span class="sd">        ROP = omega * WOB / (2 pi a S)</span>
+
+<span class="sd">    ``cutting`` -- Detournay &amp; Defourny (1992), quasi-static; 3 parameters::</span>
+
+<span class="sd">        WOB = W_f + S a d                    (contact threshold + cutting)</span>
+<span class="sd">        TOB = WOB a / (2 zeta)               (rate independent, no weakening)</span>
+<span class="sd">        ROP = omega * (WOB - W_f) / (2 pi a S)</span>
+
+<span class="sd">    ``regenerative`` -- cutting with the depth of cut set by the hole-bottom</span>
+<span class="sd">    profile left by the previous blade (Richard, Germay &amp; Detournay 2007);</span>
+<span class="sd">    2 rock parameters + the blade count::</span>
+
+<span class="sd">        WOB = S a sum_j d_j,  TOB = WOB a / (2 zeta)</span>
+
+<span class="sd">    S = zeta * epsilon is the drilling strength (Pa); epsilon the intrinsic</span>
+<span class="sd">    specific energy; zeta the ratio of normal to tangential cutting force.</span>
+<span class="sd">    """</span>
+    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'coulomb'</span>
+    <span class="n">mu_static</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.6</span>          <span class="c1"># coulomb</span>
+    <span class="n">mu_kinetic</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span>         <span class="c1"># coulomb</span>
+    <span class="n">drilling_strength</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">50e6</span> <span class="c1"># all models, S = zeta * epsilon (Pa)</span>
+    <span class="n">zeta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>               <span class="c1"># cutting, regenerative</span>
+    <span class="n">contact_wob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>        <span class="c1"># cutting, W_f (N)</span>
+    <span class="n">blades</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>                 <span class="c1"># regenerative (also sets the time between blade passes for T2)</span>
+    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>            <span class="c1"># coulomb torque lever; None = D/3</span>
+    <span class="c1"># 'constant': S = drilling_strength.  'formation': S = zeta * CCS_eff / cutting_efficiency,</span>
+    <span class="c1"># with CCS_eff from the formation at the bit (P1 + T1 + T2, see DrillPyze.formation).</span>
+    <span class="n">strength_source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'constant'</span>
+    <span class="n">cutting_efficiency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="c1"># eta: epsilon = CCS_eff / eta (1 for a sharp cutter)</span>
+    <span class="c1"># hydraulics: total flow area of the nozzles (m^2; default 5 x 12/32 in) and discharge coefficient</span>
+    <span class="n">nozzle_area</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.5628e-4</span>
+    <span class="n">discharge_coefficient</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span></div>
+
+
+
+<div class="viewcode-block" id="TopDriveParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.TopDriveParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TopDriveParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Top-drive inertia and optional torque limit."""</span>
+    <span class="n">inertia</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2000.0</span>     <span class="c1"># kg m^2 (including gearbox, reflected to the quill)</span>
+    <span class="n">max_torque</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>     <span class="c1"># N m, 0 = unlimited</span></div>
+
+
+
+<div class="viewcode-block" id="RampParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.RampParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RampParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Ramp times (s) for set-point changes on inputs that have no controller.</span>
+<span class="sd">    Such a set point approaches a new value linearly from its current value</span>
+<span class="sd">    over its ramp time (0 = instant); ramps are evaluated inside the time</span>
+<span class="sd">    stepping, so pausing and resuming stays exact.</span>
+
+<span class="sd">    Set points that feed a controller -- the top-drive speed set point</span>
+<span class="sd">    (``omega_sp``, PI / SoftTorque / ZTorque) and the autodriller WOB set</span>
+<span class="sd">    point (``wob_sp``) -- are not ramped by default: the controller shapes the</span>
+<span class="sd">    response.  Their entries exist only for studies of set-point profiling.</span>
+<span class="sd">    """</span>
+    <span class="n">omega_sp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>           <span class="c1"># controlled (top-drive speed controller): no ramp</span>
+    <span class="n">omega_td</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>           <span class="c1"># prescribed top-drive speed (1 s = linear between 1 s samples)</span>
+    <span class="n">motor_torque</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>       <span class="c1"># torque command from an external controller: no ramp</span>
+    <span class="n">v_block</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>            <span class="c1"># block velocity (open loop)</span>
+    <span class="n">wob_sp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>             <span class="c1"># controlled (autodriller): no ramp</span>
+    <span class="n">flow_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span>          <span class="c1"># pump rate (open loop)</span>
+    <span class="n">inlet_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span>  <span class="c1"># mud inlet temperature (open loop)</span>
+
+<div class="viewcode-block" id="RampParameters.instant">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.RampParameters.instant">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">instant</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""All ramps off (inputs change in one time step)."""</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="HydraulicsParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.HydraulicsParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">HydraulicsParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Circulating-system hydraulics (DrillPyze.hydraulics; docs/derivation/hydraulics.md).</span>
+<span class="sd">    Steady losses per Shor, Introduction to Drilling Engineering, ch. 7; transients from</span>
+<span class="sd">    the single-phase drift-flux model of Wang et al. (2023, SPE-214836-MS).</span>
+<span class="sd">    """</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span>                   <span class="c1"># m, cell length (both flow paths)</span>
+    <span class="n">cut_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>            <span class="c1"># bottom cells split above this multiple of dx</span>
+    <span class="n">cfl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>                   <span class="c1"># acoustic Courant number</span>
+    <span class="n">iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>                <span class="c1"># Picard iterations on the implicit face friction</span>
+    <span class="n">back_pressure</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>         <span class="c1"># Pa (gauge) at the flowline / choke</span>
+    <span class="n">surface_loss_coefficient</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>   <span class="c1"># c in dp_surf = c Q^m (Pa per (m^3/s)^m)</span>
+    <span class="n">surface_loss_exponent</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.8</span>      <span class="c1"># m</span>
+    <span class="n">clinging_constant</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.45</span>    <span class="c1"># fraction of pipe velocity dragging the annular mud (surge/swab)</span></div>
+
+
+
+<div class="viewcode-block" id="ControllerParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.ControllerParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ControllerParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Top-drive speed controller (Aarsnes et al. 2018, Fig. 4).  Use the</span>
+<span class="sd">    factories in :mod:`DrillPyze.controllers` rather than setting these by hand.</span>
+<span class="sd">    """</span>
+    <span class="n">kp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>             <span class="c1"># N m s / rad</span>
+    <span class="n">ki</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>             <span class="c1"># N m / rad</span>
+    <span class="n">impedance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>      <span class="c1"># Z (rad/s per N m); 0 = no torque feedback</span>
+    <span class="n">t_hp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>          <span class="c1"># s, high-pass time constant on pipe torque</span>
+    <span class="n">t_lp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.005</span>         <span class="c1"># s, low-pass time constant on pipe torque</span>
+    <span class="n">t_en</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.001</span>         <span class="c1"># s, encoder / speed filter time constant</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'unset'</span></div>
+
+
+
+<div class="viewcode-block" id="DrawworksParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.DrawworksParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DrawworksParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Drawworks limits for prescribed block velocity."""</span>
+    <span class="n">block_acceleration</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>   <span class="c1"># m/s^2, optional extra limit on top of the ramp, 0 = none</span></div>
+
+
+
+<div class="viewcode-block" id="AutodrillerParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.AutodrillerParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AutodrillerParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""PI autodriller on surface WOB: gains and maximum block speed."""</span>
+    <span class="n">kp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span>            <span class="c1"># (m/s) per N of WOB error</span>
+    <span class="n">ki</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>            <span class="c1"># (m/s) per N s</span>
+    <span class="n">v_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span> <span class="o">/</span> <span class="mi">3600</span>  <span class="c1"># m/s</span></div>
+
+
+
+<div class="viewcode-block" id="ModelParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.ModelParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    All model parameters: friction, damping, bit, top drive, controller,</span>
+<span class="sd">    autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</span>
+<span class="sd">    """</span>
+    <span class="n">friction</span><span class="p">:</span> <span class="n">FrictionParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">FrictionParameters</span><span class="p">)</span>
+    <span class="n">damping</span><span class="p">:</span> <span class="n">DampingParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DampingParameters</span><span class="p">)</span>
+    <span class="n">bit</span><span class="p">:</span> <span class="n">BitParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">BitParameters</span><span class="p">)</span>
+    <span class="n">top_drive</span><span class="p">:</span> <span class="n">TopDriveParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TopDriveParameters</span><span class="p">)</span>
+    <span class="n">controller</span><span class="p">:</span> <span class="n">ControllerParameters</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">autodriller</span><span class="p">:</span> <span class="n">AutodrillerParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">AutodrillerParameters</span><span class="p">)</span>
+    <span class="n">drawworks</span><span class="p">:</span> <span class="n">DrawworksParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DrawworksParameters</span><span class="p">)</span>
+    <span class="n">ramps</span><span class="p">:</span> <span class="n">RampParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RampParameters</span><span class="p">)</span>
+    <span class="n">hydraulics</span><span class="p">:</span> <span class="n">HydraulicsParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">HydraulicsParameters</span><span class="p">)</span>
+    <span class="n">thermal</span><span class="p">:</span> <span class="n">ThermalParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ThermalParameters</span><span class="p">)</span>
+    <span class="n">thermal_update_period</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>   <span class="c1"># s between thermal / rock-strength updates</span>
+    <span class="n">cfl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span>           <span class="c1"># Courant number on the axial wave speed</span>
+
+<div class="viewcode-block" id="ModelParameters.to_dict">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.ModelParameters.to_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Plain-dict form."""</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModelParameters.copy">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.ModelParameters.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Copy with some fields replaced (dataclasses.replace)."""</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
