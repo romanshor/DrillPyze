@@ -17,14 +17,25 @@ import shutil
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 STATIC = ROOT / 'src' / 'DrillPyze' / 'ui' / 'static'
 LITE = ROOT / 'lite'
-PLOTLY_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js'
+
+
+def plotly_js():
+    """Plotly is bundled with the site (no CDN): the copy shipped with the plotly Python package."""
+    try:
+        import plotly
+    except ImportError:
+        raise SystemExit('DrillPyze Lite bundles Plotly: pip install plotly (or pip install -e ".[ui]")')
+    p = pathlib.Path(plotly.__file__).parent / 'package_data' / 'plotly.min.js'
+    if not p.exists():
+        raise SystemExit(f'plotly.min.js not found in the plotly package ({p})')
+    return p
 
 
 def index_html():
     html = (STATIC / 'index.html').read_text()
     reps = [
         ('<title>DrillPyze simulator</title>', '<title>DrillPyze Lite</title>'),
-        ('<script src="/static/plotly.min.js"></script>', f'<script src="{PLOTLY_CDN}"></script>'),
+        ('<script src="/static/plotly.min.js"></script>', '<script src="plotly.min.js"></script>'),
         ('<h1>DrillPyze</h1>', '<h1>DrillPyze <span class="lite-badge" title="Runs entirely in your browser">Lite</span></h1>'),
         ('<script src="/static/deck.js"></script>', '<script src="lite-api.js"></script>\n<script src="deck.js"></script>'),
         ('<script src="/static/app.js"></script>', '<script src="app.js"></script>'),
@@ -50,6 +61,7 @@ def build(out):
     for f in ('app.js', 'deck.js', 'app.css'):
         shutil.copy(STATIC / f, out / f)
     shutil.copy(LITE / 'lite-api.js', out / 'lite-api.js')
+    shutil.copy(plotly_js(), out / 'plotly.min.js')
     for f in sorted((LITE / 'engine').glob('*.js')):
         shutil.copy(f, out / 'engine' / f.name)
     (out / '.nojekyll').write_text('')          # serve files as they are (no Jekyll processing)

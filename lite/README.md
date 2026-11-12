@@ -36,6 +36,8 @@ python -m http.server -d _site 8000       # open http://localhost:8000
 ```
 
 A web server is needed: browsers do not run module workers from `file://`.
+The build bundles Plotly from the `plotly` Python package
+(`pip install plotly`), so the site needs no CDN.
 
 ## Keeping it in step with the Python model
 

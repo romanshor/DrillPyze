@@ -8,12 +8,17 @@ bs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bs)
 
 
+import pytest
+
+
 def test_site_builds(tmp_path):
+    pytest.importorskip('plotly')
     out = bs.build(tmp_path / 'site')
     html = (out / 'index.html').read_text()
-    for f in ('app.js', 'deck.js', 'app.css', 'lite-api.js', 'engine/worker.js', 'engine/kernel.js',
+    for f in ('app.js', 'deck.js', 'app.css', 'lite-api.js', 'plotly.min.js', 'engine/worker.js', 'engine/kernel.js',
               'engine/hydraulics.js', 'engine/session.js', '.nojekyll'):
         assert (out / f).exists(), f
     assert '/static/' not in html
+    assert '<script src="plotly.min.js"></script>' in html          # bundled, no CDN
     assert (html.index('src="lite-api.js"') < html.index('src="deck.js"') < html.index('src="app.js"'))
     assert 'window.DRILLPYZE_LITE' in (out / 'app.js').read_text()

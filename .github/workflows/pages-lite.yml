@@ -32,7 +32,7 @@ jobs:
       # the browser engine must match the Python model before it is published
       - name: Conformance tests
         run: |
-          pip install -e ".[test]"
+          pip install -e ".[test,ui]"     # ui: Plotly, bundled with the site
           pytest -q tests/test_lite_engine.py tests/test_spec_sync.py
       - name: Build the site
         run: python lite/build_site.py --out _site
