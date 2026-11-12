@@ -145,3 +145,7 @@ docs/_build/
 !docs/**/*.png
 .pytest_cache/
 *.egg-info/
+
+# Sphinx build output and generated pages
+docs/build/
+docs/source/_generated/

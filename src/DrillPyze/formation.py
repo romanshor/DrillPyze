@@ -3,27 +3,27 @@ Formation description and rock strength at the bit.
 
 Rock strength enters the bit models through the drilling strength
 S = zeta * epsilon, with the intrinsic specific energy taken as the confined
-compressive strength at the bit divided by a cutting efficiency eta:
+compressive strength at the bit divided by a cutting efficiency eta::
 
     epsilon = CCS_eff / eta
 
-CCS_eff combines three effects (see docs/derivation/rock-strength-and-temperature.md):
+CCS_eff combines three effects (see docs/derivation/rock-strength-and-temperature.md)::
 
-P1  Confinement by the overbalance, Mohr-Coulomb
-        CCS = UCS + dp * (1 + sin phi) / (1 - sin phi)
-    with dp = p_bh - p_p for permeable rock, and for low-permeability /
-    low-porosity rock the undrained ("Skempton") pore pressure
-        p_p* = p_p - B (sigma_v - p_bh) / 3
-    blended by effective porosity (Caicedo, Calhoun & Ewy 2005; US 7,412,331
-    and US 7,555,414).
-T1  Thermal weakening of the rock
-        UCS(T) = UCS_0 [1 - beta max(T - T*, 0)]
-    fitted to granite data of Xu et al. (2019): T* = 193 C, beta = 1.41e-3 /K.
-T2  Cooling-induced thermal stress at the hole bottom
-        sigma_th = alpha E (T_rock - T_mud) / (1 - nu)
-        CCS_eff  = CCS - kappa sigma_th min(1, delta / d_b)
-    where delta = sqrt(pi D_th t_pass) is the thermal skin cooled between
-    blade passes and d_b the depth of cut per blade.
+    P1  Confinement by the overbalance, Mohr-Coulomb
+            CCS = UCS + dp * (1 + sin phi) / (1 - sin phi)
+        with dp = p_bh - p_p for permeable rock, and for low-permeability /
+        low-porosity rock the undrained ("Skempton") pore pressure
+            p_p* = p_p - B (sigma_v - p_bh) / 3
+        blended by effective porosity (Caicedo, Calhoun & Ewy 2005; US 7,412,331
+        and US 7,555,414).
+    T1  Thermal weakening of the rock
+            UCS(T) = UCS_0 [1 - beta max(T - T*, 0)]
+        fitted to granite data of Xu et al. (2019): T* = 193 C, beta = 1.41e-3 /K.
+    T2  Cooling-induced thermal stress at the hole bottom
+            sigma_th = alpha E (T_rock - T_mud) / (1 - nu)
+            CCS_eff  = CCS - kappa sigma_th min(1, delta / d_b)
+        where delta = sqrt(pi D_th t_pass) is the thermal skin cooled between
+        blade passes and d_b the depth of cut per blade.
 
 Temperatures are in deg C, pressures in Pa, depths in m.
 """
@@ -84,6 +84,7 @@ class Formation:
 
     # ----------------------------------------------------------- profiles
     def layer_at(self, md):
+        """The layer containing measured depth `md` (the deepest layer with top <= md)."""
         lay = sorted(self.layers, key=lambda l: l.top_md)
         out = lay[0]
         for l in lay:
@@ -96,13 +97,16 @@ class Formation:
         return self.surface_temperature + self.geothermal_gradient * np.asarray(tvd)
 
     def pore_pressure(self, tvd):
+        """Hydrostatic pore pressure at true vertical depth `tvd` (Pa)."""
         return self.pore_pressure_gradient * np.asarray(tvd)
 
     def overburden(self, tvd):
+        """Overburden stress at true vertical depth `tvd` (Pa)."""
         return self.overburden_gradient * np.asarray(tvd)
 
     @property
     def thermal_diffusivity(self):
+        """Rock thermal diffusivity k / (rho c) (m^2/s)."""
         return self.rock_conductivity / (self.rock_density * self.rock_heat_capacity)
 
     # ------------------------------------------------------- rock strength
@@ -162,10 +166,12 @@ class Formation:
 
     # ------------------------------------------------------------------ io
     def to_dict(self):
+        """Plain-dict form (for JSON cases)."""
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d):
+        """Formation from its dict form; missing values take the defaults."""
         d = dict(d or {})
         layers = [FormationLayer(**l) for l in d.pop('layers', [])] or None
         f = cls(**d)

@@ -361,6 +361,21 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * pause and resume are exact;
   * an external Python PI reproduces the internal controller.
 
+## Documentation
+
+The API reference (from the docstrings), this README and the model
+derivations are built with Sphinx:
+
+```bash
+./docs_generator.sh          # or: sphinx-build -b html docs/source docs/build
+```
+
+The workflow `.github/workflows/docs-coupled.yml` builds them on every push to
+`coupled-model` that changes the code or the docs. It treats Sphinx warnings as
+errors and publishes the pages to
+`https://<owner>.github.io/<repo>/coupled-model/`, next to the `main`
+documentation.
+
 ## References
 
 * Aarsnes, U.J.F. and Shor, R.J., 2018. Torsional vibrations with bit off bottom: Modeling, characterization and field data validation. *J. Petroleum Science and Engineering*, 163, 712–721.

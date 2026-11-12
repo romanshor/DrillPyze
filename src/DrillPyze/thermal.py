@@ -43,6 +43,10 @@ from .hydraulics import frictional_pressure_drop
 
 @dataclass
 class ThermalParameters:
+    """
+    Wellbore temperature model settings: grid, radial formation cells, steel and
+    casing properties, initial pump rate and inlet temperature, substep and iterations.
+    """
     enabled: bool = True
     dx: float = 30.0                # nominal axial cell length (m)
     cut_factor: float = 1.5         # bottom cell is split when longer than cut_factor * dx
@@ -187,6 +191,7 @@ class WellboreThermal:
 
     # ----------------------------------------------------------------- grid
     def _build_grid(self, hole_depth):
+        """Axial cells of about `dx` from surface to the hole depth."""
         dx = self.p.dx
         n = max(1, int(np.floor(hole_depth / dx)))
         edges = np.linspace(0.0, n * dx, n + 1)
@@ -199,6 +204,10 @@ class WellboreThermal:
         self.dx = np.diff(edges)
 
     def _radial(self, r_w):
+        """
+        Radial formation grid for wall radius `r_w`: heat capacities, conductances and
+        the wall-to-first-node resistance (per unit length).
+        """
         m = self.p.n_radial
         f = r_w * ((r_w + self.p.far_field) / r_w) ** (np.arange(m + 1) / m)   # face radii
         rc = np.sqrt(f[:-1] * f[1:])
@@ -272,6 +281,7 @@ class WellboreThermal:
 
     # ------------------------------------------------------------ growth
     def _grow(self, hole_depth, rop, dt):
+        """Extend the bottom cell to the new hole depth; cut it in two when it is too long."""
         dh = hole_depth - (self.x_top[-1] + self.dx[-1])
         if dh <= 0:
             return
@@ -348,12 +358,17 @@ class WellboreThermal:
 
     # ------------------------------------------------------------- output
     def state(self):
+        """
+        Temperatures at the bit, outlet and inlet, rock temperature, bottomhole pressure,
+        ECD and pump rate.
+        """
         return dict(time=self.time, t_bit=float(self.T_ann[self.jb]), t_ds_bit=float(self.T_ds[self.jb]),
                     t_out=float(self.T_ann[0]), t_in=self.inlet_temperature,
                     t_rock=float(self.formation.temperature(self.wellbore.survey.tvd_at([self.hole_depth])[0])),
                     p_bh=float(self.p_bh), ecd=float(self.ecd), flow_rate=self.flow_rate)
 
     def profiles(self):
+        """Temperature profiles per cell (DataFrame): drillstring, annulus, wall and far field."""
         import pandas as pd
         return pd.DataFrame(dict(md=self.x_top + 0.5 * self.dx, tvd=self.tvd, t_ds=self.T_ds,
                                  t_ann=self.T_ann, t_wall=self.T_f[:, 0], t_far=self.T_far,

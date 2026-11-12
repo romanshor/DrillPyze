@@ -47,6 +47,7 @@ def _r(a, nd=4):
 
 
 class Session:
+    """One UI simulation: the built model, its inputs and what has been sent to the browser."""
     def __init__(self, cfg):
         errs = C.validate(cfg)
         if errs:
@@ -119,6 +120,7 @@ class Session:
         return kw
 
     def step(self, duration, inputs):
+        """Apply the UI inputs, advance `duration` seconds and return a frame."""
         with self.lock:
             self.touched = time.time()
             t0 = time.perf_counter()
@@ -130,6 +132,10 @@ class Session:
 
     # --------------------------------------------------------------- frame
     def frame(self, wall=0.0, duration=0.0):
+        """
+        Everything the browser needs to draw: latest values, new trace rows (decimated),
+        slow and hydraulics records, temperature and along-string profiles.
+        """
         sim = self.sim
         chunks = sim._records[self.sent_chunks:]
         self.sent_chunks = len(sim._records)
@@ -231,6 +237,7 @@ class Session:
         }
 
     def info(self):
+        """Simulation info plus the first torsional mode and controller gains."""
         i = self.sim.info()
         i.update(first_mode_hz=C.first_torsional_mode(self.sim),
                  coupling=self.sim.params.friction.along_string_coupling,
@@ -239,6 +246,7 @@ class Session:
         return i
 
     def csv(self):
+        """All recorded channels as CSV text."""
         df = self.sim.results()
         return df.to_csv(index=False)
 
@@ -252,14 +260,20 @@ def _prune():
 
 
 class Handler(BaseHTTPRequestHandler):
+    """
+    HTTP handler: static files and the JSON API (/api/defaults, /api/init, /api/step,
+    /api/results.csv).
+    """
     server_version = 'DrillPyzeUI/0.1'
 
     def log_message(self, fmt, *args):          # quiet by default
+        """Log requests only when the server is verbose."""
         if getattr(self.server, 'verbose', False):
             super().log_message(fmt, *args)
 
     # ---------------------------------------------------------------- utils
     def _send(self, code, body, ctype='application/json', headers=None):
+        """Send a response (dicts and lists as JSON)."""
         if isinstance(body, (dict, list)):
             body = json.dumps(body).encode()
         elif isinstance(body, str):
@@ -274,10 +288,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _json(self):
+        """Request body parsed as JSON."""
         n = int(self.headers.get('Content-Length') or 0)
         return json.loads(self.rfile.read(n) or b'{}')
 
     def _static(self, name):
+        """Serve a file from the static folder."""
         path = os.path.normpath(os.path.join(STATIC, name))
         if not path.startswith(STATIC) or not os.path.isfile(path):
             return self._send(404, {'error': 'not found'})
@@ -288,6 +304,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------------------------------------------------------------- GET
     def do_GET(self):
+        """Static files, defaults and the results CSV."""
         u = urlparse(self.path)
         if u.path in ('/', '/index.html'):
             return self._static('index.html')
@@ -316,6 +333,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # --------------------------------------------------------------- POST
     def do_POST(self):
+        """Initialise or step a session."""
         u = urlparse(self.path)
         try:
             req = self._json()
@@ -346,6 +364,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def make_server(host='127.0.0.1', port=8050, verbose=False):
+    """Threaded HTTP server for the UI on `host`:`port`."""
     srv = ThreadingHTTPServer((host, port), Handler)
     srv.verbose = verbose
     return srv
@@ -358,6 +377,7 @@ def warm_up():
 
 
 def main(argv=None):
+    """Command-line entry point: start the UI server and open a browser."""
     ap = argparse.ArgumentParser(description='DrillPyze interactive simulator UI')
     ap.add_argument('--host', default='127.0.0.1')
     ap.add_argument('--port', type=int, default=8050)

@@ -158,6 +158,10 @@ class Simulation:
 
     # ----------------------------------------------------------- internals
     def _pack_parameters(self):
+        """
+        Write the parameters (controller, bit, friction, autodriller, damping) into the
+        kernel parameter vector and arrays.
+        """
         p = self.params
         f, d, b, td = p.friction, p.damping, p.bit, p.top_drive
         c = p.controller if p.controller is not None else controllers.stiff(self.zeta_p, td.inertia)
@@ -305,6 +309,7 @@ class Simulation:
         self._fy_zero = np.zeros(n)
 
     def _yield_drag_now(self):
+        """Yield-stress drag per cell to use now (zero unless enabled for the present pump state)."""
         d = self.params.damping
         if d.yield_drag == 'always':
             return self._fy_full
@@ -376,6 +381,7 @@ class Simulation:
 
     # ------------------------------------------------------------ ramps
     def _slow_value(self, name, t=None):
+        """Ramped value of a slow input (pump rate, inlet temperature) at time `t`."""
         v0, t0, T, tgt = self._slow_ramps[name]
         t = self.sc[K.S_T] if t is None else t
         if T <= 0 or t >= t0 + T:
@@ -387,6 +393,7 @@ class Simulation:
         return self._slow_value('flow_rate')
 
     def _ramp_value(self, k):
+        """Value of kernel ramp row `k` at the present time."""
         v0, t0, T, tgt = self.ramps[k]
         t = self.sc[K.S_T]
         if T <= 0 or t >= t0 + T:
@@ -402,11 +409,13 @@ class Simulation:
         self.ramps[k] = (start, self.sc[K.S_T], ramp_time, target)
 
     def _set_slow_ramp(self, name, target, ramp_time):
+        """Start a ramp of a slow input to `target` from its present value."""
         if self._slow_ramps[name][3] == target:
             return
         self._slow_ramps[name] = [self._slow_value(name), self.sc[K.S_T], ramp_time, target]
 
     def _sync_hydraulics_temperature(self):
+        """Pass the thermal model mud temperatures to the hydraulics model (density)."""
         if self.hydraulics is None or self.thermal is None:
             return
         pr = self.thermal.profiles()
@@ -416,6 +425,7 @@ class Simulation:
         self.hydraulics.set_temperatures(ds['md'].values, ds['t_ds'].values, pr['md'].values, pr['t_ann'].values)
 
     def _hydraulics_tick(self):
+        """Advance the hydraulics to the present time and record its state."""
         t = self.sc[K.S_T]
         dt = t - self._hyd_last['t']
         if self.hydraulics is None or dt <= 0:
@@ -516,6 +526,7 @@ class Simulation:
         self._geom_bitd = bitd
 
     def _normal_force_now(self):
+        """Soft-string normal force per length (N/m) from the present tension."""
         T = -(self._qs_c + self.qd)
         f = T[:, None] * self.kappa + self.w_b[:, None] * self.zperp
         return np.linalg.norm(f, axis=1)
@@ -604,6 +615,7 @@ class Simulation:
         return self.latest()
 
     def _run(self, nsteps):
+        """Run `nsteps` kernel steps and keep the recorded rows."""
         nrec = (self._rec_phase + nsteps) // self.rec_every
         rec = np.empty((nrec, K.N_REC))
         wf, tf, vf, qf = self._scratch
@@ -627,6 +639,7 @@ class Simulation:
     # ============================================================= outputs
     @property
     def time(self):
+        """Simulated time (s)."""
         return self.sc[K.S_T]
 
     def latest(self):
@@ -696,6 +709,10 @@ class Simulation:
         return copy.deepcopy(self)
 
     def info(self):
+        """
+        Grid and numerics summary: cells, time step, cell sizes, string length,
+        pipe impedance, controller name and torsional CFL number.
+        """
         g = self.grid
         return dict(cells=g.n, dt=self.dt, dx_min=float(g.dx.min()), dx_max=float(g.dx.max()),
                     length=float(g.dx.sum()), zeta_p=self.zeta_p,
