@@ -1,5 +1,14 @@
 # DrillPyze — coupled drillstring dynamics
 
+[![Tests](https://github.com/romanshor/DrillPyze/actions/workflows/tests.yml/badge.svg)](https://github.com/romanshor/DrillPyze/actions/workflows/tests.yml)
+[![Documentation](https://github.com/romanshor/DrillPyze/actions/workflows/main.yml/badge.svg)](https://romanshor.github.io/DrillPyze/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**Version 1.0 alpha (1.0.0a1, released 2026-11-13).**
+[Documentation](https://romanshor.github.io/DrillPyze/) ·
+[Try it in your browser (DrillPyze Lite)](https://romanshor.github.io/DrillPyze/lite/) ·
+[Changelog](changelog.md)
+
 DrillPyze simulates the coupled axial and torsional dynamics of a drillstring
 in a 3-D wellbore, together with steady-state torque and drag. It is built to:
 
@@ -10,8 +19,8 @@ in a 3-D wellbore, together with steady-state torque and drag. It is built to:
 All quantities are **SI** internally. Conversion helpers in `DrillPyze.units`
 handle oilfield units at input and output.
 
-> **Branch `coupled-model`:** a rewrite of the 2023 prototype. The full
-> mathematical derivation is in [`docs/derivation/`](derivation-readme.md).
+DrillPyze 1.0 is a rewrite of the 2023 prototype. The full mathematical
+derivation is in [`docs/derivation/`](derivation-readme.md).
 
 ## Mathematical model
 
@@ -160,9 +169,15 @@ in [`docs/derivation/README.md`](derivation-readme.md).
 ## Installation
 
 ```bash
-pip install -e ".[test]"
-pytest -q
+git clone https://github.com/romanshor/DrillPyze.git
+cd DrillPyze
+pip install -e ".[ui,test]"     # ui: the interactive simulator; test: pytest
+pytest -q                       # optional: run the verification suite
+python -m DrillPyze.ui          # start the simulator in your browser
 ```
+
+DrillPyze needs Python 3.10 or newer. To run it without installing anything,
+use [DrillPyze Lite](https://romanshor.github.io/DrillPyze/lite/).
 
 ## Interactive simulator
 
@@ -375,6 +390,17 @@ The workflow `.github/workflows/docs-coupled.yml` builds them on every push to
 errors and publishes the pages to
 `https://<owner>.github.io/<repo>/coupled-model/`, next to the `main`
 documentation.
+
+## Citing DrillPyze
+
+If you use DrillPyze in your work, please cite it. The citation details are
+in [`CITATION.cff`](../../../CITATION.cff); GitHub shows them under *Cite this
+repository*.
+
+## Contributing and licence
+
+Contributions are welcome: see [`CONTRIBUTING.md`](../../../CONTRIBUTING.md). DrillPyze
+is released under the [MIT License](../../../LICENSE).
 
 ## References
 
