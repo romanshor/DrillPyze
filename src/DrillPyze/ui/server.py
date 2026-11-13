@@ -29,6 +29,7 @@ import numpy as np
 from .. import config as C
 from .. import kernel as K
 from .. import statics, units
+from .. import __version__, __release_date__, __release_name__
 
 STATIC = os.path.join(os.path.dirname(__file__), 'static')
 PLOTLY_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js'
@@ -264,7 +265,7 @@ class Handler(BaseHTTPRequestHandler):
     HTTP handler: static files and the JSON API (/api/defaults, /api/init, /api/step,
     /api/results.csv).
     """
-    server_version = 'DrillPyzeUI/0.1'
+    server_version = f'DrillPyzeUI/{__version__}'
 
     def log_message(self, fmt, *args):          # quiet by default
         """Log requests only when the server is verbose."""
@@ -319,7 +320,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path.startswith('/static/'):
             return self._static(u.path[len('/static/'):])
         if u.path == '/api/defaults':
-            return self._send(200, {'config': C.default(), 'controller_types': list(C.CONTROLLER_TYPES)})
+            return self._send(200, {'config': C.default(), 'controller_types': list(C.CONTROLLER_TYPES),
+                                    'version': __version__, 'release': __release_name__, 'release_date': __release_date__})
         if u.path == '/api/results.csv':
             sid = parse_qs(u.query).get('session', [''])[0]
             s = _sessions.get(sid)

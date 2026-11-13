@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "DrillPyze"
-version = "0.1.0.dev0"
+version = "1.0.0a1"
 description = "Coupled axial-torsional drillstring dynamics, torque & drag and controller test bench"
 readme = "README.md"
 license = { text = "MIT" }
