@@ -4,12 +4,14 @@
 import { Session } from './session.js';
 import { wellA } from './config.js';
 import { SPEC_REVISION } from './spec.js';
+import { VERSION, RELEASE, RELEASE_DATE } from './version.js';
 
 const sessions = new Map();
 let next = 1;
 
 function handle(path, body) {
-  if (path === '/api/defaults') return { config: wellA(), controller_types: ['stiff', 'soft_torque', 'z_torque', 'custom'], spec_revision: SPEC_REVISION };
+  if (path === '/api/defaults') return { config: wellA(), controller_types: ['stiff', 'soft_torque', 'z_torque', 'custom'], spec_revision: SPEC_REVISION,
+                                         version: VERSION, release: RELEASE, release_date: RELEASE_DATE };
   if (path === '/api/init') {
     const s = new Session(body.config);
     if (body.previous) sessions.delete(body.previous);

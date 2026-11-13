@@ -22,3 +22,14 @@ def test_site_builds(tmp_path):
     assert '<script src="plotly.min.js"></script>' in html          # bundled, no CDN
     assert (html.index('src="lite-api.js"') < html.index('src="deck.js"') < html.index('src="app.js"'))
     assert 'window.DRILLPYZE_LITE' in (out / 'app.js').read_text()
+
+
+def test_lite_version_matches_package():
+    """DrillPyze Lite carries the same release as the Python package."""
+    import re
+    import DrillPyze
+    js = (ROOT / 'lite' / 'engine' / 'version.js').read_text()
+    get = lambda k: re.search(rf"{k} = '([^']+)'", js).group(1)
+    assert get('VERSION') == DrillPyze.__version__
+    assert get('RELEASE') == DrillPyze.__release_name__
+    assert get('RELEASE_DATE') == DrillPyze.__release_date__
