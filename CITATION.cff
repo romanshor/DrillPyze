@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use DrillPyze in your work, please cite it as below."
+title: "DrillPyze: coupled axial-torsional drillstring dynamics simulator"
+type: software
+authors:
+  - family-names: Shor
+    given-names: Roman J.
+    affiliation: Texas A&M University
+version: 1.0.0a1
+date-released: 2026-11-13
+license: MIT
+repository-code: "https://github.com/romanshor/DrillPyze"
+url: "https://romanshor.github.io/DrillPyze/"
+keywords:
+  - drilling
+  - drillstring dynamics
+  - stick-slip
+  - torque and drag
+  - drilling automation
+  - geothermal
