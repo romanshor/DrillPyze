@@ -54,6 +54,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#performance">Performance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#verification-tests">Verification (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#citing-drillpyze">Citing DrillPyze</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#contributing-and-licence">Contributing and licence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
 </ul>
 </li>
@@ -101,6 +103,13 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="drillpyze-coupled-drillstring-dynamics">
 <span id="drillpyze--coupled-drillstring-dynamics"></span><h1>DrillPyze — coupled drillstring dynamics<a class="headerlink" href="#drillpyze-coupled-drillstring-dynamics" title="Link to this heading"></a></h1>
+<p><a class="reference external" href="https://github.com/romanshor/DrillPyze/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/romanshor/DrillPyze/actions/workflows/tests.yml/badge.svg" /></a>
+<a class="reference external" href="https://romanshor.github.io/DrillPyze/"><img alt="Documentation" src="https://github.com/romanshor/DrillPyze/actions/workflows/main.yml/badge.svg" /></a>
+<a class="reference internal" href="#LICENSE"><span class="xref myst"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></span></a></p>
+<p><strong>Version 1.0 alpha (1.0.0a1, released 2026-11-13).</strong>
+<a class="reference external" href="https://romanshor.github.io/DrillPyze/">Documentation</a> ·
+<a class="reference external" href="https://romanshor.github.io/DrillPyze/lite/">Try it in your browser (DrillPyze Lite)</a> ·
+<a class="reference internal" href="changelog.html"><span class="std std-doc">Changelog</span></a></p>
 <p>DrillPyze simulates the coupled axial and torsional dynamics of a drillstring
 in a 3-D wellbore, together with steady-state torque and drag. It is built to:</p>
 <ul class="simple">
@@ -110,10 +119,8 @@ in a 3-D wellbore, together with steady-state torque and drag. It is built to:</
 </ul>
 <p>All quantities are <strong>SI</strong> internally. Conversion helpers in <code class="docutils literal notranslate"><span class="pre">DrillPyze.units</span></code>
 handle oilfield units at input and output.</p>
-<blockquote>
-<div><p><strong>Branch <code class="docutils literal notranslate"><span class="pre">coupled-model</span></code>:</strong> a rewrite of the 2023 prototype. The full
-mathematical derivation is in <a class="reference internal" href="derivation-readme.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/</span></code></span></a>.</p>
-</div></blockquote>
+<p>DrillPyze 1.0 is a rewrite of the 2023 prototype. The full mathematical
+derivation is in <a class="reference internal" href="derivation-readme.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/</span></code></span></a>.</p>
 <section id="mathematical-model">
 <h2>Mathematical model<a class="headerlink" href="#mathematical-model" title="Link to this heading"></a></h2>
 <p>The string is a slender elastic rod with <span class="math notranslate nohighlight">\(x \in [0, L]\)</span> measured from the top
@@ -274,10 +281,15 @@ in <a class="reference internal" href="derivation-readme.html"><span class="std 
 </section>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[test]"</span>
-pytest<span class="w"> </span>-q
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/romanshor/DrillPyze.git
+<span class="nb">cd</span><span class="w"> </span>DrillPyze
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[ui,test]"</span><span class="w">     </span><span class="c1"># ui: the interactive simulator; test: pytest</span>
+pytest<span class="w"> </span>-q<span class="w">                       </span><span class="c1"># optional: run the verification suite</span>
+python<span class="w"> </span>-m<span class="w"> </span>DrillPyze.ui<span class="w">          </span><span class="c1"># start the simulator in your browser</span>
 </pre></div>
 </div>
+<p>DrillPyze needs Python 3.10 or newer. To run it without installing anything,
+use <a class="reference external" href="https://romanshor.github.io/DrillPyze/lite/">DrillPyze Lite</a>.</p>
 </section>
 <section id="interactive-simulator">
 <h2>Interactive simulator<a class="headerlink" href="#interactive-simulator" title="Link to this heading"></a></h2>
@@ -540,6 +552,17 @@ derivations are built with Sphinx:</p>
 errors and publishes the pages to
 <code class="docutils literal notranslate"><span class="pre">https://&lt;owner&gt;.github.io/&lt;repo&gt;/coupled-model/</span></code>, next to the <code class="docutils literal notranslate"><span class="pre">main</span></code>
 documentation.</p>
+</section>
+<section id="citing-drillpyze">
+<h2>Citing DrillPyze<a class="headerlink" href="#citing-drillpyze" title="Link to this heading"></a></h2>
+<p>If you use DrillPyze in your work, please cite it. The citation details are
+in <a class="reference download internal" download="" href="../_downloads/0dcbf0db80e48c87f932b8744e5940c1/CITATION.cff"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">CITATION.cff</span></code></span></a>; GitHub shows them under <em>Cite this
+repository</em>.</p>
+</section>
+<section id="contributing-and-licence">
+<h2>Contributing and licence<a class="headerlink" href="#contributing-and-licence" title="Link to this heading"></a></h2>
+<p>Contributions are welcome: see <span class="xref myst"><code class="docutils literal notranslate"><span class="pre">CONTRIBUTING.md</span></code></span>. DrillPyze
+is released under the <a class="reference download internal" download="" href="../_downloads/16e66d320f6335cc82caaeebd16c1334/LICENSE"><span class="xref download myst">MIT License</span></a>.</p>
 </section>
 <section id="references">
 <h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
