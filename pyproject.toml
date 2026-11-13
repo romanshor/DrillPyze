@@ -9,13 +9,30 @@ description = "Coupled axial-torsional drillstring dynamics, torque & drag and c
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Roman J. Shor", email = "roman.shor@tamu.edu" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["numpy", "pandas", "numba>=0.57", "matplotlib", "openpyxl"]
+keywords = ["drilling", "drillstring dynamics", "stick-slip", "torque and drag", "drilling automation",
+            "hydraulics", "geothermal", "simulation"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
 ]
+
+[project.urls]
+Homepage = "https://github.com/romanshor/DrillPyze"
+Documentation = "https://romanshor.github.io/DrillPyze/"
+"Browser version" = "https://romanshor.github.io/DrillPyze/lite/"
+Issues = "https://github.com/romanshor/DrillPyze/issues"
+Changelog = "https://github.com/romanshor/DrillPyze/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 ui = ["plotly"]
