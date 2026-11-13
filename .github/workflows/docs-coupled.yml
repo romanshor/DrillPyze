@@ -16,9 +16,10 @@ on:
 permissions:
   contents: write          # push to the gh-pages branch
 
+# one queue for every workflow that pushes to gh-pages, so publishes never race
 concurrency:
-  group: docs-coupled
-  cancel-in-progress: true
+  group: gh-pages-publish
+  cancel-in-progress: false
 
 jobs:
   docs:
