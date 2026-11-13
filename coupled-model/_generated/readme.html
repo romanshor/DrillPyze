@@ -56,6 +56,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#performance">Performance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#verification-tests">Verification (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#branches-and-releases">Branches and releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#citing-drillpyze">Citing DrillPyze</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#contributing-and-licence">Contributing and licence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
@@ -594,6 +595,36 @@ derivations are built with Sphinx:</p>
 errors and publishes the pages to
 <code class="docutils literal notranslate"><span class="pre">https://&lt;owner&gt;.github.io/&lt;repo&gt;/coupled-model/</span></code>, next to the <code class="docutils literal notranslate"><span class="pre">main</span></code>
 documentation.</p>
+</section>
+<section id="branches-and-releases">
+<h2>Branches and releases<a class="headerlink" href="#branches-and-releases" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Branch</p></th>
+<th class="head"><p>Purpose</p></th>
+<th class="head"><p>Published at</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">main</span></code></p></td>
+<td><p>releases (currently 1.0.0a1)</p></td>
+<td><p>documentation at the site root, DrillPyze Lite at <code class="docutils literal notranslate"><span class="pre">/lite/</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">coupled-model</span></code></p></td>
+<td><p>development of the Python model, UI and docs</p></td>
+<td><p>development docs at <code class="docutils literal notranslate"><span class="pre">/coupled-model/</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">browser-lite</span></code></p></td>
+<td><p>brings DrillPyze Lite up to date with the physics</p></td>
+<td><p>—</p></td>
+</tr>
+</tbody>
+</table>
+<p>Changes flow <code class="docutils literal notranslate"><span class="pre">coupled-model</span></code> → <code class="docutils literal notranslate"><span class="pre">browser-lite</span></code> → <code class="docutils literal notranslate"><span class="pre">main</span></code>. A physics change on
+<code class="docutils literal notranslate"><span class="pre">coupled-model</span></code> may run ahead of the browser engine. There, the Lite checks
+report expected failures instead of errors. On <code class="docutils literal notranslate"><span class="pre">browser-lite</span></code>, on <code class="docutils literal notranslate"><span class="pre">main</span></code> and
+in pull requests into them, Lite must match the Python model. See
+<span class="xref myst"><code class="docutils literal notranslate"><span class="pre">CONTRIBUTING.md</span></code></span>.</p>
 </section>
 <section id="citing-drillpyze">
 <h2>Citing DrillPyze<a class="headerlink" href="#citing-drillpyze" title="Link to this heading"></a></h2>
