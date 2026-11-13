@@ -297,7 +297,7 @@ python lite/build_site.py && python -m http.server -d _site 8000   # http://loca
 **Publishing on GitHub Pages.** The workflow
 `.github/workflows/pages-lite.yml` runs the conformance tests, builds the
 site and publishes it to the `lite/` folder of the `gh-pages` branch. It
-runs on pushes to `main` or `browser-lite` that touch `lite/` or the front
+runs on pushes to `main` that touch `lite/` or the front
 end, or by hand from the Actions tab.
 
 The site appears at `https://<owner>.github.io/<repo>/lite/`, next to the

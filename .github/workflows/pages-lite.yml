@@ -4,7 +4,7 @@ name: Publish DrillPyze Lite
 
 on:
   push:
-    branches: [main, browser-lite]
+    branches: [main]
     paths:
       - 'lite/**'
       - 'src/DrillPyze/ui/static/**'

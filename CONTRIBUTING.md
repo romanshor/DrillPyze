@@ -31,8 +31,7 @@ python -m DrillPyze.ui       # the interactive simulator
 ## Physics specification and the browser version
 
 DrillPyze Lite (the browser version, `lite/`) is built from the
-implementation-level specification in `docs/spec/physics-spec.md`. Both live on
-the `browser-lite` branch until it is merged into `main`. A change to the physics or numerics of the Python model must:
+implementation-level specification in `docs/spec/physics-spec.md`. A change to the physics or numerics of the Python model must:
 
 1. update the specification in the same pull request and raise its revision;
 2. refresh the manifest with `python docs/spec/update_manifest.py`;

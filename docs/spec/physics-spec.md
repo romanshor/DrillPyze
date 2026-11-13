@@ -1,6 +1,6 @@
 # DrillPyze physics specification
 
-**Spec revision: 2** (matches the Python model on branch `browser-lite`, November 2026)
+**Spec revision: 2** (matches the Python model, DrillPyze 1.0.0a1, November 2026)
 
 This document specifies, at implementation level, every piece of physics and
 numerics in the Python model (`src/DrillPyze`). It is precise enough to build
