@@ -949,6 +949,15 @@ function wire() {
   });
 }
 
+// version under the title: "1.0 alpha (v1.0.0a1)" and "Released 2026-11-13"
+function showVersion(d) {
+  if (!d.version) return;
+  const el = $('version');
+  el.textContent = d.release ? `${d.release} (v${d.version})` : `v${d.version}`;
+  if (d.release_date) el.append(document.createElement('br'), `Released ${d.release_date}`);
+  document.title = `${document.title.split(' · ')[0]} · v${d.version}`;
+}
+
 async function start() {
   wire();
   for (const b of document.querySelectorAll('#units button')) b.setAttribute('aria-checked', String(b.dataset.sys === SYSTEM));
@@ -959,6 +968,7 @@ async function start() {
   try {
     const d = await api('/api/defaults');
     state.defaults = d.config; state.cfg = structuredClone(d.config);
+    showVersion(d);
     buildForm();
     await initialise();
     message('Well A is loaded. Press Play (or Space) to start the off-bottom start-up at 60 rpm.', 'info');
