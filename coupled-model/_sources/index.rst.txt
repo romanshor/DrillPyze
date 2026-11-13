@@ -7,13 +7,14 @@ top-drive controllers and an autodriller, circulating hydraulics, wellbore
 temperature and rock strength at the bit. It includes an interactive
 simulator UI with a driller's display and a browser version (DrillPyze Lite).
 
-This documentation is built from the ``coupled-model`` branch.
+Version |release|.
 
 .. toctree::
    :maxdepth: 2
    :caption: Guide
 
    _generated/readme
+   _generated/changelog
 
 .. toctree::
    :maxdepth: 1

@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrillPyze.ui.server &mdash; DrillPyze 0.1.0.dev0 (coupled model)</title>
+  <title>DrillPyze.ui.server &mdash; DrillPyze 1.0.0a1</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=965fac30"></script>
+      <script src="../../../_static/documentation_options.js?v=a480e030"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -42,6 +42,7 @@
               <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/changelog.html">Changelog</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
 <ul>
@@ -115,6 +116,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span> <span class="k">as</span> <span class="n">C</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">kernel</span> <span class="k">as</span> <span class="n">K</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">statics</span><span class="p">,</span> <span class="n">units</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span><span class="p">,</span> <span class="n">__release_date__</span><span class="p">,</span> <span class="n">__release_name__</span>
 
 <span class="n">STATIC</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">'static'</span><span class="p">)</span>
 <span class="n">PLOTLY_CDN</span> <span class="o">=</span> <span class="s1">'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js'</span>
@@ -370,7 +372,7 @@
 <span class="sd">    HTTP handler: static files and the JSON API (/api/defaults, /api/init, /api/step,</span>
 <span class="sd">    /api/results.csv).</span>
 <span class="sd">    """</span>
-    <span class="n">server_version</span> <span class="o">=</span> <span class="s1">'DrillPyzeUI/0.1'</span>
+    <span class="n">server_version</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'DrillPyzeUI/</span><span class="si">{</span><span class="n">__version__</span><span class="si">}</span><span class="s1">'</span>
 
 <div class="viewcode-block" id="Handler.log_message">
 <a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Handler.log_message">[docs]</a>
@@ -430,7 +432,8 @@
         <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">'/static/'</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_static</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s1">'/static/'</span><span class="p">):])</span>
         <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/defaults'</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">'config'</span><span class="p">:</span> <span class="n">C</span><span class="o">.</span><span class="n">default</span><span class="p">(),</span> <span class="s1">'controller_types'</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">CONTROLLER_TYPES</span><span class="p">)})</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">'config'</span><span class="p">:</span> <span class="n">C</span><span class="o">.</span><span class="n">default</span><span class="p">(),</span> <span class="s1">'controller_types'</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">CONTROLLER_TYPES</span><span class="p">),</span>
+                                    <span class="s1">'version'</span><span class="p">:</span> <span class="n">__version__</span><span class="p">,</span> <span class="s1">'release'</span><span class="p">:</span> <span class="n">__release_name__</span><span class="p">,</span> <span class="s1">'release_date'</span><span class="p">:</span> <span class="n">__release_date__</span><span class="p">})</span>
         <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/results.csv'</span><span class="p">:</span>
             <span class="n">sid</span> <span class="o">=</span> <span class="n">parse_qs</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'session'</span><span class="p">,</span> <span class="p">[</span><span class="s1">''</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">s</span> <span class="o">=</span> <span class="n">_sessions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span>
