@@ -945,11 +945,12 @@ function wire() {
   });
 }
 
-// version line under the title, e.g. "v1.0.0a1 (1.0 alpha) · released 2026-11-13"
+// version under the title: "1.0 alpha (v1.0.0a1)" and "Released 2026-11-13"
 function showVersion(d) {
   if (!d.version) return;
   const el = $('version');
-  el.textContent = `v${d.version}${d.release ? ` (${d.release})` : ''}${d.release_date ? ` · released ${d.release_date}` : ''}`;
+  el.textContent = d.release ? `${d.release} (v${d.version})` : `v${d.version}`;
+  if (d.release_date) el.append(document.createElement('br'), `Released ${d.release_date}`);
   document.title = `${document.title.split(' · ')[0]} · v${d.version}`;
 }
 
