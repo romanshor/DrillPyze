@@ -149,3 +149,16 @@ def test_each_bit_model_builds_from_config(model):
     sim = config.build(cfg)
     sim.step(1.0, omega_sp=60 * units.RPM, v_block=0.01)
     assert np.isfinite(sim.w).all() and sim.latest()['wob'] >= 0
+
+
+def test_version_is_consistent_and_served(ui_url):
+    """One version everywhere: package, pyproject.toml and the UI (with the release date)."""
+    import pathlib
+    import re
+    import DrillPyze
+    root = pathlib.Path(__file__).resolve().parents[1]
+    assert re.search(r'^version = "([^"]+)"', (root / 'pyproject.toml').read_text(), re.M).group(1) == DrillPyze.__version__
+    d = json.loads(urllib.request.urlopen(ui_url + '/api/defaults').read())
+    assert d['version'] == DrillPyze.__version__
+    assert d['release_date'] == DrillPyze.__release_date__ and re.match(r'\d{4}-\d{2}-\d{2}$', d['release_date'])
+    assert 'id="version"' in urllib.request.urlopen(ui_url + '/').read().decode()

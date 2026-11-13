@@ -16,6 +16,8 @@ from .statics import torque_drag
 from .formation import Formation, FormationLayer
 from .thermal import WellboreThermal, ThermalParameters
 
-__version__ = "0.1.0.dev0"
+__version__ = "1.0.0a1"           # PEP 440: 1.0 alpha 1 (keep pyproject.toml in step)
+__release_date__ = "2026-11-13"
+__release_name__ = "1.0 alpha"
 __author__ = 'Roman J. Shor'
 __credits__ = 'Texas A&M University; University of Calgary'

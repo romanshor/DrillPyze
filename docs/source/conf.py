@@ -49,13 +49,14 @@ suppress_warnings = ['myst.xref_missing', 'myst.header']
 
 # -- HTML ----------------------------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
-html_title = f'DrillPyze {release} (coupled model)'
+html_title = f'DrillPyze {release}'
 html_static_path = []
 html_theme_options = {'navigation_depth': 3}
 
 # -- Markdown pages from the repository -----------------------------------------
 GEN = HERE / '_generated'
 PAGES = [('readme', ROOT / 'README.md', 'Overview (README)')]
+PAGES += [('changelog', ROOT / 'CHANGELOG.md', 'Changelog')]
 PAGES += [(f'derivation-{p.stem.lower()}', p, None) for p in sorted((ROOT / 'docs' / 'derivation').glob('*.md'))]
 PAGES += [(f'spec-{p.stem.lower()}', p, None) for p in sorted((ROOT / 'docs' / 'spec').glob('*.md'))]
 
@@ -81,6 +82,8 @@ def _github_to_myst(text, src, dst):
 
 def generate_pages(app=None):
     GEN.mkdir(exist_ok=True)
+    for old in GEN.glob('*.*'):                    # drop pages left from another branch's build
+        old.unlink()
     for name, src, _ in PAGES:
         dst = GEN / f'{name}.md'
         dst.write_text(_github_to_myst(src.read_text(), src, dst))
