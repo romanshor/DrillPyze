@@ -22,7 +22,7 @@ First alpha of DrillPyze 1.0.
 - SI and field units.
 
 **DrillPyze Lite.** The same simulator running entirely in a web browser
-(branch `browser-lite`), built from the physics specification in `docs/spec`.
+(`lite/`), built from the physics specification in `docs/spec`.
 
 **Documentation.** Sphinx API reference, the model derivations and the
 verification cases.
