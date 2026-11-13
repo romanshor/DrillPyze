@@ -1,0 +1,1597 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze physics specification &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API reference" href="../api.html" />
+    <link rel="prev" title="Physics specification" href="specification.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="specification.html">Physics specification</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DrillPyze physics specification</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#contents">Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#conventions-and-coverage">0. Conventions and coverage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#case-description-and-defaults">1. Case description and defaults</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry">2. Geometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#string-model-state-properties-and-time-step">3. String model: state, properties and time step</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-set-up">4. Parameter set-up</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-time-step-kernel">5. The time step (kernel)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#inputs-ramps-and-modes">6. Inputs, ramps and modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#slow-tick">7. Slow tick</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hydraulics">8. Hydraulics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rock-strength-at-the-bit">9. Rock strength at the bit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wellbore-temperature">10. Wellbore temperature</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#steady-torque-and-drag-reference-profiles">11. Steady torque and drag (reference profiles)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">12. Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#conformance">13. Conformance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#revision-history">Revision history</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="specification.html">Physics specification</a></li>
+      <li class="breadcrumb-item active">DrillPyze physics specification</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_generated/spec-physics-spec.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="drillpyze-physics-specification">
+<h1>DrillPyze physics specification<a class="headerlink" href="#drillpyze-physics-specification" title="Link to this heading"></a></h1>
+<p><strong>Spec revision: 2</strong> (matches the Python model, DrillPyze 1.0.0a1, November 2026)</p>
+<p>This document specifies, at implementation level, every piece of physics and
+numerics in the Python model (<code class="docutils literal notranslate"><span class="pre">src/DrillPyze</span></code>). It is precise enough to build
+an independent implementation; the browser version in <code class="docutils literal notranslate"><span class="pre">lite/</span></code> is built from
+it. The derivations behind the equations are in <code class="docutils literal notranslate"><span class="pre">docs/derivation/</span></code> and are
+not repeated here.</p>
+<blockquote>
+<div><p><strong>Maintenance rule.</strong> Any change to the physics or numerics of the Python
+model must update this specification in the same commit, increase the
+<strong>spec revision</strong> above and refresh <code class="docutils literal notranslate"><span class="pre">docs/spec/manifest.json</span></code> with
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">docs/spec/update_manifest.py</span></code>. <code class="docutils literal notranslate"><span class="pre">tests/test_spec_sync.py</span></code> fails
+when a physics source file changes without a manifest update, and when the
+browser version (<code class="docutils literal notranslate"><span class="pre">lite/engine/spec.js</span></code>) implements an older revision.
+A change that does not alter the physics (comments, refactoring) only needs
+the manifest refresh.</p>
+</div></blockquote>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading"></a></h2>
+<ol class="arabic simple" start="0">
+<li><p><a class="reference internal" href="#conventions-and-coverage">Conventions and coverage</a></p></li>
+<li><p><a class="reference internal" href="#case-description-and-defaults">Case description and defaults</a></p></li>
+<li><p><a class="reference internal" href="#geometry">Geometry</a></p></li>
+<li><p><a class="reference internal" href="#string-model-state-properties-and-time-step">String model: state, properties and time step</a></p></li>
+<li><p><a class="reference internal" href="#parameter-set-up">Parameter set-up</a></p></li>
+<li><p><a class="reference internal" href="#the-time-step-kernel">The time step (kernel)</a></p></li>
+<li><p><a class="reference internal" href="#inputs-ramps-and-modes">Inputs, ramps and modes</a></p></li>
+<li><p><a class="reference internal" href="#slow-tick">Slow tick</a></p></li>
+<li><p><a class="reference internal" href="#hydraulics">Hydraulics</a></p></li>
+<li><p><a class="reference internal" href="#rock-strength-at-the-bit">Rock strength at the bit</a></p></li>
+<li><p><a class="reference internal" href="#wellbore-temperature">Wellbore temperature</a></p></li>
+<li><p><a class="reference internal" href="#steady-torque-and-drag-reference-profiles">Steady torque and drag (reference profiles)</a></p></li>
+<li><p><a class="reference internal" href="#outputs">Outputs</a></p></li>
+<li><p><a class="reference internal" href="#conformance">Conformance</a></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="conventions-and-coverage">
+<span id="0-conventions-and-coverage"></span><h2>0. Conventions and coverage<a class="headerlink" href="#conventions-and-coverage" title="Link to this heading"></a></h2>
+<p><strong>Units.</strong> SI throughout: m, s, kg, N, Pa, rad, rad/s; temperatures in °C.
+Rotary speeds are converted with 1 rpm = <span class="math notranslate nohighlight">\(2\pi/60\)</span> rad/s. Constants:
+<span class="math notranslate nohighlight">\(g = 9.80665\)</span> m/s², steel density <span class="math notranslate nohighlight">\(\rho_s = 7850\)</span> kg/m³,
+<span class="math notranslate nohighlight">\(E_s = 207\)</span> GPa, <span class="math notranslate nohighlight">\(G_s = 79.3\)</span> GPa.</p>
+<p><strong>Signs.</strong></p>
+<ul class="simple">
+<li><p>Measured depth (MD) and axial velocity are positive downhole.</p></li>
+<li><p>The axial force variable <span class="math notranslate nohighlight">\(q\)</span> is compression positive; effective tension is <span class="math notranslate nohighlight">\(T = -q\)</span>.</p></li>
+<li><p>Rotation and torque are positive in the drilling direction.</p></li>
+<li><p>Hookload is the effective tension at the top of the string, without block weight.</p></li>
+<li><p>WOB is compression at the bit, at least 0.</p></li>
+</ul>
+<p><strong>Indexing.</strong> String cells <span class="math notranslate nohighlight">\(j = 0 \dots n-1\)</span> run from surface to bit; faces
+<span class="math notranslate nohighlight">\(j = 0 \dots n\)</span>, where face <span class="math notranslate nohighlight">\(j\)</span> is the top of cell <span class="math notranslate nohighlight">\(j\)</span> and face <span class="math notranslate nohighlight">\(n\)</span> is the bit.</p>
+<p><strong>Coverage of the browser version (lite).</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Section</p></th>
+<th class="head"><p>Lite</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>2 Geometry, 3–7 string model, kernel, inputs, slow tick</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>8 Hydraulics: steady and transient</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p>9 Rock strength (P1, T1, T2)</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>10 Wellbore temperature</p></td>
+<td><p>yes (from revision 2)</p></td>
+</tr>
+<tr class="row-even"><td><p>11 Steady torque and drag (reference curves)</p></td>
+<td><p>yes</p></td>
+</tr>
+</tbody>
+</table>
+<p>The lite version implements the whole Python model.</p>
+</section>
+<hr class="docutils" />
+<section id="case-description-and-defaults">
+<span id="1-case-description-and-defaults"></span><h2>1. Case description and defaults<a class="headerlink" href="#case-description-and-defaults" title="Link to this heading"></a></h2>
+<p>A case is a JSON object (see <code class="docutils literal notranslate"><span class="pre">src/DrillPyze/config.py</span></code>):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Content</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">well.survey</span></code></p></td>
+<td><p>stations <code class="docutils literal notranslate"><span class="pre">{md,</span> <span class="pre">inc,</span> <span class="pre">azi}</span></code> (degrees)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">well.casing_shoe</span></code></p></td>
+<td><p>MD of the deepest shoe (m)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">well.hole_diameter</span></code></p></td>
+<td><p>bit diameter <span class="math notranslate nohighlight">\(D\)</span> (m)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fluid</span></code></p></td>
+<td><p>density <span class="math notranslate nohighlight">\(\rho_m\)</span>, plastic viscosity PV (or null), yield point <span class="math notranslate nohighlight">\(\tau_y\)</span> (or null), viscosity <span class="math notranslate nohighlight">\(\mu\)</span>, heat capacity, conductivity, thermal expansion <span class="math notranslate nohighlight">\(\beta_T\)</span>, sound speed <span class="math notranslate nohighlight">\(c_m\)</span>, reference temperature <span class="math notranslate nohighlight">\(T_\text{ref}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">formation</span></code></p></td>
+<td><p>layers <code class="docutils literal notranslate"><span class="pre">{top_md,</span> <span class="pre">ucs,</span> <span class="pre">friction_angle,</span> <span class="pre">porosity}</span></code> and the scalars of section 9</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">drillstring</span></code></p></td>
+<td><p>components bit-first <code class="docutils literal notranslate"><span class="pre">{name,</span> <span class="pre">length,</span> <span class="pre">od,</span> <span class="pre">id,</span> <span class="pre">linear_mass,</span> <span class="pre">contact_od}</span></code>; the last row is stretched to surface</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code></p></td>
+<td><p>friction, damping, bit, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, <code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">simulation</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bit_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">hole_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">dx</span></code>, <code class="docutils literal notranslate"><span class="pre">record_rate</span></code>, <code class="docutils literal notranslate"><span class="pre">start_time</span></code>, <code class="docutils literal notranslate"><span class="pre">block_height</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Defaults</strong> (dataclasses in <code class="docutils literal notranslate"><span class="pre">parameters.py</span></code>, <code class="docutils literal notranslate"><span class="pre">wellbore.py</span></code>, <code class="docutils literal notranslate"><span class="pre">formation.py</span></code>):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Group</p></th>
+<th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>friction</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_s, \mu_k\)</span> cased / open</p></td>
+<td><p>0.30, 0.20 / 0.35, 0.25</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(\omega_c\)</span>, <span class="math notranslate nohighlight">\(v_c\)</span></p></td>
+<td><p>1 rad/s, 0.01 m/s</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">along_string_coupling</span></code></p></td>
+<td><p>true</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">axial_static_contrast</span></code> <span class="math notranslate nohighlight">\(c_{ax}\)</span></p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">weakening</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">step</span></code> (or <code class="docutils literal notranslate"><span class="pre">exponential</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p>damping</p></td>
+<td><p><span class="math notranslate nohighlight">\(k_t, k_a\)</span></p></td>
+<td><p>0, 0 (1/s)</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">fluid</span></code></p></td>
+<td><p>true</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">loss_factor</span></code> <span class="math notranslate nohighlight">\(\eta\)</span></p></td>
+<td><p>0.01</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>reference frequencies</p></td>
+<td><p>first modes (null)</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">high_pass_fraction</span></code> <span class="math notranslate nohighlight">\(f_c\)</span></p></td>
+<td><p>0.25</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">yield_drag</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pumps_off</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max_frequency</span></code></p></td>
+<td><p>10 Hz</p></td>
+</tr>
+<tr class="row-even"><td><p>bit</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">model</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">coulomb</span></code> (<code class="docutils literal notranslate"><span class="pre">cutting</span></code>, <code class="docutils literal notranslate"><span class="pre">regenerative</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_{bs}, \mu_{bk}\)</span></p></td>
+<td><p>0.6, 0.4</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>drilling strength <span class="math notranslate nohighlight">\(S\)</span></p></td>
+<td><p>50 MPa</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(\zeta\)</span></p></td>
+<td><p>0.8</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>contact WOB <span class="math notranslate nohighlight">\(W_f\)</span></p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>blades</p></td>
+<td><p>5</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>radius</p></td>
+<td><p>null (= <span class="math notranslate nohighlight">\(D/3\)</span>)</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">strength_source</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">constant</span></code> (or <code class="docutils literal notranslate"><span class="pre">formation</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>cutting efficiency</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>nozzle area <span class="math notranslate nohighlight">\(A_n\)</span></p></td>
+<td><p>3.5628e-4 m²</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(C_d\)</span></p></td>
+<td><p>0.95</p></td>
+</tr>
+<tr class="row-odd"><td><p>top drive</p></td>
+<td><p>inertia <span class="math notranslate nohighlight">\(I\)</span></p></td>
+<td><p>2000 kg m²</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>max torque</p></td>
+<td><p>0 (unlimited)</p></td>
+</tr>
+<tr class="row-odd"><td><p>autodriller</p></td>
+<td><p><span class="math notranslate nohighlight">\(K_p, K_i, v_{max}\)</span></p></td>
+<td><p>1e-7 m/(s N), 1e-8 m/(s² N), 60 m/h</p></td>
+</tr>
+<tr class="row-even"><td><p>drawworks</p></td>
+<td><p>block acceleration</p></td>
+<td><p>0 (unlimited)</p></td>
+</tr>
+<tr class="row-odd"><td><p>ramps (s)</p></td>
+<td><p>ω_sp, ω_td, τ_m, v_block, WOB_sp, flow, T_in</p></td>
+<td><p>0, 1, 0, 2, 0, 3, 3</p></td>
+</tr>
+<tr class="row-even"><td><p>hydraulics</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code>, dx, cut factor, CFL, Picard iterations</p></td>
+<td><p>true, 30 m, 1.5, 0.8, 2</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>back pressure, surface loss <span class="math notranslate nohighlight">\(c\)</span>, exponent <span class="math notranslate nohighlight">\(m\)</span></p></td>
+<td><p>0, 0, 1.8</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>clinging constant <span class="math notranslate nohighlight">\(K_c\)</span></p></td>
+<td><p>0.45</p></td>
+</tr>
+<tr class="row-odd"><td><p>thermal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code>, flow rate, inlet temperature</p></td>
+<td><p>true, 0.0347 m³/s, 30 °C (+ section 10)</p></td>
+</tr>
+<tr class="row-even"><td><p>model</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
+<td><p>0.95</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">thermal_update_period</span></code></p></td>
+<td><p>2 (slow ticks)</p></td>
+</tr>
+<tr class="row-even"><td><p>fluid</p></td>
+<td><p><span class="math notranslate nohighlight">\(\rho_m\)</span>, PV, <span class="math notranslate nohighlight">\(\tau_y\)</span></p></td>
+<td><p>1000, null, null</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu\)</span></p></td>
+<td><p>0.020 Pa s</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(\beta_T\)</span>, <span class="math notranslate nohighlight">\(c_m\)</span>, <span class="math notranslate nohighlight">\(T_\text{ref}\)</span></p></td>
+<td><p>1e-4 /K, 1500 m/s, 20 °C</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Well A</strong> (<code class="docutils literal notranslate"><span class="pre">config.well_a()</span></code>, the default case):</p>
+<ul class="simple">
+<li><p><strong>Survey:</strong> vertical to 1500 m, building to 60° at 2100 m, then tangent to 3000 m (azimuth 0).</p></li>
+<li><p><strong>Wellbore:</strong> shoe at 1000 m; hole 8.5 in.</p></li>
+<li><p><strong>Mud:</strong> <span class="math notranslate nohighlight">\(\rho_m = 1200\)</span> kg/m³.</p></li>
+<li><p><strong>Formation:</strong> the default <code class="docutils literal notranslate"><span class="pre">Formation()</span></code>.</p></li>
+<li><p><strong>Drillstring:</strong></p>
+<ul>
+<li><p>230 m of collars, 5.75 in × 2.8125 in;</p></li>
+<li><p>drill pipe, 5 in × 4.276 in (no tool joints).</p></li>
+</ul>
+</li>
+<li><p><strong>Friction:</strong> cased 0.40 / 0.22, open 0.45 / 0.25.</p></li>
+<li><p><strong>Bit:</strong> <code class="docutils literal notranslate"><span class="pre">cutting</span></code> with <code class="docutils literal notranslate"><span class="pre">strength_source</span> <span class="pre">=</span> <span class="pre">formation</span></code>.</p></li>
+<li><p><strong>Controller:</strong> <code class="docutils literal notranslate"><span class="pre">stiff</span></code>.</p></li>
+<li><p><strong>Circulation:</strong> flow 2000 L/min (0.03333 m³/s), inlet 30 °C.</p></li>
+<li><p><strong>Run settings:</strong></p>
+<ul>
+<li><p>bit at 2500 m, hole at 2505 m;</p></li>
+<li><p>dx 10 m;</p></li>
+<li><p>record rate 50 Hz.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="geometry">
+<span id="2-geometry"></span><h2>2. Geometry<a class="headerlink" href="#geometry" title="Link to this heading"></a></h2>
+<section id="survey-minimum-curvature">
+<span id="21-survey-minimum-curvature"></span><h3>2.1 Survey (minimum curvature)<a class="headerlink" href="#survey-minimum-curvature" title="Link to this heading"></a></h3>
+<p>Stations are sorted by MD and duplicates (ΔMD ≤ 1e-9) dropped. If the first
+station is below 0, a vertical station is prepended at MD 0 with the first
+azimuth. Angles are converted to radians. The unit tangent (north, east, down) is</p>
+<div class="math notranslate nohighlight">
+\[\mathbf t(I, A) = (\sin I \cos A,\; \sin I \sin A,\; \cos I).\]</div>
+<p>For each segment <span class="math notranslate nohighlight">\(k\)</span>, the dogleg is
+<span class="math notranslate nohighlight">\(\beta_k = \operatorname{atan2}(|\mathbf t_k \times \mathbf t_{k+1}|, \mathbf t_k\cdot\mathbf t_{k+1})\)</span>
+(dot product clipped to [−1, 1]).</p>
+<p><strong>Tangent at MD <span class="math notranslate nohighlight">\(s\)</span>.</strong></p>
+<ul class="simple">
+<li><p>Segment: <span class="math notranslate nohighlight">\(k\)</span> = index of the last station with MD ≤ s, clipped to <span class="math notranslate nohighlight">\([0, N-2]\)</span>.</p></li>
+<li><p>Fraction: <span class="math notranslate nohighlight">\(f = \operatorname{clip}((s - s_k)/(s_{k+1}-s_k), 0, 1)\)</span>. Depths beyond the last station therefore use the last tangent.</p></li>
+<li><p>If <span class="math notranslate nohighlight">\(\beta_k &lt; 10^{-9}\)</span>, the tangent is <span class="math notranslate nohighlight">\(\mathbf t_k\)</span>. Otherwise it is the spherical interpolation, normalised:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\mathbf t(s) = \frac{\sin((1-f)\beta)}{\sin\beta}\mathbf t_k + \frac{\sin(f\beta)}{\sin\beta}\mathbf t_{k+1}.\]</div>
+<p><strong>Positions</strong> (north, east, TVD) at arbitrary MD are interpolated linearly in a table.</p>
+<ul class="simple">
+<li><p>The table grid is the union of the station MDs and 6000 evenly spaced points on <span class="math notranslate nohighlight">\([0, 1.25 L + 100]\)</span>, where <span class="math notranslate nohighlight">\(L\)</span> is the larger of the last station MD and the deepest MD requested.</p></li>
+<li><p>The table is built by trapezoidal integration of <span class="math notranslate nohighlight">\(\mathbf t(s)\)</span> from position 0 at MD 0.</p></li>
+<li><p>It is rebuilt when a deeper MD is requested.</p></li>
+<li><p>TVD is the third component.</p></li>
+</ul>
+</section>
+<section id="wellbore">
+<span id="22-wellbore"></span><h3>2.2 Wellbore<a class="headerlink" href="#wellbore" title="Link to this heading"></a></h3>
+<p>A point at MD <span class="math notranslate nohighlight">\(s\)</span> is <strong>cased</strong> if <span class="math notranslate nohighlight">\(s \le\)</span> <code class="docutils literal notranslate"><span class="pre">casing_shoe</span></code>. The wall diameter
+is the casing ID where cased (if <code class="docutils literal notranslate"><span class="pre">casing_id</span></code> is given; it is not in the case
+format, so the wall is always <span class="math notranslate nohighlight">\(D\)</span>) and <span class="math notranslate nohighlight">\(D\)</span> in open hole.</p>
+</section>
+<section id="drillstring-and-grid">
+<span id="23-drillstring-and-grid"></span><h3>2.3 Drillstring and grid<a class="headerlink" href="#drillstring-and-grid" title="Link to this heading"></a></h3>
+<p>Each component has:</p>
+<ul class="simple">
+<li><p>body area <span class="math notranslate nohighlight">\(A = \frac{\pi}{4}(OD^2 - ID^2)\)</span>;</p></li>
+<li><p>polar moment <span class="math notranslate nohighlight">\(J = \frac{\pi}{32}(OD^4 - ID^4)\)</span>;</p></li>
+<li><p>mass per length <span class="math notranslate nohighlight">\(m' =\)</span> <code class="docutils literal notranslate"><span class="pre">linear_mass</span></code> if given, else <span class="math notranslate nohighlight">\(\rho_s A\)</span>;</p></li>
+<li><p>effective density <span class="math notranslate nohighlight">\(\rho = m'/A\)</span>;</p></li>
+<li><p>contact radius <span class="math notranslate nohighlight">\(r_c = \tfrac12\)</span> <code class="docutils literal notranslate"><span class="pre">contact_od</span></code> (default OD);</p></li>
+<li><p><span class="math notranslate nohighlight">\(E = E_s\)</span>, <span class="math notranslate nohighlight">\(G = G_s\)</span>.</p></li>
+</ul>
+<p>Discretising with the bit at MD <span class="math notranslate nohighlight">\(s_b\)</span> and maximum cell length <span class="math notranslate nohighlight">\(\Delta x\)</span>:</p>
+<ul class="simple">
+<li><p>The top component’s length is <span class="math notranslate nohighlight">\(s_b - L_{BHA}\)</span>, where <span class="math notranslate nohighlight">\(L_{BHA}\)</span> is the sum of the other components. It must be positive.</p></li>
+<li><p>In surface-down order, each component of length <span class="math notranslate nohighlight">\(L\)</span> is split into <span class="math notranslate nohighlight">\(n_c = \max(1, \lceil L/\Delta x - 10^{-9}\rceil)\)</span> equal cells of length <span class="math notranslate nohighlight">\(h = L/n_c\)</span>.</p></li>
+<li><p>Cell tops <span class="math notranslate nohighlight">\(x_j\)</span> are cumulative from 0.</p></li>
+<li><p>Each cell stores <span class="math notranslate nohighlight">\(h_j, OD_j, ID_j, r_{c,j}, A_j, J_j, \rho_j, E_j, G_j\)</span> and its component index.</p></li>
+<li><p>BHA cells are those not in the top component.</p></li>
+</ul>
+</section>
+<section id="cell-geometry-static-load-and-friction-factors-refresh">
+<span id="24-cell-geometry-static-load-and-friction-factors-refresh"></span><h3>2.4 Cell geometry, static load and friction factors (refresh)<a class="headerlink" href="#cell-geometry-static-load-and-friction-factors-refresh" title="Link to this heading"></a></h3>
+<p>The grid moves with the string. With the string shifted by
+<span class="math notranslate nohighlight">\(\delta = s_{bit} - s_{bit,0}\)</span> from its initial position, cell tops are
+<span class="math notranslate nohighlight">\(x_j + \delta\)</span>.</p>
+<p>On a <strong>refresh</strong>, all of the following are re-evaluated:</p>
+<ul>
+<li><p><strong>When:</strong> at initialisation, at every slow tick (section 7) once the bit has moved at least 1 m (<code class="docutils literal notranslate"><span class="pre">refresh_distance</span></code>) since the last refresh, and when parameters are updated.</p></li>
+<li><p><strong>Edges and tangents:</strong> edges <span class="math notranslate nohighlight">\(e_0 \dots e_n\)</span> are clipped at ≥ 0. Edge tangents are <span class="math notranslate nohighlight">\(\mathbf t(e_j)\)</span> and centre tangents <span class="math notranslate nohighlight">\(\mathbf t_c = \mathbf t(\max(e_j + h_j/2, 0))\)</span>.</p></li>
+<li><p><strong>Curvature vector:</strong> <span class="math notranslate nohighlight">\(\boldsymbol\kappa_j = (\mathbf t(e_{j+1}) - \mathbf t(e_j))/h_j\)</span>.</p></li>
+<li><p><strong>Normal component of the downward unit vector:</strong> <span class="math notranslate nohighlight">\(\mathbf z_{\perp,j} = \hat{\mathbf z} - t_{c,z}\,\mathbf t_c\)</span>, where <span class="math notranslate nohighlight">\(\hat{\mathbf z} = (0,0,1)\)</span>.</p></li>
+<li><p><strong>Inclination cosine:</strong> <span class="math notranslate nohighlight">\(t_{z,j} = t_{c,z}\)</span>. Cell-centre MD is <span class="math notranslate nohighlight">\(e_j + h_j/2\)</span>.</p></li>
+<li><p><strong>Friction factors per cell:</strong> <span class="math notranslate nohighlight">\(\mu_{s,j}, \mu_{k,j}\)</span> are the cased values where the cell centre is cased, else the open-hole values.</p></li>
+<li><p><strong>Buoyed weight per length</strong> (fixed at initialisation): <span class="math notranslate nohighlight">\(w_{b,j} = \rho_j A_j g (1 - \rho_m/\rho_s)\)</span>.</p></li>
+<li><p><strong>Static compression</strong> of the frictionless hanging string, at the edges and the cell centres:</p>
+<div class="math notranslate nohighlight">
+\[q^s_{e,j} = -\sum_{i \ge j} w_{b,i}\, t_{z,i}\, h_i \quad (q^s_{e,n} = 0),\qquad
+q^s_{c,j} = \tfrac12(q^s_{e,j} + q^s_{e,j+1}),\qquad q^s_{top} = q^s_{e,0}.\]</div>
+<p>The total axial force is <span class="math notranslate nohighlight">\(q^s_c + q^d\)</span>. On a refresh after the first, the
+dynamic part absorbs the change so that the total is continuous:
+<span class="math notranslate nohighlight">\(q^d \mathrel{+}= q^s_{c,\text{old}} - q^s_{c,\text{new}}\)</span>. The kernel
+parameter <span class="math notranslate nohighlight">\(q_{s,top}\)</span> is updated.</p>
+</li>
+<li><p><strong>Static normal force</strong> (decoupled friction only): <span class="math notranslate nohighlight">\(F_{N0,j} = | -q^s_{c,j}\boldsymbol\kappa_j + w_{b,j}\mathbf z_{\perp,j}|\)</span>.</p></li>
+</ul>
+<p>The <strong>soft-string normal force per length</strong> for tension <span class="math notranslate nohighlight">\(T\)</span> is</p>
+<div class="math notranslate nohighlight">
+\[F_N = \left| T\,\boldsymbol\kappa + w_b\,\mathbf z_\perp \right|.\]</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="string-model-state-properties-and-time-step">
+<span id="3-string-model-state-properties-and-time-step"></span><h2>3. String model: state, properties and time step<a class="headerlink" href="#string-model-state-properties-and-time-step" title="Link to this heading"></a></h2>
+<p><strong>Per-cell wave properties.</strong> Each cell has:</p>
+<ul class="simple">
+<li><p>stiffnesses <span class="math notranslate nohighlight">\(K_t = GJ\)</span> and <span class="math notranslate nohighlight">\(K_a = EA\)</span>;</p></li>
+<li><p>inertias per length <span class="math notranslate nohighlight">\(m_t = \rho J\)</span> and <span class="math notranslate nohighlight">\(m_a = \rho A\)</span>;</p></li>
+<li><p>impedances <span class="math notranslate nohighlight">\(Z_t = J\sqrt{G\rho}\)</span> and <span class="math notranslate nohighlight">\(Z_a = A\sqrt{E\rho}\)</span>;</p></li>
+<li><p>wave speeds <span class="math notranslate nohighlight">\(c_a = \sqrt{E/\rho}\)</span> and <span class="math notranslate nohighlight">\(c_t = \sqrt{G/\rho}\)</span>.</p></li>
+</ul>
+<p><strong>Time step.</strong> <span class="math notranslate nohighlight">\(\Delta t = \text{cfl}\cdot\min_j(h_j / c_{a,j})\)</span>, fixed for the whole run.</p>
+<p><strong>Field state per cell:</strong></p>
+<ul class="simple">
+<li><p>angular velocity <span class="math notranslate nohighlight">\(\omega_j\)</span>;</p></li>
+<li><p>torque <span class="math notranslate nohighlight">\(\tau_j\)</span>;</p></li>
+<li><p>axial velocity <span class="math notranslate nohighlight">\(v_j\)</span>;</p></li>
+<li><p>dynamic compression <span class="math notranslate nohighlight">\(q^d_j\)</span>;</p></li>
+<li><p>low-passed velocities <span class="math notranslate nohighlight">\(\bar\omega_j, \bar v_j\)</span> (for damping).</p></li>
+</ul>
+<p>All start at 0.</p>
+<p><strong>Scalar state.</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(t\)</span></p></td>
+<td><p>time</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\omega_{td}\)</span></p></td>
+<td><p>top-drive speed</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\tau_m\)</span></p></td>
+<td><p>motor torque</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\tau_0\)</span></p></td>
+<td><p>pipe torque at the top</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(I_{PI}\)</span></p></td>
+<td><p>PI integrator</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(y_{lp}\)</span>, <span class="math notranslate nohighlight">\(y_{hp}\)</span></p></td>
+<td><p>torque filter states</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_f\)</span></p></td>
+<td><p>filtered top-drive speed</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\omega_{sp}\)</span></p></td>
+<td><p>active set point</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(s_{bit}\)</span></p></td>
+<td><p>bit depth</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(s_{hole}\)</span></p></td>
+<td><p>hole depth</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_b\)</span></p></td>
+<td><p>bit speed</p></td>
+</tr>
+<tr class="row-odd"><td><p>TOB</p></td>
+<td><p>torque on bit</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(v_b\)</span></p></td>
+<td><p>bit axial velocity</p></td>
+</tr>
+<tr class="row-odd"><td><p>WOB</p></td>
+<td><p>weight on bit</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(v_{blk}\)</span></p></td>
+<td><p>block velocity</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(H\)</span></p></td>
+<td><p>hookload</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(I_{AD}\)</span></p></td>
+<td><p>autodriller integrator</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(x_{blk}\)</span></p></td>
+<td><p>block travel</p></td>
+</tr>
+<tr class="row-even"><td><p>stuck</p></td>
+<td><p>bit sticking flag</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\phi_b\)</span></p></td>
+<td><p>bit angle</p></td>
+</tr>
+<tr class="row-even"><td><p>$W = \int</p></td>
+<td><p>\omega_b</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Initial state:</strong></p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(s_{bit}\)</span> is the bit depth; <span class="math notranslate nohighlight">\(s_{hole} = \max(\text{hole depth}, s_{bit})\)</span>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(H = -q^s_{top}\)</span>, and the off-bottom reference hookload is <span class="math notranslate nohighlight">\(H_{ref} = -q^s_{top}\)</span>.</p></li>
+<li><p>Everything else is 0.</p></li>
+<li><p>The regenerative hole-bottom profile is 720 angular bins, all at <span class="math notranslate nohighlight">\(s_{hole}\)</span>.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="parameter-set-up">
+<span id="4-parameter-set-up"></span><h2>4. Parameter set-up<a class="headerlink" href="#parameter-set-up" title="Link to this heading"></a></h2>
+<section id="controller">
+<span id="41-controller"></span><h3>4.1 Controller<a class="headerlink" href="#controller" title="Link to this heading"></a></h3>
+<p>The pipe impedance is <span class="math notranslate nohighlight">\(\zeta_p = Z_{t,0}\)</span> (the top cell), and the first modes are</p>
+<div class="math notranslate nohighlight">
+\[f_{a1} = \frac{1}{4\sum_j h_j/c_{a,j}},\qquad f_{t1} = \frac{1}{4\sum_j h_j/c_{t,j}}.\]</div>
+<p>Controller gains (Aarsnes, di Meglio &amp; Shor 2018), selected by <code class="docutils literal notranslate"><span class="pre">controller.type</span></code>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(K_p\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(K_i\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(Z\)</span></p></th>
+<th class="head"><p>filters <span class="math notranslate nohighlight">\((t_{hp}, t_{lp}, t_{en})\)</span></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stiff</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(100\zeta_p\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(5I\)</span></p></td>
+<td><p>0</p></td>
+<td><p>(10, 0.005, 0.001), not configurable</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">soft_torque</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(4\zeta_p\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\((2\pi f_c)^2 I\)</span></p></td>
+<td><p>0</p></td>
+<td><p>(10, 0.005, 0.001)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">z_torque</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(100\zeta_p\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(5I\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1/\zeta_p\)</span></p></td>
+<td><p>from the case (defaults 10, 0.001, 0.001)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">custom</span></code></p></td>
+<td><p>case <code class="docutils literal notranslate"><span class="pre">kp</span></code> (default <span class="math notranslate nohighlight">\(100\zeta_p\)</span>)</p></td>
+<td><p>case <code class="docutils literal notranslate"><span class="pre">ki</span></code> (default <span class="math notranslate nohighlight">\(5I\)</span>)</p></td>
+<td><p>case <code class="docutils literal notranslate"><span class="pre">impedance</span></code> (0)</p></td>
+<td><p>case (10, 0.005, 0.001)</p></td>
+</tr>
+</tbody>
+</table>
+<p>For <code class="docutils literal notranslate"><span class="pre">soft_torque</span></code>, <span class="math notranslate nohighlight">\(f_c\)</span> is the case value, else <span class="math notranslate nohighlight">\(f_{t1}\)</span> (else 0.2 Hz).
+For the types other than <code class="docutils literal notranslate"><span class="pre">custom</span></code>, a non-empty case <code class="docutils literal notranslate"><span class="pre">kp</span></code>, <code class="docutils literal notranslate"><span class="pre">ki</span></code> or
+<code class="docutils literal notranslate"><span class="pre">impedance</span></code> overrides the factory value.</p>
+</section>
+<section id="bit">
+<span id="42-bit"></span><h3>4.2 Bit<a class="headerlink" href="#bit" title="Link to this heading"></a></h3>
+<p><span class="math notranslate nohighlight">\(a = D/2\)</span>. With the drilling strength <span class="math notranslate nohighlight">\(S\)</span> (section 9 when <code class="docutils literal notranslate"><span class="pre">strength_source</span> <span class="pre">=</span> <span class="pre">formation</span></code>):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>sticking lever <span class="math notranslate nohighlight">\(\ell_s\)</span></p></th>
+<th class="head"><p>sliding lever <span class="math notranslate nohighlight">\(\ell_k\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(k_r\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(W_0\)</span></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">coulomb</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_{bs} r\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_{bk} r\)</span>, <span class="math notranslate nohighlight">\(r\)</span> = radius or <span class="math notranslate nohighlight">\(D/3\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1/(2\pi a S)\)</span></p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cutting</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(a/(2\zeta)\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(a/(2\zeta)\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1/(2\pi a S)\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(W_f\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">regenerative</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(a/(2\zeta)\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(a/(2\zeta)\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1/(2\pi a S)\)</span></p></td>
+<td><p>0</p></td>
+</tr>
+</tbody>
+</table>
+<p>The regenerative model also uses the cutting stiffness <span class="math notranslate nohighlight">\(k_c = S a\)</span> and the blade count <span class="math notranslate nohighlight">\(n_b \ge 1\)</span>.</p>
+</section>
+<section id="damping-derivation-sec-5-6">
+<span id="43-damping-derivation-sec-56"></span><h3>4.3 Damping (derivation sec. 5.6)<a class="headerlink" href="#damping-derivation-sec-5-6" title="Link to this heading"></a></h3>
+<p><strong>Reference frequencies:</strong> <span class="math notranslate nohighlight">\(f_a\)</span> and <span class="math notranslate nohighlight">\(f_t\)</span> are the case values if given, else <span class="math notranslate nohighlight">\(f_{a1}\)</span> and <span class="math notranslate nohighlight">\(f_{t1}\)</span>.
+Angular frequencies are <span class="math notranslate nohighlight">\(\omega_a = 2\pi f_a\)</span> and <span class="math notranslate nohighlight">\(\omega_t = 2\pi f_t\)</span>.</p>
+<p><strong>F1, fluid.</strong></p>
+<ul>
+<li><p><strong>Inputs:</strong> fluid viscosity <span class="math notranslate nohighlight">\(\mu_f\)</span> = PV if given, else <span class="math notranslate nohighlight">\(\mu\)</span>. Wall radius <span class="math notranslate nohighlight">\(R = \max(D/2, 1.05 r_o)\)</span> per cell, with <span class="math notranslate nohighlight">\(r_o = OD/2\)</span> and <span class="math notranslate nohighlight">\(r_i = ID/2\)</span>.</p></li>
+<li><p><strong>Couette drag:</strong></p>
+<div class="math notranslate nohighlight">
+\[c_{0a} = \frac{2\pi\mu_f}{\ln(R/r_o)},\qquad c_{0t} = \frac{4\pi\mu_f r_o^2 R^2}{R^2 - r_o^2}.\]</div>
+</li>
+<li><p><strong>Stokes layer:</strong></p>
+<div class="math notranslate nohighlight">
+\[c_{1a} = \sqrt{\rho_m\mu_f\omega_a/2}\;2\pi(r_o + r_i),\qquad c_{1t} = \sqrt{\rho_m\mu_f\omega_t/2}\;2\pi(r_o^3 + r_i^3).\]</div>
+</li>
+<li><p><strong>Rates:</strong> <span class="math notranslate nohighlight">\(k_{0a} = k_a + c_{0a}/m_a\)</span> and <span class="math notranslate nohighlight">\(k_{0t} = k_t + c_{0t}/m_t\)</span>; <span class="math notranslate nohighlight">\(k_{1a} = c_{1a}/m_a\)</span> and <span class="math notranslate nohighlight">\(k_{1t} = c_{1t}/m_t\)</span>.</p></li>
+<li><p><strong>Fluid damping off:</strong> when <code class="docutils literal notranslate"><span class="pre">fluid</span></code> is false or <span class="math notranslate nohighlight">\(\mu_f \le 0\)</span>, <span class="math notranslate nohighlight">\(k_0 = k_a, k_t\)</span> and <span class="math notranslate nohighlight">\(k_1 = 0\)</span>.</p></li>
+<li><p><strong>High-pass coefficients:</strong>
+<span class="math notranslate nohighlight">\(a_{hp,t} = 1 - e^{-\Delta t\, f_c\, \omega_t}\)</span> and <span class="math notranslate nohighlight">\(a_{hp,a} = 1 - e^{-\Delta t\, f_c\, \omega_a}\)</span>
+(1 if <span class="math notranslate nohighlight">\(f_c \le 0\)</span>).</p></li>
+</ul>
+<p><strong>M1, material</strong> (when <span class="math notranslate nohighlight">\(\eta &gt; 0\)</span>).</p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(z = \eta/2\)</span> and <span class="math notranslate nohighlight">\(\omega_2 = 2\pi f_{max}\)</span>.</p></li>
+<li><p>For each direction with reference <span class="math notranslate nohighlight">\(\omega_1\)</span>: if <span class="math notranslate nohighlight">\(\omega_2 &gt; \omega_1\)</span>, then
+<span class="math notranslate nohighlight">\(\alpha = 2z\omega_1\omega_2/(\omega_1+\omega_2)\)</span> and <span class="math notranslate nohighlight">\(\beta = 2z/(\omega_1+\omega_2)\)</span>; otherwise <span class="math notranslate nohighlight">\(\alpha = 0\)</span> and <span class="math notranslate nohighlight">\(\beta = 2z/\omega_1\)</span>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(k_1 \mathrel{+}= \alpha\)</span>.</p></li>
+<li><p><strong>Kelvin–Voigt face conductances</strong>, for interior faces <span class="math notranslate nohighlight">\(j = 1\dots n-1\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[k_{v,j} = \beta\,\tfrac12(K_{j-1} + K_j)\,/\,\tfrac12(h_{j-1} + h_j),\]</div>
+<p>with <span class="math notranslate nohighlight">\(k_{v,0} = k_{v,n} = 0\)</span>, separately for torsion (<span class="math notranslate nohighlight">\(K_t\)</span>) and axial (<span class="math notranslate nohighlight">\(K_a\)</span>).</p>
+</li>
+<li><p>The KV solve is active only if <span class="math notranslate nohighlight">\(\eta &gt; 0\)</span>.</p></li>
+</ul>
+<p><strong>F2, yield drag.</strong> <span class="math notranslate nohighlight">\(f_{y,j} = \tau_y\,\pi\,OD_j\)</span> (N/m) if <span class="math notranslate nohighlight">\(\tau_y &gt; 0\)</span> and <code class="docutils literal notranslate"><span class="pre">yield_drag</span></code> ≠ <code class="docutils literal notranslate"><span class="pre">off</span></code>. It applies:</p>
+<ul class="simple">
+<li><p>always, for <code class="docutils literal notranslate"><span class="pre">always</span></code>;</p></li>
+<li><p>only while the current pump rate is ≤ 0, for <code class="docutils literal notranslate"><span class="pre">pumps_off</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="the-time-step-kernel">
+<span id="5-the-time-step-kernel"></span><h2>5. The time step (kernel)<a class="headerlink" href="#the-time-step-kernel" title="Link to this heading"></a></h2>
+<p>One step advances all states by <span class="math notranslate nohighlight">\(\Delta t\)</span>. Notation: <span class="math notranslate nohighlight">\(t^+ = t + \Delta t\)</span>.</p>
+<section id="ramped-inputs">
+<span id="51-ramped-inputs"></span><h3>5.1 Ramped inputs<a class="headerlink" href="#ramped-inputs" title="Link to this heading"></a></h3>
+<p>Five ramped inputs, each a row (start value <span class="math notranslate nohighlight">\(v_0\)</span>, start time <span class="math notranslate nohighlight">\(t_0\)</span>, ramp time <span class="math notranslate nohighlight">\(T_r\)</span>, target <span class="math notranslate nohighlight">\(v_1\)</span>):</p>
+<ul class="simple">
+<li><p>speed set point <span class="math notranslate nohighlight">\(\omega_{sp}\)</span>;</p></li>
+<li><p>block velocity;</p></li>
+<li><p>motor torque;</p></li>
+<li><p>prescribed top-drive speed;</p></li>
+<li><p>WOB set point.</p></li>
+</ul>
+<p>Each is evaluated at <span class="math notranslate nohighlight">\(t^+\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}r(t) = \begin{cases} v_1 &amp; T_r \le 0 \text{ or } t \ge t_0 + T_r\\ v_0 &amp; t \le t_0\\ v_0 + (v_1 - v_0)(t - t_0)/T_r &amp; \text{otherwise.}\end{cases}\end{split}\]</div>
+</section>
+<section id="top-drive-control-mode-ctrl">
+<span id="52-top-drive-control-mode-ctrl"></span><h3>5.2 Top-drive control (mode <code class="docutils literal notranslate"><span class="pre">ctrl</span></code>)<a class="headerlink" href="#top-drive-control-mode-ctrl" title="Link to this heading"></a></h3>
+<p>Filter factors are <span class="math notranslate nohighlight">\(a_x = e^{-\Delta t/t_x}\)</span> (0 if <span class="math notranslate nohighlight">\(t_x \le 0\)</span>).</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">ctrl</span> <span class="pre">=</span> <span class="pre">0</span></code>, internal controller:</strong></p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{aligned}
+\omega_{sp} &amp;\leftarrow r_{\omega sp}(t^+),\\
+\omega_f &amp;\leftarrow a_{en}\omega_f + (1-a_{en})\,\omega_{td},\\
+y_{lp} &amp;\leftarrow a_{lp}y_{lp} + (1-a_{lp})\,\tau_0,\qquad y_{hp} \leftarrow a_{hp}y_{hp} + (1-a_{hp})\,y_{lp},\\
+e &amp;= \omega_{sp} - \omega_f - Z\,(y_{lp} - y_{hp}),\\
+u &amp;= K_p e + K_i (I_{PI} + e\Delta t).
+\end{aligned}\end{split}\]</div>
+<p>If a torque limit <span class="math notranslate nohighlight">\(\tau_{max} &gt; 0\)</span> applies and <span class="math notranslate nohighlight">\(|u| &gt; \tau_{max}\)</span>, then
+<span class="math notranslate nohighlight">\(u \leftarrow \tau_{max}\operatorname{sign}u\)</span> and the integrator is frozen;
+otherwise <span class="math notranslate nohighlight">\(I_{PI} \mathrel{+}= e\Delta t\)</span>. Finally <span class="math notranslate nohighlight">\(\tau_m \leftarrow u\)</span>.</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">ctrl</span> <span class="pre">=</span> <span class="pre">1</span></code>, external torque:</strong> <span class="math notranslate nohighlight">\(\tau_m \leftarrow r_{\tau m}(t^+)\)</span> and <span class="math notranslate nohighlight">\(\omega_{sp} \leftarrow r_{\omega sp}(t^+)\)</span>.</p>
+<p><strong>Top-drive dynamics.</strong> Let the incoming invariant be <span class="math notranslate nohighlight">\(\beta_1 = \omega_0 - \tau_0^{cell}/Z_{t,0}\)</span>
+(cell 0 values). Then</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\omega_{td}^+ = \begin{cases} r_{\omega td}(t^+) &amp; \text{ctrl} = 2\\[2pt]
+\dfrac{I\omega_{td}/\Delta t + \tau_m + Z_{t,0}\beta_1}{I/\Delta t + Z_{t,0}} &amp; \text{otherwise,}\end{cases}
+\qquad \tau_0 = Z_{t,0}(\omega_{td}^+ - \beta_1).\end{split}\]</div>
+<p>For <code class="docutils literal notranslate"><span class="pre">ctrl</span> <span class="pre">=</span> <span class="pre">2</span></code>: <span class="math notranslate nohighlight">\(\tau_m = \tau_0 + I(\omega_{td}^+ - \omega_{td})/\Delta t\)</span> and <span class="math notranslate nohighlight">\(\omega_{sp} = \omega_{td}^+\)</span>.
+Face 0 gets <span class="math notranslate nohighlight">\((\omega_{td}^+, \tau_0)\)</span>.</p>
+</section>
+<section id="drawworks-mode-axial">
+<span id="53-drawworks-mode-axial"></span><h3>5.3 Drawworks (mode <code class="docutils literal notranslate"><span class="pre">axial</span></code>)<a class="headerlink" href="#drawworks-mode-axial" title="Link to this heading"></a></h3>
+<ul>
+<li><p><strong>Autodriller</strong> (axial = 1):</p>
+<div class="math notranslate nohighlight">
+\[W_s = H_{ref} - H,\quad \epsilon = r_{WOB}(t^+) - W_s,\quad v = K_{p,AD}\epsilon + K_{i,AD}(I_{AD} + \epsilon\Delta t),\]</div>
+<p>clipped to <span class="math notranslate nohighlight">\(\pm v_{max}\)</span>. When clipped the integrator is frozen; otherwise <span class="math notranslate nohighlight">\(I_{AD} \mathrel{+}= \epsilon\Delta t\)</span>. Then <span class="math notranslate nohighlight">\(v_{blk} = v\)</span>.</p>
+</li>
+<li><p><strong>Prescribed block velocity</strong> (axial = 0): <span class="math notranslate nohighlight">\(v_{blk}\)</span> follows <span class="math notranslate nohighlight">\(r_{vblk}(t^+)\)</span>. With an acceleration limit <span class="math notranslate nohighlight">\(a &gt; 0\)</span>, it changes by at most <span class="math notranslate nohighlight">\(a\Delta t\)</span> per step.</p></li>
+<li><p><strong>Top face.</strong> With <span class="math notranslate nohighlight">\(\beta_{a1} = v_0 - q^d_0/Z_{a,0}\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[q_0 = Z_{a,0}(v_{blk} - \beta_{a1}),\quad v_{top} = v_{blk}.\]</div>
+<p>The hook can only pull up: if <span class="math notranslate nohighlight">\(-(q_0 + q^s_{top}) &lt; 0\)</span>, then
+<span class="math notranslate nohighlight">\(q_0 = -q^s_{top}\)</span> and <span class="math notranslate nohighlight">\(v_{top} = \beta_{a1} + q_0/Z_{a,0}\)</span>.
+Face 0 gets <span class="math notranslate nohighlight">\((v_{top}, q_0)\)</span>, and the hookload is <span class="math notranslate nohighlight">\(H = -(q_0 + q^s_{top})\)</span>.</p>
+</li>
+</ul>
+</section>
+<section id="interior-faces-godunov">
+<span id="54-interior-faces-godunov"></span><h3>5.4 Interior faces (Godunov)<a class="headerlink" href="#interior-faces-godunov" title="Link to this heading"></a></h3>
+<p>For faces <span class="math notranslate nohighlight">\(j = 1\dots n-1\)</span>, with the outgoing invariant from the left <span class="math notranslate nohighlight">\(\alpha = \omega_{j-1} + \tau_{j-1}/Z_{j-1}\)</span>,
+the incoming invariant from the right <span class="math notranslate nohighlight">\(\beta = \omega_j - \tau_j/Z_j\)</span>, and the same with <span class="math notranslate nohighlight">\((v, q^d, Z_a)\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[F = \frac{\alpha - \beta}{1/Z_{j-1} + 1/Z_j},\qquad \text{velocity} = \alpha - F/Z_{j-1},\qquad \text{force} = F.\]</div>
+</section>
+<section id="bit-face">
+<span id="55-bit-face"></span><h3>5.5 Bit face<a class="headerlink" href="#bit-face" title="Link to this heading"></a></h3>
+<p>Outgoing invariants of the bottom cell:
+<span class="math notranslate nohighlight">\(\alpha_t = \omega_{n-1} + \tau_{n-1}/Z_{t,n-1}\)</span> and <span class="math notranslate nohighlight">\(\alpha_a = v_{n-1} + q^d_{n-1}/Z_{a,n-1}\)</span>.</p>
+<p><strong>Quasi-static models (coulomb, cutting).</strong></p>
+<ul>
+<li><p><strong>Off bottom:</strong> if <span class="math notranslate nohighlight">\(s_{bit} &lt; s_{hole} - 10^{-9}\)</span>, or if <span class="math notranslate nohighlight">\(\alpha_a \le 0\)</span> (the string is lifting the bit), the bit is free:
+<span class="math notranslate nohighlight">\((\omega_b, \text{TOB}, v_b, \text{WOB}, \text{stuck}) = (\alpha_t, 0, \alpha_a, 0, 0)\)</span>.</p></li>
+<li><p><strong>On bottom:</strong> start with <span class="math notranslate nohighlight">\(w = \max(\alpha_t, 0)\)</span> and iterate at most 8 times:</p>
+<ol class="arabic">
+<li><p><strong>Axial.</strong> <span class="math notranslate nohighlight">\(q_{lin} = Z_a\alpha_a\)</span>.</p>
+<ul>
+<li><p>If <span class="math notranslate nohighlight">\(q_{lin} \le W_0\)</span> or <span class="math notranslate nohighlight">\(k_r|w| = 0\)</span>: WOB = <span class="math notranslate nohighlight">\(q_{lin}\)</span> and <span class="math notranslate nohighlight">\(v_b = 0\)</span>.</p></li>
+<li><p>Otherwise:</p>
+<div class="math notranslate nohighlight">
+\[\text{WOB} = \frac{\alpha_a + k_r W_0 |w|}{1/Z_a + k_r|w|},\qquad v_b = k_r(\text{WOB} - W_0)|w|.\]</div>
+</li>
+</ul>
+</li>
+<li><p><strong>Torsional.</strong> <span class="math notranslate nohighlight">\(\tau_{stop} = Z_t\alpha_t\)</span>.</p>
+<ul class="simple">
+<li><p><strong>Sticking:</strong> if (<span class="math notranslate nohighlight">\(|\omega_b^{prev}| \le \omega_c\)</span> or stuck<span class="math notranslate nohighlight">\(^{prev}\)</span>) and <span class="math notranslate nohighlight">\(|\tau_{stop}| \le \ell_s\,\text{WOB}\)</span>, then TOB = <span class="math notranslate nohighlight">\(\tau_{stop}\)</span>, <span class="math notranslate nohighlight">\(w' = 0\)</span>, stuck = 1.</p></li>
+<li><p><strong>Sliding:</strong> otherwise TOB <span class="math notranslate nohighlight">\(= \operatorname{sign}(\alpha_t)\min(\ell_k\text{WOB}, |\tau_{stop}|)\)</span>, <span class="math notranslate nohighlight">\(w' = \alpha_t - \text{TOB}/Z_t\)</span>, stuck = 0.</p></li>
+</ul>
+</li>
+<li><p><strong>Convergence:</strong> stop when <span class="math notranslate nohighlight">\(|w' - w| &lt; 10^{-12}\)</span>; otherwise set <span class="math notranslate nohighlight">\(w \leftarrow w'\)</span>.</p></li>
+</ol>
+<p>Result: <span class="math notranslate nohighlight">\(\omega_b = w\)</span>.</p>
+</li>
+</ul>
+<p><strong>Regenerative model.</strong></p>
+<ul>
+<li><p><strong>Blades:</strong> blade <span class="math notranslate nohighlight">\(i\)</span> (<span class="math notranslate nohighlight">\(i = 0\dots n_b-1\)</span>) sits at <span class="math notranslate nohighlight">\(\phi_b + 2\pi i/n_b\)</span>. Bin width is <span class="math notranslate nohighlight">\(2\pi/M\)</span> with <span class="math notranslate nohighlight">\(M = 720\)</span>, and the surface under blade <span class="math notranslate nohighlight">\(i\)</span> is <span class="math notranslate nohighlight">\(s_i\)</span> = surf[bin].</p></li>
+<li><p><strong>Axial (implicit).</strong> With <span class="math notranslate nohighlight">\(u_f = s_{bit} + \Delta t\,\alpha_a\)</span>, solve the following for <span class="math notranslate nohighlight">\(u_1\)</span> by fixed-point iteration (at most <span class="math notranslate nohighlight">\(n_b+2\)</span> times, starting from <span class="math notranslate nohighlight">\(u_1 = u_f\)</span>, until the change is below 1e-15):</p>
+<div class="math notranslate nohighlight">
+\[u_1 = \frac{u_f + g\sum_{s_i&lt;u_1}s_i}{1 + g\,m},\qquad g = \Delta t\,k_c/Z_a,\]</div>
+<p>where <span class="math notranslate nohighlight">\(m\)</span> is the number of blades with <span class="math notranslate nohighlight">\(s_i &lt; u_1\)</span>; if <span class="math notranslate nohighlight">\(m = 0\)</span>, <span class="math notranslate nohighlight">\(u_1 = u_f\)</span>.</p>
+</li>
+<li><p><strong>Contact:</strong> WOB <span class="math notranslate nohighlight">\(= k_c\sum_i \max(u_1 - s_i, 0)\)</span> and <span class="math notranslate nohighlight">\(v_b = (u_1 - s_{bit})/\Delta t\)</span>.</p></li>
+<li><p><strong>Torque:</strong> the same sticking and sliding rule as above, with <span class="math notranslate nohighlight">\(\ell = \ell_k\)</span> for both.</p></li>
+</ul>
+<p><strong>Bit face values.</strong> Face <span class="math notranslate nohighlight">\(n\)</span> gets <span class="math notranslate nohighlight">\((\omega_b, \text{TOB})\)</span> and <span class="math notranslate nohighlight">\((v_b, \text{WOB})\)</span>. The scalar bit state is updated.</p>
+</section>
+<section id="cell-update">
+<span id="56-cell-update"></span><h3>5.6 Cell update<a class="headerlink" href="#cell-update" title="Link to this heading"></a></h3>
+<p>For every cell (all with old values on the right):</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{aligned}
+\tau_j &amp;\mathrel{-}= \Delta t\,\frac{K_{t,j}}{h_j}(\omega^f_{j+1} - \omega^f_j), &amp;
+\omega^*_j &amp;= \omega_j - \frac{\Delta t}{m_{t,j}h_j}(\tau^f_{j+1} - \tau^f_j),\\
+q^d_j &amp;\mathrel{-}= \Delta t\,\frac{K_{a,j}}{h_j}(v^f_{j+1} - v^f_j), &amp;
+v^*_j &amp;= v_j - \frac{\Delta t}{m_{a,j}h_j}(q^f_{j+1} - q^f_j).
+\end{aligned}\end{split}\]</div>
+<p><strong>Linear fluid damping (implicit):</strong></p>
+<div class="math notranslate nohighlight">
+\[\omega^{**}_j = \frac{\omega^*_j + \Delta t\,k_{1t,j}\bar\omega_j}{1 + \Delta t(k_{0t,j} + k_{1t,j})},\qquad
+v^{**}_j = \frac{v^*_j + \Delta t\,k_{1a,j}\bar v_j}{1 + \Delta t(k_{0a,j} + k_{1a,j})}.\]</div>
+<p><strong>Kelvin–Voigt (implicit, if active).</strong> For <span class="math notranslate nohighlight">\(x = \omega^{**}\)</span> with <span class="math notranslate nohighlight">\((m_t, k_{vt})\)</span>,
+and <span class="math notranslate nohighlight">\(x = v^{**}\)</span> with <span class="math notranslate nohighlight">\((m_a, k_{va})\)</span>, solve the tridiagonal system with the Thomas algorithm:</p>
+<div class="math notranslate nohighlight">
+\[\frac{m_j h_j}{\Delta t}(x'_j - x_j) = k_{v,j+1}(x'_{j+1} - x'_j) - k_{v,j}(x'_j - x'_{j-1}).\]</div>
+</section>
+<section id="along-string-friction">
+<span id="57-along-string-friction"></span><h3>5.7 Along-string friction<a class="headerlink" href="#along-string-friction" title="Link to this heading"></a></h3>
+<p>Let <span class="math notranslate nohighlight">\(\omega^{old}, v^{old}\)</span> be the cell velocities before this step, <span class="math notranslate nohighlight">\((\omega^s, v^s)\)</span> the
+damped predictions, <span class="math notranslate nohighlight">\(r = r_{c,j}\)</span>, and <span class="math notranslate nohighlight">\(f_y = f_{y,j}\)</span>.</p>
+<p><strong>Coupled</strong> (<code class="docutils literal notranslate"><span class="pre">along_string_coupling</span></code>, default).</p>
+<ul>
+<li><p><strong>Normal force:</strong> <span class="math notranslate nohighlight">\(T = -(q^s_{c,j} + q^d_j)\)</span> (with <span class="math notranslate nohighlight">\(q^d\)</span> already updated) gives <span class="math notranslate nohighlight">\(F_N = |T\boldsymbol\kappa_j + w_{b,j}\mathbf z_{\perp,j}|\)</span>.</p></li>
+<li><p><strong>Friction factors:</strong> <span class="math notranslate nohighlight">\(\mu_{sa} = \mu_k + c_{ax}(\mu_s - \mu_k)\)</span> and <span class="math notranslate nohighlight">\(\mu_{st} = \mu_s\)</span>.</p></li>
+<li><p><strong>Sliding direction:</strong> <span class="math notranslate nohighlight">\(v_t = \omega^s r\)</span>, speed <span class="math notranslate nohighlight">\(\sigma = \sqrt{(v^s)^2 + v_t^2}\)</span>, direction <span class="math notranslate nohighlight">\((e_a, e_t) = (v^s, v_t)/\sigma\)</span> (if <span class="math notranslate nohighlight">\(\sigma = 0\)</span>: <span class="math notranslate nohighlight">\((0, 1)\)</span>).</p></li>
+<li><p><strong>Normalised old speed:</strong> <span class="math notranslate nohighlight">\(s_{old} = \sqrt{(v^{old}/v_c)^2 + (\omega^{old}/\omega_c)^2}\)</span>.</p></li>
+<li><p><strong>Static capacities:</strong> <span class="math notranslate nohighlight">\(f_{as} = \mu_{sa}F_N + f_y\)</span> and <span class="math notranslate nohighlight">\(f_{ts} = \mu_{st}F_N + f_y\)</span>.</p>
+<ul class="simple">
+<li><p>The static resistance along the sliding direction is <span class="math notranslate nohighlight">\(f_{sd} = 1/\sqrt{(e_a/f_{as})^2 + (e_t/f_{ts})^2}\)</span>, if <span class="math notranslate nohighlight">\(\sigma &gt; 0\)</span> and both capacities are positive.</p></li>
+<li><p>Otherwise <span class="math notranslate nohighlight">\(f_{sd} = f_{ts}\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Stick check</strong> when <span class="math notranslate nohighlight">\(s_{old} \le 1\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[p_a = \frac{m_a v^s}{\Delta t f_{as}},\quad p_t = \frac{m_t\omega^s}{r\Delta t f_{ts}}\]</div>
+<p>(each <span class="math notranslate nohighlight">\(10^{30}\)</span> if its capacity is ≤ 0). If <span class="math notranslate nohighlight">\(p_a^2 + p_t^2 \le 1\)</span>, set <span class="math notranslate nohighlight">\(v = \omega = 0\)</span> and skip to the next cell.</p>
+</li>
+<li><p><strong>Resistance per length</strong> <span class="math notranslate nohighlight">\(f_{res}\)</span>:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(f_{sd}\)</span> if <span class="math notranslate nohighlight">\(s_{old} \le 1\)</span>;</p></li>
+<li><p>for <code class="docutils literal notranslate"><span class="pre">exponential</span></code> weakening, <span class="math notranslate nohighlight">\(\mu_kF_N + f_y + (f_{sd} - \mu_kF_N - f_y)e^{-s_{old}}\)</span>;</p></li>
+<li><p>otherwise <span class="math notranslate nohighlight">\(\mu_kF_N + f_y\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Implicit 2-D Coulomb</strong> on <span class="math notranslate nohighlight">\((v^s, v_t)\)</span> with masses <span class="math notranslate nohighlight">\(m_a\)</span> and <span class="math notranslate nohighlight">\(m_t/r^2\)</span> and impulse <span class="math notranslate nohighlight">\(c = \Delta t f_{res}\)</span>:</p>
+<ul>
+<li><p>With momenta <span class="math notranslate nohighlight">\(p_a = m_a v^s\)</span> and <span class="math notranslate nohighlight">\(p_t = (m_t/r^2)v_t\)</span>, if <span class="math notranslate nohighlight">\(p_a^2 + p_t^2 \le c^2\)</span> the cell stops.</p></li>
+<li><p>If <span class="math notranslate nohighlight">\(c \le 0\)</span>, the velocities are unchanged.</p></li>
+<li><p>Otherwise find <span class="math notranslate nohighlight">\(\sigma' \ge 0\)</span> by Newton iteration from <span class="math notranslate nohighlight">\(\sigma\)</span> (at most 50 iterations; stop when the change is ≤ <span class="math notranslate nohighlight">\(10^{-14}\sigma\)</span>; clip at 0):</p>
+<div class="math notranslate nohighlight">
+\[g(\sigma') = \sum_{i\in\{a,t\}}\left(\frac{p_i}{m_i\sigma' + c}\right)^2 - 1 = 0.\]</div>
+</li>
+<li><p>Then <span class="math notranslate nohighlight">\(v = v^s m_a\sigma'/(m_a\sigma' + c)\)</span>, <span class="math notranslate nohighlight">\(v_t' = v_t m_t'\sigma'/(m_t'\sigma' + c)\)</span> with <span class="math notranslate nohighlight">\(m_t' = m_t/r^2\)</span>, and <span class="math notranslate nohighlight">\(\omega = v_t'/r\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>Decoupled.</strong> The normal force is <span class="math notranslate nohighlight">\(F_N = F_{N0,j}\)</span>.</p>
+<ul class="simple">
+<li><p><strong>Torsion.</strong> <span class="math notranslate nohighlight">\(t_{stop} = m_t\omega^s/\Delta t\)</span> is clipped to <span class="math notranslate nohighlight">\(\pm C_t\)</span>, and then <span class="math notranslate nohighlight">\(\omega = \omega^s - \Delta t\,t_{stop}/m_t\)</span>. The capacity <span class="math notranslate nohighlight">\(C_t\)</span> is:</p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\((\mu_sF_N + f_y)r\)</span> if <span class="math notranslate nohighlight">\(|\omega^{old}| \le \omega_c\)</span>;</p></li>
+<li><p>for exponential weakening, <span class="math notranslate nohighlight">\(((\mu_k + (\mu_s-\mu_k)e^{-|\omega^{old}|/\omega_c})F_N + f_y)r\)</span>;</p></li>
+<li><p>otherwise <span class="math notranslate nohighlight">\((\mu_kF_N + f_y)r\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Axial.</strong> The same rule with <span class="math notranslate nohighlight">\(f_{stop} = m_a v^s/\Delta t\)</span>, <span class="math notranslate nohighlight">\(\mu_{sa}\)</span> in place of <span class="math notranslate nohighlight">\(\mu_s\)</span>, <span class="math notranslate nohighlight">\(v_c\)</span> in place of <span class="math notranslate nohighlight">\(\omega_c\)</span>, and no factor <span class="math notranslate nohighlight">\(r\)</span>.</p></li>
+</ul>
+</section>
+<section id="low-pass-states-and-bookkeeping">
+<span id="58-low-pass-states-and-bookkeeping"></span><h3>5.8 Low-pass states and bookkeeping<a class="headerlink" href="#low-pass-states-and-bookkeeping" title="Link to this heading"></a></h3>
+<div class="math notranslate nohighlight">
+\[\bar\omega_j \mathrel{+}= a_{hp,t}(\omega_j - \bar\omega_j),\qquad \bar v_j \mathrel{+}= a_{hp,a}(v_j - \bar v_j).\]</div>
+<p>Then:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(t \mathrel{+}= \Delta t\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(s_{bit} \mathrel{+}= v_b\Delta t\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(x_{blk} \mathrel{+}= v_{blk}\Delta t\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(W \mathrel{+}= |\omega_b|\Delta t\)</span>.</p></li>
+</ul>
+<p><strong>Regenerative model only:</strong> the blades sweep from <span class="math notranslate nohighlight">\(\phi_b\)</span> to <span class="math notranslate nohighlight">\(\phi_b' = \phi_b + \omega_b\Delta t\)</span>.</p>
+<ul class="simple">
+<li><p>Only forward rotation sweeps.</p></li>
+<li><p>For each blade, every bin from <span class="math notranslate nohighlight">\(\lfloor(\phi_b + \text{off})/\Delta\theta\rfloor\)</span> up to (excluding) <span class="math notranslate nohighlight">\(\min(\lfloor(\phi_b' + \text{off})/\Delta\theta\rfloor, \text{start} + M)\)</span> has its surface raised to <span class="math notranslate nohighlight">\(s_{bit}\)</span> if it is below.</p></li>
+<li><p><span class="math notranslate nohighlight">\(\phi_b \leftarrow \phi_b'\)</span>, reduced modulo <span class="math notranslate nohighlight">\(2\pi\)</span> once it exceeds <span class="math notranslate nohighlight">\(10^6\)</span>.</p></li>
+</ul>
+<p>In all models, <span class="math notranslate nohighlight">\(s_{hole} \leftarrow \max(s_{hole}, s_{bit})\)</span>.</p>
+<p><strong>Recording.</strong> Every <code class="docutils literal notranslate"><span class="pre">rec_every</span></code> = <span class="math notranslate nohighlight">\(\max(1, \operatorname{round}(1/(f_{rec}\Delta t)))\)</span>
+steps, one row is recorded with these columns:</p>
+<ul class="simple">
+<li><p>time;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\omega_{td}\)</span>, <span class="math notranslate nohighlight">\(\tau_m\)</span>, <span class="math notranslate nohighlight">\(\tau_0\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\omega_b\)</span>, TOB;</p></li>
+<li><p><span class="math notranslate nohighlight">\(v_{blk}\)</span>, <span class="math notranslate nohighlight">\(H\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(v_b\)</span>, WOB;</p></li>
+<li><p><span class="math notranslate nohighlight">\(s_{bit}\)</span>, <span class="math notranslate nohighlight">\(s_{hole}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\omega_{sp}\)</span>.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="inputs-ramps-and-modes">
+<span id="6-inputs-ramps-and-modes"></span><h2>6. Inputs, ramps and modes<a class="headerlink" href="#inputs-ramps-and-modes" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">step(duration,</span> <span class="pre">...)</span></code> takes optional inputs; an input that is not given keeps its value.
+Giving an input selects its mode:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Input</p></th>
+<th class="head"><p>Mode set</p></th>
+<th class="head"><p>Ramp row</p></th>
+<th class="head"><p>Start value when taking over from another mode</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">omega_sp</span></code></p></td>
+<td><p>ctrl 0</p></td>
+<td><p>ω_sp</p></td>
+<td><p><span class="math notranslate nohighlight">\(\omega_{td}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">motor_torque</span></code></p></td>
+<td><p>ctrl 1</p></td>
+<td><p>τ_m</p></td>
+<td><p><span class="math notranslate nohighlight">\(\tau_m\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">omega_td</span></code></p></td>
+<td><p>ctrl 2</p></td>
+<td><p>ω_td</p></td>
+<td><p><span class="math notranslate nohighlight">\(\omega_{td}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">v_block</span></code></p></td>
+<td><p>axial 0</p></td>
+<td><p>v_blk</p></td>
+<td><p><span class="math notranslate nohighlight">\(v_{blk}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">wob_sp</span></code></p></td>
+<td><p>axial 1</p></td>
+<td><p>WOB</p></td>
+<td><p><span class="math notranslate nohighlight">\(H_{ref} - H\)</span></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ramp start.</strong> Within the same mode, a ramp to a new target starts from the
+ramp’s current value at the present time. A target equal to the current
+target is ignored. The ramp row becomes (start, <span class="math notranslate nohighlight">\(t\)</span>, ramp time, target),
+with the ramp times of section 1.</p>
+<p><strong>Slow ramps.</strong> Pump rate and inlet temperature ramp the same way, evaluated
+at the time they are read. At initialisation the pump ramps from 0 at
+<span class="math notranslate nohighlight">\(t = 0\)</span> to the case flow rate over the flow ramp time; the inlet
+temperature starts at its value.</p>
+<p><strong>Zeroing the weight indicator.</strong> This sets <span class="math notranslate nohighlight">\(H_{ref} \leftarrow H\)</span>.</p>
+<p><strong>Splitting and pauses.</strong> Time stepping uses integer step counts:
+<span class="math notranslate nohighlight">\(N_{target} = \operatorname{round}(t_{requested}/\Delta t)\)</span> (accumulated
+over all calls). Steps run in chunks that end on multiples of the slow-tick
+interval <span class="math notranslate nohighlight">\(K_s = \max(1, \lfloor 1/\Delta t\rfloor)\)</span> steps, and a slow tick
+follows each completed multiple. Splitting a run into calls of any length
+therefore gives identical results.</p>
+</section>
+<hr class="docutils" />
+<section id="slow-tick">
+<span id="7-slow-tick"></span><h2>7. Slow tick<a class="headerlink" href="#slow-tick" title="Link to this heading"></a></h2>
+<p>At every slow tick (about every 1 s of simulated time):</p>
+<ol class="arabic">
+<li><p><strong>Geometry refresh</strong> (section 2.4), if the bit has moved ≥ 1 m.</p></li>
+<li><p><strong>Hydraulics:</strong> advance from the last hydraulics time to now (section 8.3).</p>
+<ul class="simple">
+<li><p>The pump rate ramps linearly from its value at the last tick to the current ramped value.</p></li>
+<li><p>The bit and hole depths are the current ones.</p></li>
+</ul>
+</li>
+<li><p><strong>Every <code class="docutils literal notranslate"><span class="pre">thermal_update_period</span></code> ticks</strong> (default 2):</p>
+<ul class="simple">
+<li><p>average ROP = <span class="math notranslate nohighlight">\(\max(s_{hole} - s_{hole}^{last}, 0)/\Delta t_{slow}\)</span>;</p></li>
+<li><p>average bit speed = <span class="math notranslate nohighlight">\((W - W^{last})/\Delta t_{slow}\)</span>;</p></li>
+<li><p>advance the temperature model (section 10), then pass the mud temperatures to the hydraulics (10.7);</p></li>
+<li><p>update the rock strength (section 9) with these averages.</p></li>
+</ul>
+<p>The rock strength is also computed at initialisation and on parameter updates, with ROP = ω = 0.</p>
+</li>
+</ol>
+<p><strong>Initialisation order:</strong></p>
+<ol class="arabic simple">
+<li><p>Grid and properties.</p></li>
+<li><p>Geometry refresh.</p></li>
+<li><p>Parameters, with the <code class="docutils literal notranslate"><span class="pre">stiff</span></code> controller.</p></li>
+<li><p><span class="math notranslate nohighlight">\(H_{ref}\)</span>.</p></li>
+<li><p>Hydraulics in the static state (zero flow).</p></li>
+<li><p>Rock strength.</p></li>
+</ol>
+<p>Then the case controller is installed and the parameters are packed again,
+which repeats the geometry refresh with no change and the rock strength.</p>
+</section>
+<hr class="docutils" />
+<section id="hydraulics">
+<span id="8-hydraulics"></span><h2>8. Hydraulics<a class="headerlink" href="#hydraulics" title="Link to this heading"></a></h2>
+<section id="rheology-and-friction-gradients">
+<span id="81-rheology-and-friction-gradients"></span><h3>8.1 Rheology and friction gradients<a class="headerlink" href="#rheology-and-friction-gradients" title="Link to this heading"></a></h3>
+<p>Bingham if a yield point is given (PV = <code class="docutils literal notranslate"><span class="pre">plastic_viscosity</span></code> or <span class="math notranslate nohighlight">\(\mu\)</span>, <span class="math notranslate nohighlight">\(\tau_y\)</span> = <code class="docutils literal notranslate"><span class="pre">yield_point</span></code>),
+else Newtonian (PV = <span class="math notranslate nohighlight">\(\mu\)</span>, <span class="math notranslate nohighlight">\(\tau_y = 0\)</span>).</p>
+<p>The friction gradient at speed <span class="math notranslate nohighlight">\(|u| &gt; 0\)</span> is <span class="math notranslate nohighlight">\(dp/dL = a|u| + b\)</span>, signed with <span class="math notranslate nohighlight">\(u\)</span>:</p>
+<ul class="simple">
+<li><p><strong>Pipe</strong> (diameter <span class="math notranslate nohighlight">\(D\)</span>): <span class="math notranslate nohighlight">\(a_\ell = 32\,PV/D^2\)</span>, <span class="math notranslate nohighlight">\(b_\ell = 16\tau_y/(3D)\)</span>, <span class="math notranslate nohighlight">\(D_e = D\)</span>, <span class="math notranslate nohighlight">\(\mu_a = PV + \tau_yD/(6|u|)\)</span>.</p></li>
+<li><p><strong>Annulus</strong> (outer <span class="math notranslate nohighlight">\(D_2\)</span>, inner <span class="math notranslate nohighlight">\(D_1\)</span>, <span class="math notranslate nohighlight">\(h = D_2 - D_1\)</span>): <span class="math notranslate nohighlight">\(a_\ell = 48\,PV/h^2\)</span>, <span class="math notranslate nohighlight">\(b_\ell = 6\tau_y/h\)</span>, <span class="math notranslate nohighlight">\(D_e = 0.816h\)</span>, <span class="math notranslate nohighlight">\(\mu_a = PV + \tau_yh/(8|u|)\)</span>.</p></li>
+<li><p><strong>Regime:</strong> <span class="math notranslate nohighlight">\(Re = \rho|u|D_e/\mu_a\)</span>.</p>
+<ul>
+<li><p>Below 2100: <span class="math notranslate nohighlight">\((a, b) = (a_\ell, b_\ell)\)</span>.</p></li>
+<li><p>Otherwise <span class="math notranslate nohighlight">\(f = 0.0791\,(\rho|u|D_e/PV)^{-0.25}\)</span> and <span class="math notranslate nohighlight">\((a, b) = (2f\rho|u|/D_e, 0)\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>Bit nozzles:</strong> <span class="math notranslate nohighlight">\(\Delta p_{bit} = \rho Q|Q|/(2C_d^2A_n^2)\)</span>. <strong>Surface loss:</strong> <span class="math notranslate nohighlight">\(c|Q|^m\)</span>.</p>
+<p><strong>Steady textbook system</strong> (<code class="docutils literal notranslate"><span class="pre">steady_state</span></code>, constant density):</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(SPP = \Delta p_{surf} + \sum\Delta p_{pipe} + \Delta p_{bit} + \sum\Delta p_{ann}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(BHP = \rho g\,TVD + \sum\Delta p_{ann}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(ECD = \rho + \sum\Delta p_{ann}/(g\,TVD)\)</span>.</p></li>
+</ul>
+</section>
+<section id="transient-model-grid-and-geometry">
+<span id="82-transient-model-grid-and-geometry"></span><h3>8.2 Transient model: grid and geometry<a class="headerlink" href="#transient-model-grid-and-geometry" title="Link to this heading"></a></h3>
+<p>There are two flow paths on fixed cells:</p>
+<ul class="simple">
+<li><p><strong>Drillstring bore:</strong> surface to bit; the edges are <span class="math notranslate nohighlight">\(\operatorname{linspace}(0, s_{bit}, n_d+1)\)</span> with <span class="math notranslate nohighlight">\(n_d = \max(1, \operatorname{round}(s_{bit}/\Delta x_h))\)</span>.</p></li>
+<li><p><strong>Annulus:</strong> surface to the hole bottom, built the same way with <span class="math notranslate nohighlight">\(s_{hole}\)</span>.</p></li>
+</ul>
+<p>Cell centres have TVD <span class="math notranslate nohighlight">\(z\)</span>, and <span class="math notranslate nohighlight">\(TVD_{bottom}\)</span> is the TVD at <span class="math notranslate nohighlight">\(s_{hole}\)</span>.</p>
+<p><strong>Volume-averaged cross sections.</strong> The string occupies MD <span class="math notranslate nohighlight">\([s_{bit} - L_s, s_{bit}]\)</span>, with <span class="math notranslate nohighlight">\(L_s = \sum h_j\)</span>.
+Integrals of <span class="math notranslate nohighlight">\(\frac\pi4 OD^2\)</span> and <span class="math notranslate nohighlight">\(\frac\pi4 ID^2\)</span> along the string (piecewise
+constant per string cell, linear interpolation of the cumulative integral)
+give, per hydraulic cell:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Quantity</p></th>
+<th class="head"><p>Annulus</p></th>
+<th class="head"><p>Bore</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>wall / pipe diameter</p></td>
+<td><p><span class="math notranslate nohighlight">\(D_o\)</span> = wall diameter (2.2)</p></td>
+<td><p><span class="math notranslate nohighlight">\(D_d = \sqrt{4A_{bore}/\pi}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>inner diameter</p></td>
+<td><p><span class="math notranslate nohighlight">\(D_i = \sqrt{4A_{od}/\pi}\)</span> (0 if &lt; 1 mm)</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>area <span class="math notranslate nohighlight">\(A\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\frac\pi4D_o^2 - A_{od}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\max(A_{bore}, 10^{-8})\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>volume</p></td>
+<td><p><span class="math notranslate nohighlight">\(A L\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(A L\)</span></p></td>
+</tr>
+</tbody>
+</table>
+<p>The bit enters annulus cell <span class="math notranslate nohighlight">\(k_{ab}\)</span>, the cell containing <span class="math notranslate nohighlight">\(s_{bit}\)</span> (clipped to the last cell).</p>
+<p><strong>Density</strong> (Wang et al. 2023, eq. 2):
+<span class="math notranslate nohighlight">\(\rho = \rho_T + p/c_m^2\)</span>, with <span class="math notranslate nohighlight">\(\rho_T = (1 - (T - T_\text{ref})\beta_T)\rho_m\)</span>.
+Mud temperatures come from the wellbore temperature model (10.7); without it <span class="math notranslate nohighlight">\(T = T_\text{ref}\)</span>, so <span class="math notranslate nohighlight">\(\rho_T = \rho_m\)</span>. The cell
+pressure (gauge) is <span class="math notranslate nohighlight">\(p = c_m^2(m/V - \rho_T)\)</span>.</p>
+<p><strong>State:</strong></p>
+<ul class="simple">
+<li><p>mass per cell, <span class="math notranslate nohighlight">\(m_d\)</span> and <span class="math notranslate nohighlight">\(m_a\)</span>;</p></li>
+<li><p>mass flux per face, in kg/s, positive down:</p>
+<ul>
+<li><p>bore faces <span class="math notranslate nohighlight">\(G_d[k]\)</span> (top of cell <span class="math notranslate nohighlight">\(k\)</span>; <span class="math notranslate nohighlight">\(G_d[0]\)</span> is the pump inlet);</p></li>
+<li><p>annulus faces <span class="math notranslate nohighlight">\(G_a[k]\)</span> (top of cell <span class="math notranslate nohighlight">\(k\)</span>; <span class="math notranslate nohighlight">\(G_a[0]\)</span> is the flowline outlet);</p></li>
+<li><p>the bit face <span class="math notranslate nohighlight">\(G_b\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="transient-model-advance">
+<span id="83-transient-model-advance"></span><h3>8.3 Transient model: advance<a class="headerlink" href="#transient-model-advance" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">advance(duration,</span> <span class="pre">q0,</span> <span class="pre">q1,</span> <span class="pre">s_bit,</span> <span class="pre">s_hole)</span></code>:</p>
+<ol class="arabic simple">
+<li><p><strong>Regrid</strong> the moving bottom cells on the current state (grow–cut–grow).</p>
+<ul class="simple">
+<li><p><strong>Annulus,</strong> when the hole deepens: if the new bottom cell length exceeds <span class="math notranslate nohighlight">\(1.5\Delta x_h\)</span>, split it at the midpoint of its new extent (if that is inside the old cell). Mass and volume split by fraction, the new face flux is half the bottom face flux, and the edges are updated.</p></li>
+<li><p><strong>Bore:</strong></p>
+<ul>
+<li><p>Let <span class="math notranslate nohighlight">\(L\)</span> be the new bottom length.</p></li>
+<li><p>If <span class="math notranslate nohighlight">\(L &gt; 1.5\Delta x_h\)</span>, split at the midpoint (kept 1e-6 m inside the old cell); the new face flux is the mean of the bottom face flux and <span class="math notranslate nohighlight">\(G_b\)</span>.</p></li>
+<li><p>If <span class="math notranslate nohighlight">\(L &lt; 0.5\Delta x_h\)</span> and there is more than one cell, merge the bottom two cells.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>Pipe velocity</strong> <span class="math notranslate nohighlight">\(v_p = (s_{bit} - s_{bit}^{old})/\text{duration}\)</span>. Set the last edges to the new depths and recompute the geometry (8.2) at the end of the interval. Volumes interpolate linearly from the old geometry (or the new one, if the cell count changed) to the new one over the interval.</p></li>
+<li><p><strong>Substeps:</strong> <span class="math notranslate nohighlight">\(n_{sub} = \lceil \text{duration}/(\text{CFL}\,L_{min}/c_m)\rceil\)</span>, each of length <span class="math notranslate nohighlight">\(\Delta t_h\)</span>, with <span class="math notranslate nohighlight">\(w = (s+1)/n_{sub}\)</span> at substep <span class="math notranslate nohighlight">\(s\)</span>:</p>
+<ol class="arabic simple">
+<li><p><strong>Pump face:</strong> <span class="math notranslate nohighlight">\(G_d[0] = \rho_{T,d0}\,(q_0 + (q_1 - q_0)w)\)</span>.</p></li>
+<li><p><strong>Cell values:</strong> for each cell, <span class="math notranslate nohighlight">\(V\)</span> by interpolation, <span class="math notranslate nohighlight">\(A = V/L\)</span>, <span class="math notranslate nohighlight">\(\rho = m/V\)</span>, <span class="math notranslate nohighlight">\(p = c_m^2(\rho - \rho_T)\)</span>.</p></li>
+<li><p><strong>Face updates</strong> with the face rule below:</p>
+<ul class="simple">
+<li><p>interior bore faces (slip factor 1 relative to <span class="math notranslate nohighlight">\(v_p\)</span>);</p></li>
+<li><p>the bit face, bore bottom cell to annulus cell <span class="math notranslate nohighlight">\(k_{ab}\)</span>: no slip, with the nozzle term <span class="math notranslate nohighlight">\(R_n|G|\)</span>, where <span class="math notranslate nohighlight">\(R_n = 1/(2C_d^2A_n^2\bar\rho)\)</span>;</p></li>
+<li><p>interior annulus faces (slip factor <span class="math notranslate nohighlight">\(K_c\)</span> if both cells contain pipe, else 0);</p></li>
+<li><p>the outlet face. Its drive is <span class="math notranslate nohighlight">\(p_{back} - p_{a0} + \rho_{a0} g z_{a0}\)</span>; there is no upstream half cell, and the slip factor is <span class="math notranslate nohighlight">\(K_c\)</span> if the cell contains pipe.</p></li>
+</ul>
+</li>
+<li><p><strong>Mass:</strong></p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(m_{d,j} \mathrel{+}= \Delta t_h(G_{d,j} - G_{d,j+1})\)</span>, with <span class="math notranslate nohighlight">\(G_b\)</span> leaving the bottom bore cell;</p></li>
+<li><p><span class="math notranslate nohighlight">\(m_{a,j} \mathrel{+}= \Delta t_h(G_{a,j} - G_{a,j+1})\)</span>, with no flux through the bottom of the annulus;</p></li>
+<li><p><span class="math notranslate nohighlight">\(m_{a,k_{ab}} \mathrel{+}= \Delta t_h G_b\)</span>;</p></li>
+<li><p>accumulators: pumped <span class="math notranslate nohighlight">\(\mathrel{+}= \Delta t_h G_d[0]\)</span>, returned <span class="math notranslate nohighlight">\(\mathrel{-}= \Delta t_h G_a[0]\)</span>.</p></li>
+</ul>
+</li>
+</ol>
+</li>
+</ol>
+<p><strong>Face rule</strong> (backward Euler, Picard iterations).</p>
+<ul>
+<li><p><strong>Inputs:</strong> upstream (u) and downstream (d) half cells, drive <span class="math notranslate nohighlight">\(P\)</span> = pressure difference plus <span class="math notranslate nohighlight">\(\bar\rho g\Delta z\)</span>, and inertance <span class="math notranslate nohighlight">\(1/\mathcal I = 1/\big(\tfrac12(L_u/A_u + L_d/A_d)\big)\)</span>.</p></li>
+<li><p><strong>Pipe-dragged flux:</strong> <span class="math notranslate nohighlight">\(G_s = k_s v_p\bar\rho\bar A\)</span>.</p></li>
+<li><p><strong>Iterations</strong> (a set number, default 2): from the current flux <span class="math notranslate nohighlight">\(G_k\)</span> accumulate over the half cells
+<span class="math notranslate nohighlight">\(R \mathrel{+}= \tfrac12 L\,a(|G_k/(\rho A) - k_sv_p|)/(\rho A)\)</span> and <span class="math notranslate nohighlight">\(B \mathrel{+}= \tfrac12 L\,b\)</span>, plus <span class="math notranslate nohighlight">\(R \mathrel{+}= R_n|G_k|\)</span> at the bit. Then:</p>
+<div class="math notranslate nohighlight">
+\[c = \Delta t_h/\mathcal I,\quad F = G + c(P + RG_s),\quad \delta = 1 + cR,\quad r = F - \delta G_s,\]</div>
+<ul class="simple">
+<li><p><strong>Yield holds:</strong> if <span class="math notranslate nohighlight">\(|r| \le cB\)</span>, then <span class="math notranslate nohighlight">\(G_k = G_s\)</span>.</p></li>
+<li><p><strong>Otherwise:</strong> <span class="math notranslate nohighlight">\(G_k = (F - cB\operatorname{sign} r)/\delta\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>Static and steady states</strong> (<code class="docutils literal notranslate"><span class="pre">set_steady(Q)</span></code>, <span class="math notranslate nohighlight">\(Q = 0\)</span> for static).
+This is the exact discrete steady state with the pipe at rest:</p>
+<ul class="simple">
+<li><p><strong>Fluxes:</strong> <span class="math notranslate nohighlight">\(G_d = \rho_{T,d0}Q\)</span> on every bore face and at the bit; <span class="math notranslate nohighlight">\(G_a = -G_d\)</span> on annulus faces <span class="math notranslate nohighlight">\(\le k_{ab}\)</span>, 0 below.</p></li>
+<li><p><strong>Annulus pressures,</strong> from the outlet down, by fixed point (50 iterations) on the face densities:</p>
+<ul>
+<li><p>outlet: <span class="math notranslate nohighlight">\(p_{a0} = p_{back} + \rho_0 g z_0 - \tfrac12L_0\,(dp/dL)_0\)</span>;</p></li>
+<li><p>each face <span class="math notranslate nohighlight">\(k\)</span>: <span class="math notranslate nohighlight">\(p_k = p_{k-1} + \bar\rho g(z_k - z_{k-1}) - \text{friction of the two half cells}\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Bit:</strong> <span class="math notranslate nohighlight">\(p_{d,last} = p_{a,k_{ab}} - \bar\rho g(z_{a,k_{ab}} - z_{d,last}) + \Delta p_{bit} + \text{friction}\)</span>.</p></li>
+<li><p><strong>Bore pressures:</strong> upward from the bit, <span class="math notranslate nohighlight">\(p_{k-1} = p_k - \bar\rho g(z_k - z_{k-1}) + \text{friction}\)</span>.</p></li>
+<li><p><strong>Masses:</strong> <span class="math notranslate nohighlight">\(m = (\rho_T + p/c_m^2)V\)</span>.</p></li>
+</ul>
+<p><strong>Outputs</strong> (<code class="docutils literal notranslate"><span class="pre">state</span></code>):</p>
+<ul class="simple">
+<li><p><strong>Standpipe pressure:</strong></p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(p_{top} = p_{d0} - \rho_{d0}gz_{d0} + \tfrac12L_{d0}\,(dp/dL)(u_0 - v_p)\)</span>, with <span class="math notranslate nohighlight">\(u_0 = G_d[0]/(\rho_{d0}A_{d0})\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(SPP = p_{top} + c|q|^m\)</span>, with <span class="math notranslate nohighlight">\(q = G_d[0]/\rho_{T,d0}\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Bottomhole pressure and ECD:</strong></p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(BHP = p_{a,last} + \rho_{a,last}\,g\,(TVD_{bottom} - z_{a,last})\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(ECD = BHP/(g\,TVD_{bottom})\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Flows:</strong></p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(q_{in} = q\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(q_{out} = -G_a[0]/\rho_{a0}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(q_{bit} = G_b/\tfrac12(\rho_{d0} + \rho_{a0})\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Nozzle loss:</strong> <span class="math notranslate nohighlight">\(\Delta p_{bit}\)</span> at the mean of the bit-face densities.</p></li>
+<li><p><strong>Pit gain:</strong> <span class="math notranslate nohighlight">\(-(\text{pumped} - \text{returned})/\rho_m\)</span>.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="rock-strength-at-the-bit">
+<span id="9-rock-strength-at-the-bit"></span><h2>9. Rock strength at the bit<a class="headerlink" href="#rock-strength-at-the-bit" title="Link to this heading"></a></h2>
+<p>For the layer containing the hole depth (the deepest layer with top ≤ MD),
+at the hole TVD <span class="math notranslate nohighlight">\(z\)</span>:</p>
+<ul>
+<li><p><strong>Rock temperature:</strong> <span class="math notranslate nohighlight">\(T_r = T_{surf} + \gamma z\)</span> (defaults 40 °C, 0.0691 °C/m).</p></li>
+<li><p><strong>T1, thermal weakening</strong> (defaults <span class="math notranslate nohighlight">\(T^* = 193\)</span> °C, <span class="math notranslate nohighlight">\(b = 1.41\times10^{-3}\)</span> /K):</p>
+<div class="math notranslate nohighlight">
+\[UCS(T) = UCS_0\max\big(1 - b\max(T_r - T^*, 0),\, 0.05\big).\]</div>
+</li>
+<li><p><strong>P1, confinement.</strong></p>
+<ul>
+<li><p>Pressures: pore <span class="math notranslate nohighlight">\(p_p = 9.79\text{ kPa/m}\cdot z\)</span>; overburden <span class="math notranslate nohighlight">\(\sigma_v = 25\text{ kPa/m}\cdot z\)</span>.</p></li>
+<li><p>Overbalances:</p>
+<ul class="simple">
+<li><p>drained, <span class="math notranslate nohighlight">\(\Delta p_{hp} = p_{bh} - p_p\)</span>;</p></li>
+<li><p>undrained, <span class="math notranslate nohighlight">\(\Delta p_{lp} = p_{bh} - (p_p - B(\sigma_v - p_{bh})/3)\)</span>, with <span class="math notranslate nohighlight">\(B = 1\)</span>.</p></li>
+</ul>
+</li>
+<li><p>Blend weight <span class="math notranslate nohighlight">\(w\)</span> from the effective porosity <span class="math notranslate nohighlight">\(\phi\)</span>: 0 at or below 0.05, 1 at or above 0.20, linear between.</p></li>
+<li><p>Confined strength:</p>
+<div class="math notranslate nohighlight">
+\[CCS = UCS(T) + \big((1-w)\Delta p_{lp} + w\Delta p_{hp}\big)\frac{1+\sin\varphi}{1-\sin\varphi}.\]</div>
+</li>
+</ul>
+</li>
+<li><p><strong>T2, thermal stress</strong> (when the temperature model gives a mud temperature at the bit, 10.7):</p>
+<ul>
+<li><p>Stress: <span class="math notranslate nohighlight">\(\sigma_{th} = \alpha E(T_r - T_{mud})/(1-\nu)\)</span>.</p></li>
+<li><p>Skin ratio: if ω &gt; 1e-6 and ROP &gt; 1e-9, it is <span class="math notranslate nohighlight">\(\min(1, \delta/d_b)\)</span>, with:</p>
+<ul class="simple">
+<li><p>time between blade passes <span class="math notranslate nohighlight">\(t_p = 2\pi/(n_b\omega)\)</span>;</p></li>
+<li><p>thermal skin <span class="math notranslate nohighlight">\(\delta = \sqrt{\pi\kappa_r t_p}\)</span>, where <span class="math notranslate nohighlight">\(\kappa_r = k_r/(\rho_r c_r)\)</span>;</p></li>
+<li><p>depth of cut per blade <span class="math notranslate nohighlight">\(d_b = \text{ROP}\,t_p\)</span>.</p></li>
+</ul>
+<p>Otherwise the ratio is 1.</p>
+</li>
+<li><p>Effective strength: <span class="math notranslate nohighlight">\(CCS_{eff} = \max(CCS - \kappa_{th}\sigma_{th}\cdot\text{ratio},\; 0.1\,UCS(T))\)</span>.</p></li>
+</ul>
+<p>Without T2, <span class="math notranslate nohighlight">\(CCS_{eff} = \max(CCS, 0.1\,UCS(T))\)</span>.</p>
+</li>
+<li><p><strong>Bottomhole pressure</strong> <span class="math notranslate nohighlight">\(p_{bh}\)</span>: from the hydraulics if enabled; else from the temperature model if enabled; else <span class="math notranslate nohighlight">\(\rho_m g z\)</span>.</p></li>
+<li><p><strong>Drilling strength:</strong> <span class="math notranslate nohighlight">\(S = \zeta\,CCS_{eff}/\eta_c\)</span>. With <code class="docutils literal notranslate"><span class="pre">strength_source</span> <span class="pre">=</span> <span class="pre">formation</span></code>, <span class="math notranslate nohighlight">\(k_r = 1/(2\pi aS)\)</span> and <span class="math notranslate nohighlight">\(k_c = Sa\)</span> are updated.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="wellbore-temperature">
+<span id="10-wellbore-temperature"></span><h2>10. Wellbore temperature<a class="headerlink" href="#wellbore-temperature" title="Link to this heading"></a></h2>
+<p>The single-phase energy balance of Wang et al. (2023), implemented in
+<code class="docutils literal notranslate"><span class="pre">thermal.py</span></code>. It runs when the case has a formation and
+<code class="docutils literal notranslate"><span class="pre">parameters.thermal.enabled</span></code> is true.</p>
+<section id="parameters">
+<span id="101-parameters"></span><h3>10.1 Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>nominal cell length <span class="math notranslate nohighlight">\(\Delta x_T\)</span></p></td>
+<td><p>30 m</p></td>
+</tr>
+<tr class="row-odd"><td><p>cut factor</p></td>
+<td><p>1.5</p></td>
+</tr>
+<tr class="row-even"><td><p>radial cells <span class="math notranslate nohighlight">\(m\)</span></p></td>
+<td><p>12</p></td>
+</tr>
+<tr class="row-odd"><td><p>far field (beyond the wall) <span class="math notranslate nohighlight">\(r_{far}\)</span></p></td>
+<td><p>5 m</p></td>
+</tr>
+<tr class="row-even"><td><p>steel conductivity <span class="math notranslate nohighlight">\(k_s\)</span></p></td>
+<td><p>45 W/(m K)</p></td>
+</tr>
+<tr class="row-odd"><td><p>casing thickness <span class="math notranslate nohighlight">\(t_c\)</span></p></td>
+<td><p>0.012 m</p></td>
+</tr>
+<tr class="row-even"><td><p>initial pump rate</p></td>
+<td><p>0.0347 m³/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>inlet temperature</p></td>
+<td><p>30 °C</p></td>
+</tr>
+<tr class="row-even"><td><p>largest substep</p></td>
+<td><p>2 s</p></td>
+</tr>
+<tr class="row-odd"><td><p>coupling iterations</p></td>
+<td><p>3</p></td>
+</tr>
+</tbody>
+</table>
+<p>Fluid properties come from section 1: <span class="math notranslate nohighlight">\(\rho_m\)</span>, <span class="math notranslate nohighlight">\(c_m\)</span> (heat capacity),
+<span class="math notranslate nohighlight">\(k_m\)</span>, <span class="math notranslate nohighlight">\(\mu\)</span>. Formation properties come from section 9: <span class="math notranslate nohighlight">\(\rho_r\)</span>,
+<span class="math notranslate nohighlight">\(c_r\)</span>, <span class="math notranslate nohighlight">\(k_r\)</span>, and the geothermal temperature <span class="math notranslate nohighlight">\(T_{geo}(z)\)</span>.</p>
+</section>
+<section id="grid">
+<span id="102-grid"></span><h3>10.2 Grid<a class="headerlink" href="#grid" title="Link to this heading"></a></h3>
+<p>Axial cells cover the hole from MD 0 to <span class="math notranslate nohighlight">\(s_{hole}\)</span>:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(n = \max(1, \lfloor s_{hole}/\Delta x_T\rfloor)\)</span> cells with edges <span class="math notranslate nohighlight">\(0, \Delta x_T, \dots, n\Delta x_T\)</span>.</p></li>
+<li><p>If the hole extends more than 1e-9 m beyond the last edge:</p>
+<ul>
+<li><p>by less than <span class="math notranslate nohighlight">\(0.5\Delta x_T\)</span> with <span class="math notranslate nohighlight">\(n &gt; 1\)</span>: the last edge moves to <span class="math notranslate nohighlight">\(s_{hole}\)</span>;</p></li>
+<li><p>otherwise: a cell is appended up to <span class="math notranslate nohighlight">\(s_{hole}\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+<p>State per cell <span class="math notranslate nohighlight">\(j\)</span>:</p>
+<ul class="simple">
+<li><p>drillstring fluid temperature <span class="math notranslate nohighlight">\(T_{ds,j}\)</span>;</p></li>
+<li><p>annulus fluid temperature <span class="math notranslate nohighlight">\(T_{a,j}\)</span>;</p></li>
+<li><p>formation temperatures <span class="math notranslate nohighlight">\(T_{f,j,i}\)</span>, <span class="math notranslate nohighlight">\(i = 0\dots m-1\)</span> (0 at the wall).</p></li>
+</ul>
+<p><strong>Initially</strong> all equal <span class="math notranslate nohighlight">\(T_{geo}\)</span> at the cell-centre TVD.</p>
+</section>
+<section id="geometry-per-cell">
+<span id="103-geometry-per-cell"></span><h3>10.3 Geometry (per cell)<a class="headerlink" href="#geometry-per-cell" title="Link to this heading"></a></h3>
+<p>Evaluated with the current pump rate <span class="math notranslate nohighlight">\(Q\)</span> and bit depth <span class="math notranslate nohighlight">\(s_{bit}\)</span>.</p>
+<p><strong>Cache.</strong> Geometry is recomputed when any of these hold:</p>
+<ul class="simple">
+<li><p>it is forced;</p></li>
+<li><p>the cell count, the bottom-cell length rounded to 0.01 m, or <span class="math notranslate nohighlight">\(Q\)</span> changed;</p></li>
+<li><p>the bit moved at least 0.25 m since the last evaluation.</p></li>
+</ul>
+<p>For each cell:</p>
+<ul>
+<li><p><strong>Far field and TVD:</strong> <span class="math notranslate nohighlight">\(z\)</span> = TVD of the centre, <span class="math notranslate nohighlight">\(T_{far} = T_{geo}(z)\)</span>.</p></li>
+<li><p><strong>String sampling.</strong> The string occupies MD <span class="math notranslate nohighlight">\([0, s_{bit}]\)</span>, made of the components in surface-down order, the top one stretched to <span class="math notranslate nohighlight">\(s_{bit} - L_{BHA}\)</span>. Sample 8 points at <span class="math notranslate nohighlight">\(x_{top} + (k + \tfrac12)\Delta x/8\)</span>, <span class="math notranslate nohighlight">\(k = 0\dots7\)</span>. Each sample takes the OD and ID of its component if it is at or above <span class="math notranslate nohighlight">\(s_{bit}\)</span>, else 0.</p></li>
+<li><p><strong>Areas and diameters:</strong></p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(A_{ds}\)</span> = mean of <span class="math notranslate nohighlight">\(\tfrac\pi4 ID^2\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(A_{a} = \tfrac\pi4 D_w^2 -\)</span> mean of <span class="math notranslate nohighlight">\(\tfrac\pi4 OD^2\)</span> (<span class="math notranslate nohighlight">\(D_w\)</span> = wall diameter, section 2.2);</p></li>
+<li><p><span class="math notranslate nohighlight">\(D_i\)</span> = mean ID and <span class="math notranslate nohighlight">\(D_o\)</span> = mean OD.</p></li>
+</ul>
+</li>
+<li><p><strong>Convection coefficient</strong> of a flow area <span class="math notranslate nohighlight">\(A\)</span> and hydraulic diameter <span class="math notranslate nohighlight">\(D_h\)</span>:</p>
+<ul class="simple">
+<li><p>0 if <span class="math notranslate nohighlight">\(A \le 0\)</span> or <span class="math notranslate nohighlight">\(D_h \le 0\)</span>;</p></li>
+<li><p>otherwise, with <span class="math notranslate nohighlight">\(Re = \rho_m (|Q|/A) D_h/\mu\)</span> and <span class="math notranslate nohighlight">\(Pr = \mu c_m/k_m\)</span>: <span class="math notranslate nohighlight">\(Nu = 0.023Re^{0.8}Pr^{0.4}\)</span> if <span class="math notranslate nohighlight">\(Re &gt; 2300\)</span>, else 3.66; then <span class="math notranslate nohighlight">\(h = \max(Nu, 3.66)\,k_m/D_h\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Annulus convection:</strong> <span class="math notranslate nohighlight">\(h_a = h(A_a, D_w - D_o)\)</span>.</p></li>
+<li><p><strong>Drillstring–annulus conductance</strong> (if <span class="math notranslate nohighlight">\(D_o &gt; 0\)</span> and <span class="math notranslate nohighlight">\(D_i &gt; 0\)</span>, else 0), with <span class="math notranslate nohighlight">\(h_i = h(A_{ds}, D_i)\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[R_{ds} = \frac{1}{h_i\pi D_i} + \frac{\ln(D_o/D_i)}{2\pi k_s} + \frac{1}{h_a\pi D_o},\qquad G_{ds} = \Delta x/R_{ds}.\]</div>
+</li>
+<li><p><strong>Formation radial grid.</strong> Wall radius <span class="math notranslate nohighlight">\(r_w = D_w/2 + t_c\)</span> if cased, else <span class="math notranslate nohighlight">\(D_w/2\)</span>. Then:</p>
+<ul class="simple">
+<li><p>face radii <span class="math notranslate nohighlight">\(f_i = r_w\left((r_w + r_{far})/r_w\right)^{i/m}\)</span>, <span class="math notranslate nohighlight">\(i = 0\dots m\)</span>;</p></li>
+<li><p>nodes <span class="math notranslate nohighlight">\(r_i = \sqrt{f_if_{i+1}}\)</span>;</p></li>
+<li><p>heat capacity per length <span class="math notranslate nohighlight">\(v_i = \pi(f_{i+1}^2 - f_i^2)\rho_rc_r\)</span>;</p></li>
+<li><p>node conductances <span class="math notranslate nohighlight">\(g_i = 2\pi k_r/\ln(r_{i+1}/r_i)\)</span>, <span class="math notranslate nohighlight">\(i = 0\dots m-2\)</span>;</p></li>
+<li><p>far-field conductance <span class="math notranslate nohighlight">\(g_{out} = 2\pi k_r/\ln(f_m/r_{m-1})\)</span>;</p></li>
+<li><p>wall-to-first-node resistance <span class="math notranslate nohighlight">\(r_{in} = \ln(r_0/r_w)/(2\pi k_r)\)</span>.</p></li>
+</ul>
+<p>All are multiplied by <span class="math notranslate nohighlight">\(\Delta x\)</span> per cell.</p>
+</li>
+<li><p><strong>Annulus–formation conductance:</strong></p>
+<div class="math notranslate nohighlight">
+\[R_w = \frac{1}{h_a\pi D_w} + r_{in}\;\Big(+\frac{\ln((D_w+2t_c)/D_w)}{2\pi k_s}\text{ if cased}\Big),\qquad G_w = \Delta x/R_w.\]</div>
+</li>
+<li><p><strong>Heat capacities:</strong> <span class="math notranslate nohighlight">\(C_{ds} = \rho_mc_mA_{ds}\Delta x\)</span> and <span class="math notranslate nohighlight">\(C_a = \rho_mc_mA_a\Delta x\)</span>.</p></li>
+<li><p><strong>Special cells:</strong></p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(j_b\)</span> = the cell containing the bit (last top ≤ <span class="math notranslate nohighlight">\(s_{bit}\)</span>, clipped to <span class="math notranslate nohighlight">\(n-1\)</span>);</p></li>
+<li><p><span class="math notranslate nohighlight">\(n_b = n-1\)</span> is the bottom cell.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="growth-growcutgrow">
+<span id="104-growth-growcutgrow"></span><h3>10.4 Growth (grow–cut–grow)<a class="headerlink" href="#growth-growcutgrow" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">grow(h)</span></code>, with <span class="math notranslate nohighlight">\(\delta = h - (\text{bottom edge})\)</span>; nothing happens if <span class="math notranslate nohighlight">\(\delta \le 0\)</span>:</p>
+<ol class="arabic simple">
+<li><p>The bottom cell lengthens by <span class="math notranslate nohighlight">\(\delta\)</span>.</p></li>
+<li><p>Its formation temperatures relax toward the undisturbed value at the new bottom:
+<span class="math notranslate nohighlight">\(T_{f,n_b,\cdot} \mathrel{+}= w(T_{geo}(z(h)) - T_{f,n_b,\cdot})\)</span>, with <span class="math notranslate nohighlight">\(w = \min(1, \delta/\Delta x_{n_b})\)</span>.</p></li>
+<li><p>If the bottom cell is now longer than cut factor × <span class="math notranslate nohighlight">\(\Delta x_T\)</span>, it is cut into two equal halves; both keep the old cell’s temperatures.</p></li>
+</ol>
+</section>
+<section id="time-step">
+<span id="105-time-step"></span><h3>10.5 Time step<a class="headerlink" href="#time-step" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">advance(duration,</span> <span class="pre">Q,</span> <span class="pre">T_in,</span> <span class="pre">s_bit,</span> <span class="pre">s_hole,</span> <span class="pre">ROP)</span></code>:</p>
+<ol class="arabic">
+<li><p>Update <span class="math notranslate nohighlight">\(Q\)</span>, <span class="math notranslate nohighlight">\(T_{in}\)</span> and <span class="math notranslate nohighlight">\(s_{bit}\)</span>; <span class="math notranslate nohighlight">\(s_{hole} \leftarrow \max(s_{hole}, \text{old})\)</span>.</p></li>
+<li><p>Use <span class="math notranslate nohighlight">\(n_{sub} = \max(1, \lceil\text{duration}/2\text{ s}\rceil)\)</span> substeps of length <span class="math notranslate nohighlight">\(\Delta t\)</span>.</p></li>
+<li><p>In substep <span class="math notranslate nohighlight">\(k\)</span>, the hole depth is <span class="math notranslate nohighlight">\(h_k = s_{hole}^{old} + (s_{hole} - s_{hole}^{old})(k+1)/n_{sub}\)</span>. Then:</p>
+<ol class="arabic">
+<li><p><code class="docutils literal notranslate"><span class="pre">grow(h_k)</span></code>;</p></li>
+<li><p>geometry (forced when ROP &gt; 0);</p></li>
+<li><p>heat-capacity rate <span class="math notranslate nohighlight">\(F = \rho_mc_m|Q|\)</span>;</p></li>
+<li><p>cuttings rate <span class="math notranslate nohighlight">\(q_c = \rho_rc_r\tfrac\pi4D^2\max(\text{ROP}, 0)\)</span> if <span class="math notranslate nohighlight">\(s_{bit} \ge h_k - 0.5\)</span>, else 0, entering at <span class="math notranslate nohighlight">\(T_c = T_{geo}(z(h_k))\)</span>;</p></li>
+<li><p>one backward-Euler step, iterated 3 times (Gauss–Seidel), from the old temperatures <span class="math notranslate nohighlight">\(T^o\)</span>:</p>
+<ul>
+<li><p><strong>Drillstring,</strong> downward for <span class="math notranslate nohighlight">\(j = 0\dots j_b\)</span>, with upstream temperature <span class="math notranslate nohighlight">\(u\)</span> starting at <span class="math notranslate nohighlight">\(T_{in}\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[T_{ds,j} = \frac{C_{ds,j}T^o_{ds,j}/\Delta t + Fu + G_{ds,j}T_{a,j}}{C_{ds,j}/\Delta t + F + G_{ds,j}},\qquad u \leftarrow T_{ds,j}\]</div>
+<p>(unchanged if the denominator is 0).</p>
+</li>
+<li><p><strong>Annulus,</strong> upward for <span class="math notranslate nohighlight">\(j = n-1\dots0\)</span>, with “below” starting at <span class="math notranslate nohighlight">\(T_{ds,j_b}\)</span>:</p>
+<ul>
+<li><p>The base is</p>
+<div class="math notranslate nohighlight">
+\[T_{a,j} = \frac{C_{a,j}T^o_{a,j}/\Delta t + \gamma_jT_{ds,j} + G_{w,j}T_{f,j,0} + \dots}{C_{a,j}/\Delta t + \gamma_j + G_{w,j} + \dots},\]</div>
+<p>with <span class="math notranslate nohighlight">\(\gamma_j = G_{ds,j}\)</span> for <span class="math notranslate nohighlight">\(j \le j_b\)</span>, else 0.</p>
+</li>
+<li><p><strong>Flowing cells</strong> (<span class="math notranslate nohighlight">\(j \le j_b\)</span>, with <span class="math notranslate nohighlight">\(F &gt; 0\)</span>): add <span class="math notranslate nohighlight">\(F\cdot\text{below}\)</span> above the line and <span class="math notranslate nohighlight">\(F\)</span> below it.</p></li>
+<li><p><strong>Bottom cell</strong> (<span class="math notranslate nohighlight">\(j = n_b\)</span>): add <span class="math notranslate nohighlight">\(q_cT_c\)</span> above the line and <span class="math notranslate nohighlight">\(q_c\)</span> below it.</p></li>
+<li><p>After each cell <span class="math notranslate nohighlight">\(j \le j_b\)</span>: below <span class="math notranslate nohighlight">\(\leftarrow T_{a,j}\)</span>.</p></li>
+<li><p>Cells below the bit are stagnant.</p></li>
+</ul>
+</li>
+<li><p><strong>Formation:</strong> for each cell, a backward-Euler radial conduction solve from <span class="math notranslate nohighlight">\(T^o_f\)</span> (tridiagonal, Thomas algorithm):</p>
+<div class="math notranslate nohighlight">
+\[\frac{v_i\Delta x}{\Delta t}(T_i - T_i^o) = g_{i-1}(T_{i-1} - T_i) + g_i(T_{i+1} - T_i),\]</div>
+<p>with the wall node coupled to <span class="math notranslate nohighlight">\(T_{a,j}\)</span> through <span class="math notranslate nohighlight">\(G_w\)</span> and the outer node coupled to <span class="math notranslate nohighlight">\(T_{far}\)</span> through <span class="math notranslate nohighlight">\(g_{out}\)</span>.</p>
+</li>
+</ul>
+</li>
+</ol>
+</li>
+<li><p>Set the hole depth and update the annulus pressure (10.6).</p></li>
+</ol>
+</section>
+<section id="annulus-pressure-and-outputs">
+<span id="106-annulus-pressure-and-outputs"></span><h3>10.6 Annulus pressure and outputs<a class="headerlink" href="#annulus-pressure-and-outputs" title="Link to this heading"></a></h3>
+<p><strong>Pressure.</strong> Integrate down the annulus from <span class="math notranslate nohighlight">\(p = 0\)</span> over the cells: with <span class="math notranslate nohighlight">\(\rho = \rho(T_{a,j}, p)\)</span> (section 8.2),
+<span class="math notranslate nohighlight">\(p \mathrel{+}= \rho g(z_{e,j+1} - z_{e,j})\)</span>, where <span class="math notranslate nohighlight">\(z_e\)</span> is the TVD of the cell edges.</p>
+<ul class="simple">
+<li><p><strong>Friction:</strong> if <span class="math notranslate nohighlight">\(Q &gt; 0\)</span>, <span class="math notranslate nohighlight">\(j \le j_b\)</span> and <span class="math notranslate nohighlight">\(A_a &gt; 0\)</span>, add the Newtonian friction (8.1 with <span class="math notranslate nohighlight">\(\tau_y = 0\)</span>, PV = <span class="math notranslate nohighlight">\(\mu\)</span>) over <span class="math notranslate nohighlight">\(\Delta x_j\)</span>. It uses the annulus between <span class="math notranslate nohighlight">\(D_w\)</span> and <span class="math notranslate nohighlight">\(\sqrt{\max(D_w^2 - 4A_a/\pi, 0)}\)</span> (a pipe if that is 0), at velocity <span class="math notranslate nohighlight">\(Q/A_a\)</span>.</p></li>
+<li><p><strong>Results:</strong> <span class="math notranslate nohighlight">\(p_{bh} = p\)</span> at the bottom, and <span class="math notranslate nohighlight">\(ECD = p_{bh}/(g\,z_{bottom})\)</span>.</p></li>
+</ul>
+<p><strong>State outputs:</strong></p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(t_{bit} = T_{a,j_b}\)</span> and <span class="math notranslate nohighlight">\(t_{ds,bit} = T_{ds,j_b}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(t_{out} = T_{a,0}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(t_{in}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(t_{rock} = T_{geo}\)</span> at the hole TVD;</p></li>
+<li><p><span class="math notranslate nohighlight">\(p_{bh}\)</span>, ECD.</p></li>
+</ul>
+<p><strong>Profiles per cell:</strong> MD, TVD, <span class="math notranslate nohighlight">\(T_{ds}\)</span> (marked “no pipe” where <span class="math notranslate nohighlight">\(A_{ds} = 0\)</span>), <span class="math notranslate nohighlight">\(T_a\)</span>, <span class="math notranslate nohighlight">\(T_{f,\cdot,0}\)</span> (wall) and <span class="math notranslate nohighlight">\(T_{far}\)</span>.</p>
+</section>
+<section id="coupling-to-the-other-models">
+<span id="107-coupling-to-the-other-models"></span><h3>10.7 Coupling to the other models<a class="headerlink" href="#coupling-to-the-other-models" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Order in the simulation:</strong></p>
+<ul>
+<li><p>The model is created at initialisation, before the hydraulics.</p></li>
+<li><p>It advances at every rock-strength update (section 7). It is given:</p>
+<ul>
+<li><p>the elapsed time;</p></li>
+<li><p>the current ramped pump rate and inlet temperature;</p></li>
+<li><p>the bit and hole depth;</p></li>
+<li><p>the average ROP.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>Hydraulics.</strong> After creation and after every advance, the hydraulics take the mud temperatures for <span class="math notranslate nohighlight">\(\rho_T\)</span> (8.2):</p>
+<ul>
+<li><p>The bore uses <span class="math notranslate nohighlight">\(T_{ds}\)</span> at the centres of cells with pipe (all cells if none), linearly interpolated (clamped) to the hydraulic bore-cell centres.</p></li>
+<li><p>The annulus uses <span class="math notranslate nohighlight">\(T_a\)</span> interpolated the same way.</p></li>
+<li><p>Interpolation is repeated whenever the hydraulic grid changes. Cells added by a regrid first copy the bottom temperature.</p></li>
+<li><p>At initialisation the hydraulic static state is computed after the temperatures are set.</p></li>
+</ul>
+</li>
+<li><p><strong>Rock strength</strong> (section 9) uses <span class="math notranslate nohighlight">\(T_{mud} = t_{bit}\)</span>, which turns on T2. Without hydraulics, it also uses <span class="math notranslate nohighlight">\(p_{bh}\)</span> from 10.6.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="steady-torque-and-drag-reference-profiles">
+<span id="11-steady-torque-and-drag-reference-profiles"></span><h2>11. Steady torque and drag (reference profiles)<a class="headerlink" href="#steady-torque-and-drag-reference-profiles" title="Link to this heading"></a></h2>
+<p>For one operating state (axial velocity <span class="math notranslate nohighlight">\(v\)</span>, speed <span class="math notranslate nohighlight">\(\omega\)</span>, WOB, TOB),
+integrate from the bit up.</p>
+<p><strong>At the bit:</strong> <span class="math notranslate nohighlight">\(T_n = -\text{WOB}\)</span> and <span class="math notranslate nohighlight">\(M_n = \text{TOB}\)</span>.</p>
+<p><strong>For each cell, bottom to top:</strong></p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(F_N = |T_{j+1}\boldsymbol\kappa_j + w_b\mathbf z_\perp|\)</span>, or a fixed profile;</p></li>
+<li><p>direction cosines <span class="math notranslate nohighlight">\((c_a, c_t) = (v, \omega r_c)/\sqrt{v^2 + \omega^2r_c^2}\)</span> (0 if both are 0);</p></li>
+<li><p><span class="math notranslate nohighlight">\(f = \mu_jF_N\)</span>;</p></li>
+<li><p>tension: <span class="math notranslate nohighlight">\(T_j = T_{j+1} + (w_bt_z - fc_a)h_j\)</span>;</p></li>
+<li><p>torque: <span class="math notranslate nohighlight">\(M_j = M_{j+1} + fc_tr_ch_j\)</span>.</p></li>
+</ul>
+<p>The geometry here uses the unshifted grid (initial position).</p>
+<p><strong>UI reference profiles:</strong></p>
+<ul class="simple">
+<li><p>rotating (<span class="math notranslate nohighlight">\(\omega = 1\)</span>) with the kinetic factors;</p></li>
+<li><p>rotating with the static factors;</p></li>
+<li><p>hanging (μ = 0).</p></li>
+</ul>
+<p>With decoupled friction, the static normal force is used.</p>
+</section>
+<hr class="docutils" />
+<section id="outputs">
+<span id="12-outputs"></span><h2>12. Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">latest</span></code>:</strong></p>
+<ul>
+<li><p>top drive: time, <span class="math notranslate nohighlight">\(\omega_{td}\)</span>, <span class="math notranslate nohighlight">\(\tau_m\)</span>, <span class="math notranslate nohighlight">\(\tau_0\)</span>, <span class="math notranslate nohighlight">\(\omega_{sp}\)</span>;</p></li>
+<li><p>bit: <span class="math notranslate nohighlight">\(\omega_b\)</span>, TOB, <span class="math notranslate nohighlight">\(v_b\)</span>, WOB;</p></li>
+<li><p>axial: <span class="math notranslate nohighlight">\(v_{blk}\)</span>, <span class="math notranslate nohighlight">\(H\)</span>;</p></li>
+<li><p>depths: <span class="math notranslate nohighlight">\(s_{bit}\)</span>, <span class="math notranslate nohighlight">\(s_{hole}\)</span>;</p></li>
+<li><p>circulation: the current pump rate, plus hydraulics SPP, <span class="math notranslate nohighlight">\(p_{bh}\)</span>, ECD, <span class="math notranslate nohighlight">\(q_{out}\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Recorded channels:</strong> section 5.8.</p></li>
+<li><p><strong>Profiles per cell:</strong></p>
+<ul>
+<li><p>MD, ω, τ, <span class="math notranslate nohighlight">\(v\)</span>;</p></li>
+<li><p>tension <span class="math notranslate nohighlight">\(-(q^s_c + q^d)\)</span>;</p></li>
+<li><p>normal force (live for coupled friction, static otherwise);</p></li>
+<li><p>OD and inclination <span class="math notranslate nohighlight">\(\arccos t_z\)</span>.</p></li>
+</ul>
+</li>
+<li><p><strong>Surface ROP / downhole ROP</strong> in the UI:</p>
+<ul>
+<li><p>block speed <span class="math notranslate nohighlight">\(v_{blk}\)</span>;</p></li>
+<li><p>bit ROP <span class="math notranslate nohighlight">\(\max(v_b, 0)\)</span> when <span class="math notranslate nohighlight">\(s_{bit} \ge s_{hole} - 10^{-6}\)</span>, else 0.</p></li>
+</ul>
+</li>
+<li><p><strong>Surface WOB:</strong> <span class="math notranslate nohighlight">\(H_{ref} - H\)</span>.</p></li>
+</ul>
+<p>The UI frame format (<code class="docutils literal notranslate"><span class="pre">src/DrillPyze/ui/server.py</span></code>, <code class="docutils literal notranslate"><span class="pre">Session.frame</span></code>) is part of
+the browser contract: the lite engine reproduces it field for field.</p>
+</section>
+<hr class="docutils" />
+<section id="conformance">
+<span id="13-conformance"></span><h2>13. Conformance<a class="headerlink" href="#conformance" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">tests/test_lite_engine.py</span></code> runs the browser engine under Node.js against the
+Python model on the same case (Well A with the temperature model off) and the
+same input script, with and without the wellbore temperature model. It requires:</p>
+<ul class="simple">
+<li><p>agreement to rounding level for the first seconds, before stick-slip chaos amplifies round-off;</p></li>
+<li><p>agreement of the statistics over the whole run (mean torque and hookload, stick-slip amplitude, hydraulic pressures).</p></li>
+</ul>
+<p>A new spec revision must keep this test passing for the lite version.</p>
+</section>
+<section id="revision-history">
+<h2>Revision history<a class="headerlink" href="#revision-history" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Revision</p></th>
+<th class="head"><p>Change</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>First specification of the Python model (November 2026).</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Section 10 (wellbore temperature) written at implementation level; the browser version implements it. No change to the Python physics.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="specification.html" class="btn btn-neutral float-left" title="Physics specification" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api.html" class="btn btn-neutral float-right" title="API reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
