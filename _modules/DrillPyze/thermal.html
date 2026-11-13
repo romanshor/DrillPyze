@@ -1,0 +1,514 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.thermal &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.thermal</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.thermal</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Transient wellbore temperature while drilling, after the modified drift-flux</span>
+<span class="sd">model of Wang, Khaled, Luu, Ashok &amp; van Oort (2023), "Downhole Temperature</span>
+<span class="sd">Estimation of a Growing High-Temperature Wellbore Using a Modified Drift</span>
+<span class="sd">Flux Modeling Approach", SPE-214836-MS, doi:10.2118/214836-MS.</span>
+
+<span class="sd">Implemented here in its single-phase (liquid mud) form:</span>
+
+<span class="sd">* drillstring and annulus fluid energy balances on a common axial grid,</span>
+<span class="sd">  upwind in the flow direction (paper eqs. 3-5, 13);</span>
+<span class="sd">* radial heat flow drillstring &lt;-&gt; annulus and annulus &lt;-&gt; formation through</span>
+<span class="sd">  series conduction/convection resistances (eqs. 6-9; Nusselt number from</span>
+<span class="sd">  Dittus-Boelter for turbulent flow, 3.66 for laminar flow);</span>
+<span class="sd">* the formation as radial conduction cells per axial cell with the</span>
+<span class="sd">  undisturbed geothermal temperature in the far field (Khaled et al. 2023c);</span>
+<span class="sd">* a growing bottom cell, grown at the ROP and cut in two when it reaches a</span>
+<span class="sd">  threshold (the "grow-cut-grow" strategy, Fig. 2), with the cuttings</span>
+<span class="sd">  entering at the formation temperature (eqs. 14-20) and the bottom formation</span>
+<span class="sd">  cells relaxed toward the undisturbed temperature as the hole deepens</span>
+<span class="sd">  (eq. 10);</span>
+<span class="sd">* mud density rho(T, p) (eq. 2) integrated up the annulus with the frictional</span>
+<span class="sd">  pressure loss to give the bottomhole pressure and ECD.</span>
+
+<span class="sd">Simplifications relative to the paper, all consistent with its assumptions</span>
+<span class="sd">1-3: single liquid phase (gas volume fraction zero), velocity from the pump</span>
+<span class="sd">rate (ROP &lt;&lt; mud velocity), axial conduction in the fluid neglected,</span>
+<span class="sd">transient heat storage in the drillstring steel neglected, cuttings carry</span>
+<span class="sd">their heat into the mud at the bottom cell.  Moving geometry discontinuities</span>
+<span class="sd">are handled by volume-averaging the string geometry over each cell at every</span>
+<span class="sd">update (Fig. 1); the associated ROP-scaled area-change terms of eqs. 11-13</span>
+<span class="sd">are O(ROP/v) and omitted.</span>
+
+<span class="sd">Units: SI, temperatures in deg C.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">njit</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.hydraulics</span><span class="w"> </span><span class="kn">import</span> <span class="n">frictional_pressure_drop</span>
+
+
+<div class="viewcode-block" id="ThermalParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.thermal.ThermalParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ThermalParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Wellbore temperature model settings: grid, radial formation cells, steel and</span>
+<span class="sd">    casing properties, initial pump rate and inlet temperature, substep and iterations.</span>
+<span class="sd">    """</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span>                <span class="c1"># nominal axial cell length (m)</span>
+    <span class="n">cut_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>         <span class="c1"># bottom cell is split when longer than cut_factor * dx</span>
+    <span class="n">n_radial</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span>              <span class="c1"># formation cells per axial cell</span>
+    <span class="n">far_field</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>          <span class="c1"># radial extent of the modelled formation beyond the wall (m)</span>
+    <span class="n">steel_conductivity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">45.0</span>
+    <span class="n">casing_thickness</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.012</span> <span class="c1"># m, used for conduction through casing</span>
+    <span class="n">flow_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0347</span>       <span class="c1"># default pump rate (m^3/s), 550 gpm</span>
+    <span class="n">inlet_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span> <span class="c1"># default mud inlet temperature (C)</span>
+    <span class="n">max_dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>             <span class="c1"># s, largest thermal time step</span>
+    <span class="n">gs_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>          <span class="c1"># fluid / formation coupling iterations per step</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_h</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">Dh</span><span class="p">,</span> <span class="n">fluid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Convection coefficient (W/m^2 K): Dittus-Boelter (turbulent) or Nu = 3.66 (laminar)."""</span>
+    <span class="n">k</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">thermal_conductivity</span><span class="p">,</span> <span class="n">fluid</span><span class="o">.</span><span class="n">viscosity</span><span class="p">,</span> <span class="n">fluid</span><span class="o">.</span><span class="n">heat_capacity</span><span class="p">,</span> <span class="n">fluid</span><span class="o">.</span><span class="n">density</span>
+    <span class="k">if</span> <span class="n">A</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">Dh</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span> <span class="o">/</span> <span class="n">A</span>
+    <span class="n">Re</span> <span class="o">=</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">Dh</span> <span class="o">/</span> <span class="n">mu</span>
+    <span class="n">Pr</span> <span class="o">=</span> <span class="n">mu</span> <span class="o">*</span> <span class="n">cp</span> <span class="o">/</span> <span class="n">k</span>
+    <span class="n">Nu</span> <span class="o">=</span> <span class="mf">0.023</span> <span class="o">*</span> <span class="n">Re</span> <span class="o">**</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">Pr</span> <span class="o">**</span> <span class="mf">0.4</span> <span class="k">if</span> <span class="n">Re</span> <span class="o">&gt;</span> <span class="mi">2300</span> <span class="k">else</span> <span class="mf">3.66</span>
+    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">Nu</span><span class="p">,</span> <span class="mf">3.66</span><span class="p">)</span> <span class="o">*</span> <span class="n">k</span> <span class="o">/</span> <span class="n">Dh</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_solve_layer</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">rc_vol</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">g_in</span><span class="p">,</span> <span class="n">T_in_side</span><span class="p">,</span> <span class="n">g_out</span><span class="p">,</span> <span class="n">T_far</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Backward-Euler radial conduction in one formation layer (tridiagonal)."""</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">T</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">rc_vol</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">dt</span>
+        <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">C</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">C</span> <span class="o">*</span> <span class="n">T</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">g_in</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">g_in</span> <span class="o">*</span> <span class="n">T_in_side</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">g</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">g</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">g_out</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">g_out</span> <span class="o">*</span> <span class="n">T_far</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="c1"># Thomas algorithm</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">T</span><span class="p">[</span><span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">b</span><span class="p">[</span><span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">T</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">T</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_thermal_step</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">T_in</span><span class="p">,</span> <span class="n">jb</span><span class="p">,</span> <span class="n">nb</span><span class="p">,</span> <span class="n">q_cut_g</span><span class="p">,</span> <span class="n">T_cut</span><span class="p">,</span>
+                  <span class="n">T_ds</span><span class="p">,</span> <span class="n">T_ann</span><span class="p">,</span> <span class="n">T_f</span><span class="p">,</span> <span class="n">C_ds</span><span class="p">,</span> <span class="n">C_ann</span><span class="p">,</span> <span class="n">G_ds</span><span class="p">,</span> <span class="n">G_w</span><span class="p">,</span> <span class="n">rc_vol</span><span class="p">,</span> <span class="n">g_rad</span><span class="p">,</span> <span class="n">g_out</span><span class="p">,</span> <span class="n">T_far</span><span class="p">,</span> <span class="n">n_iter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    One backward-Euler step of the coupled fluid / formation energy balance.</span>
+
+<span class="sd">    F       mud heat-capacity rate rho c Q (W/K)</span>
+<span class="sd">    jb      cell containing the bit (flow turns from drillstring to annulus there)</span>
+<span class="sd">    nb      bottom (growing) cell, receives the cuttings</span>
+<span class="sd">    q_cut_g cuttings heat-capacity rate rho_r c_r A_hole ROP (W/K), entering at T_cut</span>
+<span class="sd">    Returns the heat into the fluid from the formation (W) at the end of the step.</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">T_ann</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">T_ds_old</span> <span class="o">=</span> <span class="n">T_ds</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">T_ann_old</span> <span class="o">=</span> <span class="n">T_ann</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">T_f_old</span> <span class="o">=</span> <span class="n">T_f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_iter</span><span class="p">):</span>
+        <span class="c1"># drillstring, flowing down (cells 0..jb)</span>
+        <span class="n">up</span> <span class="o">=</span> <span class="n">T_in</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">jb</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">Cd</span> <span class="o">=</span> <span class="n">C_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dt</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="n">Cd</span> <span class="o">*</span> <span class="n">T_ds_old</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">F</span> <span class="o">*</span> <span class="n">up</span> <span class="o">+</span> <span class="n">G_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">T_ann</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">den</span> <span class="o">=</span> <span class="n">Cd</span> <span class="o">+</span> <span class="n">F</span> <span class="o">+</span> <span class="n">G_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">T_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span> <span class="k">if</span> <span class="n">den</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">T_ds_old</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">up</span> <span class="o">=</span> <span class="n">T_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="c1"># annulus, flowing up from the bit (cells below the bit are stagnant)</span>
+        <span class="n">below</span> <span class="o">=</span> <span class="n">T_ds</span><span class="p">[</span><span class="n">jb</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">Ca</span> <span class="o">=</span> <span class="n">C_ann</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dt</span>
+            <span class="n">Fj</span> <span class="o">=</span> <span class="n">F</span> <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;=</span> <span class="n">jb</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">gds</span> <span class="o">=</span> <span class="n">G_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;=</span> <span class="n">jb</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="n">Ca</span> <span class="o">*</span> <span class="n">T_ann_old</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">gds</span> <span class="o">*</span> <span class="n">T_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">G_w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">T_f</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">den</span> <span class="o">=</span> <span class="n">Ca</span> <span class="o">+</span> <span class="n">gds</span> <span class="o">+</span> <span class="n">G_w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">Fj</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">num</span> <span class="o">+=</span> <span class="n">Fj</span> <span class="o">*</span> <span class="n">below</span>
+                <span class="n">den</span> <span class="o">+=</span> <span class="n">Fj</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">nb</span><span class="p">:</span>
+                <span class="n">num</span> <span class="o">+=</span> <span class="n">q_cut_g</span> <span class="o">*</span> <span class="n">T_cut</span>
+                <span class="n">den</span> <span class="o">+=</span> <span class="n">q_cut_g</span>
+            <span class="n">T_ann</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;=</span> <span class="n">jb</span><span class="p">:</span>
+                <span class="n">below</span> <span class="o">=</span> <span class="n">T_ann</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="c1"># formation layers, coupled to the annulus through the wall conductance</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">T_f</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">T_f_old</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">_solve_layer</span><span class="p">(</span><span class="n">T_f</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">rc_vol</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">g_rad</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">G_w</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">T_ann</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">g_out</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">T_far</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">dt</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">+=</span> <span class="n">G_w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">T_f</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">T_ann</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">q</span>
+
+
+<div class="viewcode-block" id="WellboreThermal">
+<a class="viewcode-back" href="../../api.html#DrillPyze.thermal.WellboreThermal">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">WellboreThermal</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Wellbore temperature model coupled to a :class:`Simulation`.</span>
+
+<span class="sd">    Call :meth:`advance` with the elapsed time, pump rate, inlet temperature,</span>
+<span class="sd">    bit and hole depth and ROP.  The grid follows the hole as it is drilled.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wellbore</span><span class="p">,</span> <span class="n">drillstring</span><span class="p">,</span> <span class="n">fluid</span><span class="p">,</span> <span class="n">formation</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">ThermalParameters</span><span class="p">,</span>
+                 <span class="n">bit_depth</span><span class="p">,</span> <span class="n">hole_depth</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s1">'geothermal'</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span> <span class="o">=</span> <span class="n">wellbore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drillstring</span> <span class="o">=</span> <span class="n">drillstring</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fluid</span> <span class="o">=</span> <span class="n">fluid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">formation</span> <span class="o">=</span> <span class="n">formation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bit_depth</span> <span class="o">=</span> <span class="n">bit_depth</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hole_depth</span> <span class="o">=</span> <span class="n">hole_depth</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">flow_rate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inlet_temperature</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">inlet_temperature</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_build_grid</span><span class="p">(</span><span class="n">hole_depth</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span><span class="p">(</span><span class="n">bit_depth</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">tf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_far</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">tf</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">params</span><span class="o">.</span><span class="n">n_radial</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">initial</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'geothermal'</span><span class="p">,):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'initial must be "geothermal"'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q_formation</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pressure</span><span class="p">()</span>
+
+    <span class="c1"># ----------------------------------------------------------------- grid</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hole_depth</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Axial cells of about `dx` from surface to the hole depth."""</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">dx</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">hole_depth</span> <span class="o">/</span> <span class="n">dx</span><span class="p">)))</span>
+        <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">n</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hole_depth</span> <span class="o">-</span> <span class="n">edges</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">hole_depth</span> <span class="o">-</span> <span class="n">edges</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dx</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">edges</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">hole_depth</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">hole_depth</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_radial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r_w</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Radial formation grid for wall radius `r_w`: heat capacities, conductances and</span>
+<span class="sd">        the wall-to-first-node resistance (per unit length).</span>
+<span class="sd">        """</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">n_radial</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">r_w</span> <span class="o">*</span> <span class="p">((</span><span class="n">r_w</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">far_field</span><span class="p">)</span> <span class="o">/</span> <span class="n">r_w</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">m</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">m</span><span class="p">)</span>   <span class="c1"># face radii</span>
+        <span class="n">rc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">f</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formation</span><span class="o">.</span><span class="n">rock_conductivity</span>
+        <span class="n">vol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">f</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">formation</span><span class="o">.</span><span class="n">rock_density</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">formation</span><span class="o">.</span><span class="n">rock_heat_capacity</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">k</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rc</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">/</span> <span class="n">rc</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>          <span class="c1"># between nodes, per length</span>
+        <span class="n">g_out</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">k</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">rc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">r_in</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">r_w</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">k</span><span class="p">)</span>          <span class="c1"># wall to first node, per length</span>
+        <span class="k">return</span> <span class="n">rc</span><span class="p">,</span> <span class="n">vol</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">g_out</span><span class="p">,</span> <span class="n">r_in</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_depth</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Volume-averaged geometry and heat-transfer conductances for every cell."""</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="mi">2</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_geo_key'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="n">key</span>
+                <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">bit_depth</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo_bit</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.25</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_geo_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo_bit</span> <span class="o">=</span> <span class="n">key</span><span class="p">,</span> <span class="n">bit_depth</span>
+        <span class="n">wb</span><span class="p">,</span> <span class="n">ds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">drillstring</span>
+        <span class="n">fl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid</span>
+        <span class="n">mid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tvd</span> <span class="o">=</span> <span class="n">wb</span><span class="o">.</span><span class="n">survey</span><span class="o">.</span><span class="n">tvd_at</span><span class="p">(</span><span class="n">mid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T_far</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">formation</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tvd</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="c1"># string geometry, sampled along each cell (volume averaged, Fig. 1)</span>
+        <span class="n">top_len</span> <span class="o">=</span> <span class="n">bit_depth</span> <span class="o">-</span> <span class="n">ds</span><span class="o">.</span><span class="n">bha_length</span>
+        <span class="n">comps</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">components</span><span class="p">))</span>
+        <span class="n">lens</span> <span class="o">=</span> <span class="p">[</span><span class="n">top_len</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">length</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+        <span class="n">bnds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">lens</span><span class="p">)])</span>
+        <span class="n">k_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">steel_conductivity</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span>
+        <span class="n">A_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">);</span> <span class="n">A_ann</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">);</span> <span class="n">G_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">);</span> <span class="n">G_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">rc_vol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">n_radial</span><span class="p">));</span> <span class="n">g_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">n_radial</span> <span class="o">-</span> <span class="mi">1</span><span class="p">));</span> <span class="n">g_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D_wall</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">ns</span> <span class="o">=</span> <span class="mi">8</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">/</span> <span class="n">ns</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">ic</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">bnds</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'right'</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">comps</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">od_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">od</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">]);</span> <span class="n">id_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">])</span>
+        <span class="n">inside</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">&lt;=</span> <span class="n">bit_depth</span>
+        <span class="n">od</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">inside</span><span class="p">,</span> <span class="n">od_c</span><span class="p">[</span><span class="n">ic</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">);</span> <span class="n">idd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">inside</span><span class="p">,</span> <span class="n">id_c</span><span class="p">[</span><span class="n">ic</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">cased</span> <span class="o">=</span> <span class="n">mid</span> <span class="o">&lt;=</span> <span class="n">wb</span><span class="o">.</span><span class="n">casing_shoe</span>
+        <span class="n">Dw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cased</span><span class="p">,</span> <span class="p">(</span><span class="n">wb</span><span class="o">.</span><span class="n">casing_id</span> <span class="ow">or</span> <span class="n">wb</span><span class="o">.</span><span class="n">hole_diameter</span><span class="p">),</span> <span class="n">wb</span><span class="o">.</span><span class="n">hole_diameter</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D_wall</span> <span class="o">=</span> <span class="n">Dw</span>
+        <span class="n">A_ds</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">idd</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">A_ann</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">Dw</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">od</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Di</span><span class="p">,</span> <span class="n">Do</span> <span class="o">=</span> <span class="n">idd</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">od</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">radial</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">h_ann</span> <span class="o">=</span> <span class="n">_h</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">A_ann</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Dw</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">Do</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">fl</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">Do</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">Di</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">h_i</span> <span class="o">=</span> <span class="n">_h</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">A_ds</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Di</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">fl</span><span class="p">)</span>
+                <span class="n">R_ds</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">h_i</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Di</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">Do</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">Di</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">k_s</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">h_ann</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Do</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">G_ds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">R_ds</span>
+            <span class="n">r_w</span> <span class="o">=</span> <span class="n">Dw</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">casing_thickness</span> <span class="k">if</span> <span class="n">cased</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">r_w</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">radial</span><span class="p">:</span>
+                <span class="n">radial</span><span class="p">[</span><span class="n">r_w</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_radial</span><span class="p">(</span><span class="n">r_w</span><span class="p">)</span>
+            <span class="n">rc</span><span class="p">,</span> <span class="n">vol</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">go</span><span class="p">,</span> <span class="n">r_in</span> <span class="o">=</span> <span class="n">radial</span><span class="p">[</span><span class="n">r_w</span><span class="p">]</span>
+            <span class="n">R_w</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">h_ann</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Dw</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">+</span> <span class="n">r_in</span>
+            <span class="k">if</span> <span class="n">cased</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span>
+                <span class="n">R_w</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">Dw</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">casing_thickness</span><span class="p">)</span> <span class="o">/</span> <span class="n">Dw</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">k_s</span><span class="p">)</span>
+            <span class="n">G_w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">R_w</span>
+            <span class="n">rc_vol</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">vol</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">g_rad</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">g_out</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">go</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">rc_</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">density</span> <span class="o">*</span> <span class="n">fl</span><span class="o">.</span><span class="n">heat_capacity</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">A_ann</span> <span class="o">=</span> <span class="n">A_ds</span><span class="p">,</span> <span class="n">A_ann</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">C_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">C_ann</span> <span class="o">=</span> <span class="n">rc_</span> <span class="o">*</span> <span class="n">A_ds</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">,</span> <span class="n">rc_</span> <span class="o">*</span> <span class="n">A_ann</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">G_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">G_w</span> <span class="o">=</span> <span class="n">G_ds</span><span class="p">,</span> <span class="n">G_w</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rc_vol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_rad</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_out</span> <span class="o">=</span> <span class="n">rc_vol</span><span class="p">,</span> <span class="n">g_rad</span><span class="p">,</span> <span class="n">g_out</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jb</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">,</span> <span class="n">bit_depth</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'right'</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nb</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="c1"># ------------------------------------------------------------ growth</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_grow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hole_depth</span><span class="p">,</span> <span class="n">rop</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Extend the bottom cell to the new hole depth; cut it in two when it is too long."""</span>
+        <span class="n">dh</span> <span class="o">=</span> <span class="n">hole_depth</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">dh</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dh</span>
+        <span class="c1"># eq. 10: bottom formation cells relax toward the undisturbed temperature</span>
+        <span class="n">tvd_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span><span class="o">.</span><span class="n">tvd_at</span><span class="p">([</span><span class="n">hole_depth</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">T_far_b</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">formation</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="n">tvd_b</span><span class="p">))</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">dh</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">T_far_b</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="c1"># grow-cut-grow (Fig. 2): split the bottom cell, both halves keep its state</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cut_factor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">dx</span><span class="p">:</span>
+            <span class="n">half</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">half</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">half</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]])</span>
+
+    <span class="c1"># ---------------------------------------------------------- pressure</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Annular pressure profile from rho(T, p) (eq. 2) plus frictional loss."""</span>
+        <span class="n">fl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+        <span class="n">tvd_edges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span><span class="o">.</span><span class="n">tvd_at</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">x_top</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]]))</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_ann</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">rho</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">density_at</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">p</span><span class="p">)</span>
+            <span class="n">dp</span> <span class="o">=</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">G</span> <span class="o">*</span> <span class="p">(</span><span class="n">tvd_edges</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tvd_edges</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">Q</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jb</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">A_ann</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">Do</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D_wall</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">A_ann</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+                <span class="n">dp</span> <span class="o">+=</span> <span class="n">frictional_pressure_drop</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">viscosity</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">D_wall</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Do</span> <span class="k">if</span> <span class="n">Do</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">p</span> <span class="o">+=</span> <span class="n">dp</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_ann</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_bh</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="n">tvd_b</span> <span class="o">=</span> <span class="n">tvd_edges</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ecd</span> <span class="o">=</span> <span class="n">p</span> <span class="o">/</span> <span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">G</span> <span class="o">*</span> <span class="n">tvd_b</span><span class="p">)</span> <span class="k">if</span> <span class="n">tvd_b</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">fl</span><span class="o">.</span><span class="n">density</span>
+
+    <span class="c1"># ------------------------------------------------------------ advance</span>
+<div class="viewcode-block" id="WellboreThermal.advance">
+<a class="viewcode-back" href="../../api.html#DrillPyze.thermal.WellboreThermal.advance">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">advance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">flow_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inlet_temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bit_depth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">hole_depth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rop</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Advance the temperature field by ``duration`` seconds."""</span>
+        <span class="k">if</span> <span class="n">flow_rate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">flow_rate</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">inlet_temperature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inlet_temperature</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inlet_temperature</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bit_depth</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bit_depth</span> <span class="o">=</span> <span class="n">bit_depth</span>
+        <span class="n">hole</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hole_depth</span> <span class="k">if</span> <span class="n">hole_depth</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">hole_depth</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hole_depth</span><span class="p">)</span>
+        <span class="n">nsub</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">duration</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">max_dt</span><span class="p">)))</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">duration</span> <span class="o">/</span> <span class="n">nsub</span>
+        <span class="n">fl</span><span class="p">,</span> <span class="n">fm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">formation</span>
+        <span class="n">hole0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hole_depth</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsub</span><span class="p">):</span>
+            <span class="n">h_k</span> <span class="o">=</span> <span class="n">hole0</span> <span class="o">+</span> <span class="p">(</span><span class="n">hole</span> <span class="o">-</span> <span class="n">hole0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">nsub</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_grow</span><span class="p">(</span><span class="n">h_k</span><span class="p">,</span> <span class="n">rop</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bit_depth</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="p">(</span><span class="n">rop</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">F</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">density</span> <span class="o">*</span> <span class="n">fl</span><span class="o">.</span><span class="n">heat_capacity</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span><span class="p">)</span>
+            <span class="n">on_bottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_depth</span> <span class="o">&gt;=</span> <span class="n">h_k</span> <span class="o">-</span> <span class="mf">0.5</span>
+            <span class="n">A_hole</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">hole_diameter</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">q_cut_g</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">rock_density</span> <span class="o">*</span> <span class="n">fm</span><span class="o">.</span><span class="n">rock_heat_capacity</span> <span class="o">*</span> <span class="n">A_hole</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">rop</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">if</span> <span class="n">on_bottom</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">T_cut</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fm</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span><span class="o">.</span><span class="n">tvd_at</span><span class="p">([</span><span class="n">h_k</span><span class="p">])[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">q_formation</span> <span class="o">=</span> <span class="n">_thermal_step</span><span class="p">(</span>
+                <span class="n">dt</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">inlet_temperature</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">jb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb</span><span class="p">,</span> <span class="n">q_cut_g</span><span class="p">,</span> <span class="n">T_cut</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">C_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">C_ann</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">G_ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">G_w</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">rc_vol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_rad</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_far</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">gs_iterations</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">q_cuttings</span> <span class="o">=</span> <span class="n">q_cut_g</span> <span class="o">*</span> <span class="p">(</span><span class="n">T_cut</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nb</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hole_depth</span> <span class="o">=</span> <span class="n">hole</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pressure</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">()</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------- output</span>
+<div class="viewcode-block" id="WellboreThermal.state">
+<a class="viewcode-back" href="../../api.html#DrillPyze.thermal.WellboreThermal.state">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Temperatures at the bit, outlet and inlet, rock temperature, bottomhole pressure,</span>
+<span class="sd">        ECD and pump rate.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">t_bit</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">jb</span><span class="p">]),</span> <span class="n">t_ds_bit</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">jb</span><span class="p">]),</span>
+                    <span class="n">t_out</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">t_in</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inlet_temperature</span><span class="p">,</span>
+                    <span class="n">t_rock</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">formation</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span><span class="o">.</span><span class="n">tvd_at</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">hole_depth</span><span class="p">])[</span><span class="mi">0</span><span class="p">])),</span>
+                    <span class="n">p_bh</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_bh</span><span class="p">),</span> <span class="n">ecd</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ecd</span><span class="p">),</span> <span class="n">flow_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">flow_rate</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="WellboreThermal.profiles">
+<a class="viewcode-back" href="../../api.html#DrillPyze.thermal.WellboreThermal.profiles">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">profiles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Temperature profiles per cell (DataFrame): drillstring, annulus, wall and far field."""</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">md</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">x_top</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">,</span> <span class="n">tvd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tvd</span><span class="p">,</span> <span class="n">t_ds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span><span class="p">,</span>
+                                 <span class="n">t_ann</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">,</span> <span class="n">t_wall</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">t_far</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">T_far</span><span class="p">,</span>
+                                 <span class="n">has_pipe</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A_ds</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="WellboreThermal.stored_energy">
+<a class="viewcode-back" href="../../api.html#DrillPyze.thermal.WellboreThermal.stored_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stored_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Thermal energy relative to 0 C in fluid and formation (J), for balance checks."""</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">C_ds</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_ds</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">C_ann</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_ann</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rc_vol</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_f</span><span class="p">))</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

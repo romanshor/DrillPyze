@@ -1,0 +1,561 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.ui.server &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.ui.server</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.ui.server</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">DrillPyze interactive UI server.</span>
+
+<span class="sd">A small standard-library HTTP server that owns :class:`Simulation` objects and</span>
+<span class="sd">steps them on request; the browser front end (``static/``) edits the case,</span>
+<span class="sd">drives the transport (play / pause / step) and animates the results.</span>
+
+<span class="sd">Run with ``drillpyze-ui`` (or ``python -m DrillPyze.ui``) and open the printed</span>
+<span class="sd">address.  API (JSON over HTTP):</span>
+
+<span class="sd">    GET  /api/defaults            default case config (Well A)</span>
+<span class="sd">    POST /api/init   {config}     build + initialise a simulation -&gt; session, geometry, first frame</span>
+<span class="sd">    POST /api/step   {session, duration, inputs}  advance and return one frame</span>
+<span class="sd">    GET  /api/results.csv?session=...             all recorded channels (SI) as CSV</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">webbrowser</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">http.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadingHTTPServer</span><span class="p">,</span> <span class="n">BaseHTTPRequestHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">parse_qs</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span> <span class="k">as</span> <span class="n">C</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">kernel</span> <span class="k">as</span> <span class="n">K</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">statics</span><span class="p">,</span> <span class="n">units</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span><span class="p">,</span> <span class="n">__release_date__</span><span class="p">,</span> <span class="n">__release_name__</span>
+
+<span class="n">STATIC</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">'static'</span><span class="p">)</span>
+<span class="n">PLOTLY_CDN</span> <span class="o">=</span> <span class="s1">'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js'</span>
+<span class="n">MAX_TRACE_ROWS</span> <span class="o">=</span> <span class="mi">400</span>          <span class="c1"># per frame, after decimation</span>
+
+<span class="n">_sessions</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">_sessions_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_r</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">nd</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Round an array for compact JSON."""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">out</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Session">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Session">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Session</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""One UI simulation: the built model, its inputs and what has been sent to the browser."""</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+        <span class="n">errs</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">errs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">errs</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span> <span class="o">=</span> <span class="n">cfg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sim</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_chunks</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_slow</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_hyd</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># block height above the rig floor (m), integrated from the block velocity</span>
+        <span class="n">bh</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'simulation'</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'block_height'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_pos</span> <span class="o">=</span> <span class="mf">25.0</span> <span class="k">if</span> <span class="n">bh</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s1">''</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">bh</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_t</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wall</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">touched</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reference</span><span class="p">()</span>
+
+    <span class="c1"># ---------------------------------------------------------- reference</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Static reference profiles for the plots."""</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sim</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">friction</span>
+        <span class="n">fixed</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">along_string_coupling</span> <span class="k">else</span> <span class="n">sim</span><span class="o">.</span><span class="n">fn0</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">fluid</span><span class="o">.</span><span class="n">density</span>
+        <span class="n">kin</span> <span class="o">=</span> <span class="n">statics</span><span class="o">.</span><span class="n">torque_drag</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">sim</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">mu_kinetic_cased</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">mu_kinetic_open</span><span class="p">,</span>
+                                  <span class="n">omega</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">normal_force</span><span class="o">=</span><span class="n">fixed</span><span class="p">)</span>
+        <span class="n">stat</span> <span class="o">=</span> <span class="n">statics</span><span class="o">.</span><span class="n">torque_drag</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">sim</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">mu_static_cased</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">mu_static_open</span><span class="p">,</span>
+                                   <span class="n">omega</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">normal_force</span><span class="o">=</span><span class="n">fixed</span><span class="p">)</span>
+        <span class="n">hang</span> <span class="o">=</span> <span class="n">statics</span><span class="o">.</span><span class="n">torque_drag</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">wellbore</span><span class="p">,</span> <span class="n">sim</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">md_e</span> <span class="o">=</span> <span class="n">kin</span><span class="o">.</span><span class="n">md</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reference</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">'md'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">md_e</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'torque_rotating_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">kin</span><span class="o">.</span><span class="n">torque</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">),</span>
+            <span class="s1">'torque_breakoff_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">stat</span><span class="o">.</span><span class="n">torque</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">),</span>
+            <span class="s1">'tension_hanging_kn'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">hang</span><span class="o">.</span><span class="n">tension</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="n">sv</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span>
+        <span class="n">md_path</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">sv</span><span class="o">.</span><span class="n">td</span><span class="p">,</span> <span class="n">sim</span><span class="o">.</span><span class="n">sc</span><span class="p">[</span><span class="n">K</span><span class="o">.</span><span class="n">S_HOLED</span><span class="p">]),</span> <span class="mi">400</span><span class="p">)</span>
+        <span class="n">n</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">sv</span><span class="o">.</span><span class="n">positions</span><span class="p">(</span><span class="n">md_path</span><span class="p">)</span>
+        <span class="n">az</span> <span class="o">=</span> <span class="n">sv</span><span class="o">.</span><span class="n">azi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vs_azimuth</span> <span class="o">=</span> <span class="n">az</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">top</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">drillstring</span><span class="o">.</span><span class="n">components</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>        <span class="c1"># the component stretched to surface</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'md'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">md_path</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s1">'vs'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">az</span><span class="p">)</span> <span class="o">+</span> <span class="n">e</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">az</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span> <span class="s1">'tvd'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                     <span class="s1">'shoe_md'</span><span class="p">:</span> <span class="n">sim</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">casing_shoe</span><span class="p">,</span>
+                     <span class="s1">'bha'</span><span class="p">:</span> <span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">component</span> <span class="o">!=</span> <span class="n">top</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                     <span class="s1">'bha_length'</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">drillstring</span><span class="o">.</span><span class="n">bha_length</span><span class="p">)}</span>
+
+    <span class="c1"># -------------------------------------------------------------- inputs</span>
+<div class="viewcode-block" id="Session.apply_inputs">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Session.apply_inputs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Translate UI inputs (display units) into Simulation.step keyword arguments."""</span>
+        <span class="n">kw</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'tare'</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">tare_hookload</span><span class="p">()</span>
+        <span class="n">td_mode</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'td_mode'</span><span class="p">,</span> <span class="s1">'setpoint'</span><span class="p">)</span>
+        <span class="n">rpm</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'rpm'</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">td_mode</span> <span class="o">==</span> <span class="s1">'speed'</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">[</span><span class="s1">'omega_td'</span><span class="p">]</span> <span class="o">=</span> <span class="n">rpm</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">RPM</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">[</span><span class="s1">'omega_sp'</span><span class="p">]</span> <span class="o">=</span> <span class="n">rpm</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">RPM</span>
+        <span class="k">if</span> <span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'dw_mode'</span><span class="p">,</span> <span class="s1">'velocity'</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'wob'</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">[</span><span class="s1">'wob_sp'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'wob_kn'</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1e3</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">[</span><span class="s1">'v_block'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'v_block_mh'</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">/</span> <span class="mf">3600.0</span>
+        <span class="k">if</span> <span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'flow_m3s'</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">[</span><span class="s1">'flow_rate'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="s1">'flow_m3s'</span><span class="p">]),</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">inp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'inlet_c'</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">[</span><span class="s1">'inlet_temperature'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="s1">'inlet_c'</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">kw</span></div>
+
+
+<div class="viewcode-block" id="Session.step">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Session.step">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Apply the UI inputs, advance `duration` seconds and return a frame."""</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">touched</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+            <span class="n">kw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_inputs</span><span class="p">(</span><span class="n">inputs</span> <span class="ow">or</span> <span class="p">{})</span>      <span class="c1"># applied even for a zero step (e.g. zeroing the weight indicator)</span>
+            <span class="k">if</span> <span class="n">duration</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">duration</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wall</span> <span class="o">+=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span></div>
+
+
+    <span class="c1"># --------------------------------------------------------------- frame</span>
+<div class="viewcode-block" id="Session.frame">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Session.frame">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wall</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Everything the browser needs to draw: latest values, new trace rows (decimated),</span>
+<span class="sd">        slow and hydraulics records, temperature and along-string profiles.</span>
+<span class="sd">        """</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sim</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">_records</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sent_chunks</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_chunks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">_records</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">chunks</span><span class="p">:</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+            <span class="c1"># block position: integrate the block velocity (+ down) at the full record rate</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[:,</span> <span class="n">K</span><span class="o">.</span><span class="n">REC_CHANNELS</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">'time'</span><span class="p">)]</span>
+            <span class="n">vb</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[:,</span> <span class="n">K</span><span class="o">.</span><span class="n">REC_CHANNELS</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">'v_block'</span><span class="p">)]</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_t</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_t</span><span class="p">],</span> <span class="n">t</span><span class="p">]))</span>
+            <span class="n">block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_pos</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">vb</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_t</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">block</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">rows</span><span class="p">,</span> <span class="n">block</span><span class="p">])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">MAX_TRACE_ROWS</span><span class="p">:</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">MAX_TRACE_ROWS</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+                <span class="n">rows</span> <span class="o">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">N_REC</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="n">rows</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">K</span><span class="o">.</span><span class="n">REC_CHANNELS</span> <span class="o">+</span> <span class="p">(</span><span class="s1">'block_pos'</span><span class="p">,))}</span>
+        <span class="n">trace</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">'time'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'time'</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">'rpm_td'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'omega_td'</span><span class="p">]),</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'rpm_bit'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'omega_bit'</span><span class="p">]),</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'rpm_sp'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'omega_sp'</span><span class="p">]),</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'motor_torque_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'motor_torque'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">'pipe_torque_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'pipe_torque'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">'tob_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'tob'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">'hookload_kn'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'hookload'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'wob_kn'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'wob'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'rop_mh'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'bit_depth'</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">col</span><span class="p">[</span><span class="s1">'hole_depth'</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'v_bit'</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">3600.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'block_mh'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'v_block'</span><span class="p">]</span> <span class="o">*</span> <span class="mf">3600.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s1">'bit_depth'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'bit_depth'</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">'hole_depth'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'hole_depth'</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">'block_pos'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">col</span><span class="p">[</span><span class="s1">'block_pos'</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="n">prof</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">profiles</span><span class="p">()</span>
+        <span class="n">sv</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">wellbore</span><span class="o">.</span><span class="n">survey</span>
+        <span class="n">n</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">sv</span><span class="o">.</span><span class="n">positions</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">md</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">az</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vs_azimuth</span>
+        <span class="c1"># slow channels (temperature, rock strength) since the last frame</span>
+        <span class="n">slow_rows</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">_slow_records</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sent_slow</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_slow</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">_slow_records</span><span class="p">)</span>
+        <span class="c1"># hydraulics channels (SI: Pa, kg/m^3, m^3/s) since the last frame</span>
+        <span class="n">hyd_rows</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">_hyd_records</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sent_hyd</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sent_hyd</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">_hyd_records</span><span class="p">)</span>
+        <span class="n">hyd</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span> <span class="mi">6</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">hyd_rows</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'time'</span><span class="p">,</span> <span class="s1">'spp'</span><span class="p">,</span> <span class="s1">'p_bh'</span><span class="p">,</span> <span class="s1">'ecd'</span><span class="p">,</span> <span class="s1">'q_in'</span><span class="p">,</span> <span class="s1">'q_out'</span><span class="p">)}</span>
+        <span class="n">hs</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">hydraulics</span><span class="o">.</span><span class="n">state</span><span class="p">()</span> <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">hydraulics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">slow</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)),</span> <span class="mi">4</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">slow_rows</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'time'</span><span class="p">,</span> <span class="s1">'t_bit'</span><span class="p">,</span> <span class="s1">'t_out'</span><span class="p">,</span> <span class="s1">'t_in'</span><span class="p">,</span> <span class="s1">'t_rock'</span><span class="p">,</span> <span class="s1">'ccs_eff'</span><span class="p">,</span> <span class="s1">'ccs'</span><span class="p">,</span> <span class="s1">'S'</span><span class="p">,</span> <span class="s1">'ecd'</span><span class="p">,</span> <span class="s1">'p_bh'</span><span class="p">)}</span>
+        <span class="n">thermal</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">thermal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tp</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">thermal</span><span class="o">.</span><span class="n">profiles</span><span class="p">()</span>
+            <span class="n">thermal</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'md'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">md</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s1">'t_ds'</span><span class="p">:</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">hp</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">hp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">t_ds</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">has_pipe</span><span class="p">)],</span>
+                       <span class="s1">'t_ann'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">t_ann</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="s1">'t_wall'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">t_wall</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="s1">'t_far'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">t_far</span><span class="p">,</span> <span class="mi">2</span><span class="p">)}</span>
+        <span class="n">rock</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">rock</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">thermal</span><span class="o">.</span><span class="n">state</span><span class="p">()</span> <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">thermal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">latest</span><span class="p">()</span>
+        <span class="n">on_bottom</span> <span class="o">=</span> <span class="n">L</span><span class="p">[</span><span class="s1">'bit_depth'</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">L</span><span class="p">[</span><span class="s1">'hole_depth'</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1e-6</span>
+        <span class="n">rop</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">L</span><span class="p">[</span><span class="s1">'v_bit'</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">if</span> <span class="n">on_bottom</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">'time'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'time'</span><span class="p">],</span>
+            <span class="s1">'latest'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'rpm_td'</span><span class="p">:</span> <span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">L</span><span class="p">[</span><span class="s1">'omega_td'</span><span class="p">]),</span> <span class="s1">'rpm_bit'</span><span class="p">:</span> <span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">L</span><span class="p">[</span><span class="s1">'omega_bit'</span><span class="p">]),</span>
+                <span class="s1">'rpm_sp'</span><span class="p">:</span> <span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">L</span><span class="p">[</span><span class="s1">'omega_sp'</span><span class="p">]),</span>
+                <span class="s1">'motor_torque_knm'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'motor_torque'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="s1">'pipe_torque_knm'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'pipe_torque'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span>
+                <span class="s1">'tob_knm'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'tob'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="s1">'hookload_kn'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'hookload'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="s1">'wob_kn'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'wob'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span>
+                <span class="s1">'rop_mh'</span><span class="p">:</span> <span class="n">rop</span> <span class="o">*</span> <span class="mf">3600.0</span><span class="p">,</span> <span class="s1">'bit_axial_mh'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'v_bit'</span><span class="p">]</span> <span class="o">*</span> <span class="mf">3600.0</span><span class="p">,</span>
+                <span class="s1">'bit_depth'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'bit_depth'</span><span class="p">],</span> <span class="s1">'hole_depth'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'hole_depth'</span><span class="p">],</span> <span class="s1">'on_bottom'</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">on_bottom</span><span class="p">),</span>
+                <span class="s1">'t_bit'</span><span class="p">:</span> <span class="n">ts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'t_bit'</span><span class="p">),</span> <span class="s1">'t_out'</span><span class="p">:</span> <span class="n">ts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'t_out'</span><span class="p">),</span> <span class="s1">'ecd'</span><span class="p">:</span> <span class="n">ts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'ecd'</span><span class="p">),</span>
+                <span class="s1">'t_rock'</span><span class="p">:</span> <span class="n">rock</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'t_rock'</span><span class="p">),</span> <span class="s1">'ccs_eff'</span><span class="p">:</span> <span class="n">rock</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'ccs_eff'</span><span class="p">),</span> <span class="s1">'ccs'</span><span class="p">:</span> <span class="n">rock</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'ccs'</span><span class="p">),</span>
+                <span class="s1">'S'</span><span class="p">:</span> <span class="n">rock</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'S'</span><span class="p">),</span> <span class="s1">'p_bh'</span><span class="p">:</span> <span class="n">rock</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'p_bh'</span><span class="p">),</span>
+                <span class="s1">'spp'</span><span class="p">:</span> <span class="n">hs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'spp'</span><span class="p">),</span> <span class="s1">'ecd_hyd'</span><span class="p">:</span> <span class="n">hs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'ecd'</span><span class="p">),</span> <span class="s1">'q_out'</span><span class="p">:</span> <span class="n">hs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'q_out'</span><span class="p">),</span>
+                <span class="s1">'q_in'</span><span class="p">:</span> <span class="n">hs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'q_in'</span><span class="p">),</span> <span class="s1">'pit_gain'</span><span class="p">:</span> <span class="n">hs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'pit_gain'</span><span class="p">),</span>
+                <span class="c1"># driller's display: surface WOB from the zeroed weight indicator, block speed,</span>
+                <span class="c1"># hydraulics bottomhole pressure and the static (mud weight) pressure at bottom</span>
+                <span class="s1">'hk_ref_kn'</span><span class="p">:</span> <span class="n">sim</span><span class="o">.</span><span class="n">hookload_reference</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span>
+                <span class="s1">'wob_surf_kn'</span><span class="p">:</span> <span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">hookload_reference</span> <span class="o">-</span> <span class="n">L</span><span class="p">[</span><span class="s1">'hookload'</span><span class="p">])</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span>
+                <span class="s1">'block_mh'</span><span class="p">:</span> <span class="n">L</span><span class="p">[</span><span class="s1">'v_block'</span><span class="p">]</span> <span class="o">*</span> <span class="mf">3600.0</span><span class="p">,</span>
+                <span class="s1">'wob_sp_kn'</span><span class="p">:</span> <span class="n">sim</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="s1">'wob_sp'</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span> <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">pi</span><span class="p">[</span><span class="n">K</span><span class="o">.</span><span class="n">I_AXIAL</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">'p_bh_hyd'</span><span class="p">:</span> <span class="n">hs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'p_bh'</span><span class="p">),</span>
+                <span class="s1">'tvd_bottom'</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">hydraulics</span><span class="o">.</span><span class="n">tvd_bottom</span><span class="p">)</span> <span class="k">if</span> <span class="n">sim</span><span class="o">.</span><span class="n">hydraulics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">'mud_density'</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">fluid</span><span class="o">.</span><span class="n">density</span><span class="p">),</span>
+            <span class="p">},</span>
+            <span class="s1">'hyd'</span><span class="p">:</span> <span class="n">hyd</span><span class="p">,</span>
+            <span class="s1">'thermal'</span><span class="p">:</span> <span class="n">thermal</span><span class="p">,</span>
+            <span class="s1">'slow'</span><span class="p">:</span> <span class="n">slow</span><span class="p">,</span>
+            <span class="s1">'profile'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'md'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">md</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="s1">'rpm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">rads_to_rpm</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">omega</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="s1">'torque_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">torque</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="s1">'tension_kn'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">tension</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="s1">'v_axial_mms'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">v</span> <span class="o">*</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="s1">'normal_knm'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">normal_force</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+                <span class="s1">'vs'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">az</span><span class="p">)</span> <span class="o">+</span> <span class="n">e</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">az</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="s1">'tvd'</span><span class="p">:</span> <span class="n">_r</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="p">},</span>
+            <span class="s1">'trace'</span><span class="p">:</span> <span class="n">trace</span><span class="p">,</span>
+            <span class="s1">'perf'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'wall'</span><span class="p">:</span> <span class="n">wall</span><span class="p">,</span> <span class="s1">'sim'</span><span class="p">:</span> <span class="n">duration</span><span class="p">,</span>
+                     <span class="s1">'realtime'</span><span class="p">:</span> <span class="p">(</span><span class="n">duration</span> <span class="o">/</span> <span class="n">wall</span><span class="p">)</span> <span class="k">if</span> <span class="n">wall</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span><span class="p">},</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="Session.info">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Session.info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Simulation info plus the first torsional mode and controller gains."""</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+        <span class="n">i</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">first_mode_hz</span><span class="o">=</span><span class="n">C</span><span class="o">.</span><span class="n">first_torsional_mode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="p">),</span>
+                 <span class="n">coupling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">friction</span><span class="o">.</span><span class="n">along_string_coupling</span><span class="p">,</span>
+                 <span class="n">kp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">kp</span><span class="p">,</span> <span class="n">ki</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">ki</span><span class="p">,</span>
+                 <span class="n">impedance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">impedance</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">i</span></div>
+
+
+<div class="viewcode-block" id="Session.csv">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Session.csv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">csv</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""All recorded channels as CSV text."""</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sim</span><span class="o">.</span><span class="n">results</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_prune</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Drop sessions idle for more than an hour."""</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">_sessions_lock</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_sessions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="n">s</span><span class="o">.</span><span class="n">touched</span> <span class="o">&gt;</span> <span class="mi">3600</span><span class="p">]:</span>
+            <span class="k">del</span> <span class="n">_sessions</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="Handler">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Handler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Handler</span><span class="p">(</span><span class="n">BaseHTTPRequestHandler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    HTTP handler: static files and the JSON API (/api/defaults, /api/init, /api/step,</span>
+<span class="sd">    /api/results.csv).</span>
+<span class="sd">    """</span>
+    <span class="n">server_version</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'DrillPyzeUI/</span><span class="si">{</span><span class="n">__version__</span><span class="si">}</span><span class="s1">'</span>
+
+<div class="viewcode-block" id="Handler.log_message">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Handler.log_message">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fmt</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>          <span class="c1"># quiet by default</span>
+<span class="w">        </span><span class="sd">"""Log requests only when the server is verbose."""</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="p">,</span> <span class="s1">'verbose'</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">log_message</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ---------------------------------------------------------------- utils</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">ctype</span><span class="o">=</span><span class="s1">'application/json'</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Send a response (dicts and lists as JSON)."""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">body</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">body</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_response</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_header</span><span class="p">(</span><span class="s1">'Content-Type'</span><span class="p">,</span> <span class="n">ctype</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_header</span><span class="p">(</span><span class="s1">'Content-Length'</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_header</span><span class="p">(</span><span class="s1">'Cache-Control'</span><span class="p">,</span> <span class="s1">'no-store'</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">send_header</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_headers</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wfile</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Request body parsed as JSON."""</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'Content-Length'</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rfile</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="ow">or</span> <span class="sa">b</span><span class="s1">'</span><span class="si">{}</span><span class="s1">'</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_static</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Serve a file from the static folder."""</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">STATIC</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">STATIC</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="s1">'not found'</span><span class="p">})</span>
+        <span class="n">ctype</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'.html'</span><span class="p">:</span> <span class="s1">'text/html; charset=utf-8'</span><span class="p">,</span> <span class="s1">'.js'</span><span class="p">:</span> <span class="s1">'application/javascript'</span><span class="p">,</span>
+                 <span class="s1">'.css'</span><span class="p">:</span> <span class="s1">'text/css'</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">'application/octet-stream'</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">'rb'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">ctype</span><span class="p">)</span>
+
+    <span class="c1"># ---------------------------------------------------------------- GET</span>
+<div class="viewcode-block" id="Handler.do_GET">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Handler.do_GET">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">do_GET</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Static files, defaults and the results CSV."""</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'/'</span><span class="p">,</span> <span class="s1">'/index.html'</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_static</span><span class="p">(</span><span class="s1">'index.html'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/static/plotly.min.js'</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">plotly</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">plotly</span><span class="o">.</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">'package_data'</span><span class="p">,</span> <span class="s1">'plotly.min.js'</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s1">'rb'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="s1">'application/javascript'</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">302</span><span class="p">,</span> <span class="sa">b</span><span class="s1">''</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s1">'Location'</span><span class="p">:</span> <span class="n">PLOTLY_CDN</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">'/static/'</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_static</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s1">'/static/'</span><span class="p">):])</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/defaults'</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">'config'</span><span class="p">:</span> <span class="n">C</span><span class="o">.</span><span class="n">default</span><span class="p">(),</span> <span class="s1">'controller_types'</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">CONTROLLER_TYPES</span><span class="p">),</span>
+                                    <span class="s1">'version'</span><span class="p">:</span> <span class="n">__version__</span><span class="p">,</span> <span class="s1">'release'</span><span class="p">:</span> <span class="n">__release_name__</span><span class="p">,</span> <span class="s1">'release_date'</span><span class="p">:</span> <span class="n">__release_date__</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/results.csv'</span><span class="p">:</span>
+            <span class="n">sid</span> <span class="o">=</span> <span class="n">parse_qs</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'session'</span><span class="p">,</span> <span class="p">[</span><span class="s1">''</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">_sessions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="s1">'unknown session'</span><span class="p">})</span>
+            <span class="k">with</span> <span class="n">s</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+                <span class="n">body</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">csv</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="s1">'text/csv'</span><span class="p">,</span>
+                              <span class="p">{</span><span class="s1">'Content-Disposition'</span><span class="p">:</span> <span class="s1">'attachment; filename="drillpyze_results.csv"'</span><span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="s1">'not found'</span><span class="p">})</span></div>
+
+
+    <span class="c1"># --------------------------------------------------------------- POST</span>
+<div class="viewcode-block" id="Handler.do_POST">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.Handler.do_POST">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">do_POST</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Initialise or step a session."""</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">req</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/init'</span><span class="p">:</span>
+                <span class="n">_prune</span><span class="p">()</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="n">req</span><span class="p">[</span><span class="s1">'config'</span><span class="p">])</span>
+                <span class="n">sid</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span>
+                <span class="k">with</span> <span class="n">_sessions_lock</span><span class="p">:</span>
+                    <span class="n">old</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'previous'</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">old</span><span class="p">:</span>
+                        <span class="n">_sessions</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="n">_sessions</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">'session'</span><span class="p">:</span> <span class="n">sid</span><span class="p">,</span> <span class="s1">'info'</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">info</span><span class="p">(),</span> <span class="s1">'reference'</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span>
+                                        <span class="s1">'path'</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="s1">'frame'</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">frame</span><span class="p">()})</span>
+            <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/step'</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">_sessions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'session'</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">410</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="s1">'Session expired: press Initialise.'</span><span class="p">})</span>
+                <span class="n">dur</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'duration'</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)),</span> <span class="mf">3600.0</span><span class="p">))</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">dur</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'inputs'</span><span class="p">)))</span>
+            <span class="k">if</span> <span class="n">u</span><span class="o">.</span><span class="n">path</span> <span class="o">==</span> <span class="s1">'/api/validate'</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">'errors'</span><span class="p">:</span> <span class="n">C</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">req</span><span class="p">[</span><span class="s1">'config'</span><span class="p">])})</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)})</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>                    <span class="c1"># pragma: no cover - surfaced to the UI</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">'</span><span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="p">{</span><span class="s1">'error'</span><span class="p">:</span> <span class="s1">'not found'</span><span class="p">})</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="make_server">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.make_server">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_server</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s1">'127.0.0.1'</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8050</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Threaded HTTP server for the UI on `host`:`port`."""</span>
+    <span class="n">srv</span> <span class="o">=</span> <span class="n">ThreadingHTTPServer</span><span class="p">((</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span> <span class="n">Handler</span><span class="p">)</span>
+    <span class="n">srv</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+    <span class="k">return</span> <span class="n">srv</span></div>
+
+
+
+<div class="viewcode-block" id="warm_up">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.warm_up">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">warm_up</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Compile the Numba kernel once so the first Initialise is quick."""</span>
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">default</span><span class="p">())</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">omega_sp</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../../api.html#DrillPyze.ui.server.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">argv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Command-line entry point: start the UI server and open a browser."""</span>
+    <span class="n">ap</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s1">'DrillPyze interactive simulator UI'</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--host'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">'127.0.0.1'</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--port'</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">8050</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--no-browser'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store_true'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'do not open a browser window'</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--verbose'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store_true'</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">ap</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">argv</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'DrillPyze UI: compiling the simulation kernel (first run only takes a few seconds)...'</span><span class="p">)</span>
+    <span class="n">warm_up</span><span class="p">()</span>
+    <span class="n">srv</span> <span class="o">=</span> <span class="n">make_server</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">verbose</span><span class="p">)</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'http://</span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">host</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">srv</span><span class="o">.</span><span class="n">server_address</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">/'</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'DrillPyze UI running at </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s1">  (Ctrl+C to stop)'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">no_browser</span><span class="p">:</span>
+        <span class="n">threading</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">webbrowser</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url</span><span class="p">))</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">srv</span><span class="o">.</span><span class="n">serve_forever</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">srv</span><span class="o">.</span><span class="n">server_close</span><span class="p">()</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,335 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.drillstring &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.drillstring</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.drillstring</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Drillstring description and spatial discretisation.</span>
+
+<span class="sd">Components are listed from the bit upward (the usual BHA-report order).  The</span>
+<span class="sd">top component (normally drill pipe) is stretched or shortened so that the</span>
+<span class="sd">string reaches the requested bit depth.  All values are SI.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+
+
+<div class="viewcode-block" id="Component">
+<a class="viewcode-back" href="../../api.html#DrillPyze.drillstring.Component">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Component</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    One drillstring component.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Description, e.g. 'Bit', 'Motor', 'DC', 'HWDP', 'DP'.</span>
+<span class="sd">    length : float</span>
+<span class="sd">        Length (m).</span>
+<span class="sd">    od, id : float</span>
+<span class="sd">        Body outer and inner diameter (m).</span>
+<span class="sd">    linear_mass : float, optional</span>
+<span class="sd">        Mass per length including tool joints (kg/m).  If omitted, the mass of</span>
+<span class="sd">        a plain steel tube is used.</span>
+<span class="sd">    contact_od : float, optional</span>
+<span class="sd">        Diameter that contacts the borehole (tool joint or stabiliser OD, m).</span>
+<span class="sd">        Defaults to ``od``.</span>
+<span class="sd">    E, G : float</span>
+<span class="sd">        Young's and shear modulus (Pa).  Steel by default.</span>
+<span class="sd">    density : float</span>
+<span class="sd">        Material density (kg/m^3), used when ``linear_mass`` is not given.</span>
+<span class="sd">    """</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">length</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">od</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">linear_mass</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">contact_od</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">E</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">STEEL_E</span>
+    <span class="n">G</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">STEEL_G</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">STEEL_DENSITY</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">area</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Steel cross-section (m^2)."""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">od</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">polar_moment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Polar second moment of area (m^4)."""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">32</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">od</span> <span class="o">**</span> <span class="mi">4</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mass_per_length</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Mass per length (kg/m): `linear_mass` if given, else steel density x area."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_mass</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_mass</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">effective_density</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Density that gives the stated mass per length over the body area."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mass_per_length</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span></div>
+
+
+
+<div class="viewcode-block" id="Grid">
+<a class="viewcode-back" href="../../api.html#DrillPyze.drillstring.Grid">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Grid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Cell-wise properties of a discretised drillstring (index 0 at surface)."""</span>
+    <span class="n">x_top</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>       <span class="c1"># MD of the top of each cell (m)</span>
+    <span class="n">dx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>          <span class="c1"># cell length (m)</span>
+    <span class="n">od</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">r_contact</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>   <span class="c1"># contact radius (m)</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>           <span class="c1"># cross-sectional area (m^2)</span>
+    <span class="n">J</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>           <span class="c1"># polar moment (m^4)</span>
+    <span class="n">rho</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>         <span class="c1"># effective density (kg/m^3)</span>
+    <span class="n">E</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">G</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">component</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>   <span class="c1"># index into the component list</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Number of cells."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""MD of cell centres (m)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x_bottom</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Measured depth of the bottom of each cell along the string (m)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_top</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">c_axial</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Axial wave speed per cell, sqrt(E/rho) (m/s)."""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rho</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">c_torsional</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Torsional wave speed per cell, sqrt(G/rho) (m/s)."""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">G</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">rho</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Drillstring">
+<a class="viewcode-back" href="../../api.html#DrillPyze.drillstring.Drillstring">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Drillstring</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A drillstring built from components listed bit-first.</span>
+
+<span class="sd">    The last component in the list (top of the string) is the one that is</span>
+<span class="sd">    lengthened to reach surface; normally drill pipe.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'Drillstring'</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'At least one component is required'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------ io</span>
+<div class="viewcode-block" id="Drillstring.from_dataframe">
+<a class="viewcode-back" href="../../api.html#DrillPyze.drillstring.Drillstring.from_dataframe">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dataframe</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'Drillstring'</span><span class="p">,</span> <span class="n">length_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">diameter_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                       <span class="n">mass_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">bit_first</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Build from a table with columns ``name, length, od, id`` and optional</span>
+<span class="sd">        ``linear_mass, contact_od``.  The scale arguments convert the table's</span>
+<span class="sd">        units to SI (e.g. ``length_scale=units.FT, diameter_scale=units.IN,</span>
+<span class="sd">        mass_scale=units.LB_FT``).</span>
+<span class="sd">        """</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">}</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span> <span class="k">if</span> <span class="n">bit_first</span> <span class="k">else</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span>
+        <span class="n">comps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">scale</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">"""Value of column `key` in this row, times `scale`, or None if absent."""</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">cols</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">c</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">c</span><span class="p">]):</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">c</span><span class="p">])</span> <span class="o">*</span> <span class="n">scale</span>
+            <span class="n">comps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Component</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">cols</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'name'</span><span class="p">,</span> <span class="n">cols</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'component'</span><span class="p">))]),</span>
+                <span class="n">length</span><span class="o">=</span><span class="n">get</span><span class="p">(</span><span class="s1">'length'</span><span class="p">,</span> <span class="n">length_scale</span><span class="p">),</span>
+                <span class="n">od</span><span class="o">=</span><span class="n">get</span><span class="p">(</span><span class="s1">'od'</span><span class="p">,</span> <span class="n">diameter_scale</span><span class="p">),</span>
+                <span class="nb">id</span><span class="o">=</span><span class="n">get</span><span class="p">(</span><span class="s1">'id'</span><span class="p">,</span> <span class="n">diameter_scale</span><span class="p">),</span>
+                <span class="n">linear_mass</span><span class="o">=</span><span class="n">get</span><span class="p">(</span><span class="s1">'linear_mass'</span><span class="p">,</span> <span class="n">mass_scale</span><span class="p">),</span>
+                <span class="n">contact_od</span><span class="o">=</span><span class="n">get</span><span class="p">(</span><span class="s1">'contact_od'</span><span class="p">,</span> <span class="n">diameter_scale</span><span class="p">),</span>
+            <span class="p">))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">comps</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bha_length</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Length of all components except the top (filler) component."""</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">length</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># ------------------------------------------------------- discretisation</span>
+<div class="viewcode-block" id="Drillstring.discretize">
+<a class="viewcode-back" href="../../api.html#DrillPyze.drillstring.Drillstring.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_depth</span><span class="p">,</span> <span class="n">dx</span><span class="o">=</span><span class="mf">10.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Discretise the string with the bit at ``bit_depth`` (m MD).  Each</span>
+<span class="sd">        component is split into equal cells no longer than ``dx`` so cell edges</span>
+<span class="sd">        align with component boundaries.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Grid</span>
+<span class="sd">        """</span>
+        <span class="n">top_len</span> <span class="o">=</span> <span class="n">bit_depth</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">bha_length</span>
+        <span class="k">if</span> <span class="n">top_len</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Bit depth is shallower than the BHA length'</span><span class="p">)</span>
+
+        <span class="c1"># surface-down order</span>
+        <span class="n">comps</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">))</span>
+        <span class="n">lengths</span> <span class="o">=</span> <span class="p">[</span><span class="n">top_len</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">length</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+
+        <span class="n">arrays</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'dx'</span><span class="p">,</span> <span class="s1">'od'</span><span class="p">,</span> <span class="s1">'id'</span><span class="p">,</span> <span class="s1">'rc'</span><span class="p">,</span> <span class="s1">'A'</span><span class="p">,</span> <span class="s1">'J'</span><span class="p">,</span> <span class="s1">'rho'</span><span class="p">,</span> <span class="s1">'E'</span><span class="p">,</span> <span class="s1">'G'</span><span class="p">,</span> <span class="s1">'comp'</span><span class="p">)}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">comps</span><span class="p">,</span> <span class="n">lengths</span><span class="p">)):</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">L</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">-</span> <span class="mf">1e-9</span><span class="p">)))</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">L</span> <span class="o">/</span> <span class="n">n</span>
+            <span class="n">cod</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">contact_od</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contact_od</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">c</span><span class="o">.</span><span class="n">od</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'dx'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">h</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'od'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">od</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'id'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'rc'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">cod</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'A'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">area</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'J'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">polar_moment</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'rho'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">effective_density</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'E'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">E</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'G'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">G</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="s1">'comp'</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">comps</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>   <span class="c1"># index in the bit-first list</span>
+
+        <span class="n">dxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'dx'</span><span class="p">])</span>
+        <span class="n">x_top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dxs</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="k">return</span> <span class="n">Grid</span><span class="p">(</span><span class="n">x_top</span><span class="o">=</span><span class="n">x_top</span><span class="p">,</span> <span class="n">dx</span><span class="o">=</span><span class="n">dxs</span><span class="p">,</span>
+                    <span class="n">od</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'od'</span><span class="p">]),</span> <span class="nb">id</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'id'</span><span class="p">]),</span>
+                    <span class="n">r_contact</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'rc'</span><span class="p">]),</span> <span class="n">A</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'A'</span><span class="p">]),</span>
+                    <span class="n">J</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'J'</span><span class="p">]),</span> <span class="n">rho</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'rho'</span><span class="p">]),</span>
+                    <span class="n">E</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'E'</span><span class="p">]),</span> <span class="n">G</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'G'</span><span class="p">]),</span>
+                    <span class="n">component</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s1">'comp'</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">))</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

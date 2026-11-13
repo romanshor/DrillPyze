@@ -1,0 +1,454 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bit–rock interaction: from the Bit Model Library to three reduced models &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Hydraulics: steady losses and drift-flux transients" href="derivation-hydraulics.html" />
+    <link rel="prev" title="Changelog" href="changelog.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Bit–rock interaction: from the Bit Model Library to three reduced models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-each-library-model-is">1. What each library model is</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#detournay-defourny-1992">Detournay &amp; Defourny (1992)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ziaja-1985">Ziaja (1985)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#che-et-al-2016">Che et al. (2016)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gerbaud-et-al-2006">Gerbaud et al. (2006)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#what-they-have-in-common">2. What they have in common</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#simplifications-and-why">3. Simplifications and why</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-three-reduced-models">4. The three reduced models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#model-1-coulomb-friction-dominated">Model 1: Coulomb (friction-dominated)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-2-cutting-detournay-defourny-quasi-static">Model 2: Cutting (Detournay &amp; Defourny, quasi-static)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-3-regenerative-cutting-richard-germay-detournay-2007">Model 3: Regenerative cutting (Richard, Germay &amp; Detournay 2007)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rock-strength">Rock strength</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#choosing-between-them">Choosing between them</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#issues-found-in-the-library-code-and-sample-data">5. Issues found in the library code and sample data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Bit–rock interaction: from the Bit Model Library to three reduced models</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_generated/derivation-bit-models.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="bitrock-interaction-from-the-bit-model-library-to-three-reduced-models">
+<h1>Bit–rock interaction: from the Bit Model Library to three reduced models<a class="headerlink" href="#bitrock-interaction-from-the-bit-model-library-to-three-reduced-models" title="Link to this heading"></a></h1>
+<p>This note analyses the four PDC bit models in the
+<a class="reference external" href="https://github.com/Kartikay100/Bit-Model-Library">Bit Model Library</a>
+(SPE-223715-MS) and reduces them to three models, each with two or three
+parameters, for use as the bit boundary condition in DrillPyze.</p>
+<p>The models in the library are:</p>
+<ul class="simple">
+<li><p>Ziaja (1985);</p></li>
+<li><p>Detournay &amp; Defourny (1992);</p></li>
+<li><p>Gerbaud et al. (2006);</p></li>
+<li><p>Che et al. (2016).</p></li>
+</ul>
+<p>The script <code class="docutils literal notranslate"><span class="pre">bit_library_analysis.py</span></code> in this folder reproduces every number
+below from the library’s code and sample data.</p>
+<p>Notation:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(a = D/2\)</span> is the bit radius;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\omega\)</span> is the bit speed;</p></li>
+<li><p><span class="math notranslate nohighlight">\(v\)</span> is the axial bit velocity;</p></li>
+<li><p><span class="math notranslate nohighlight">\(d = 2\pi v/\omega\)</span> is the depth of cut per revolution;</p></li>
+<li><p><span class="math notranslate nohighlight">\(W\)</span> is weight on bit (WOB) and <span class="math notranslate nohighlight">\(T\)</span> is torque on bit (TOB).</p></li>
+</ul>
+<hr class="docutils" />
+<section id="what-each-library-model-is">
+<span id="1-what-each-library-model-is"></span><h2>1. What each library model is<a class="headerlink" href="#what-each-library-model-is" title="Link to this heading"></a></h2>
+<section id="detournay-defourny-1992">
+<span id="detournay--defourny-1992"></span><h3>Detournay &amp; Defourny (1992)<a class="headerlink" href="#detournay-defourny-1992" title="Link to this heading"></a></h3>
+<p>The bit force is split into a cutting part and a frictional-contact part (wear
+flats):</p>
+<div class="math notranslate nohighlight">
+\[W = \underbrace{\zeta\varepsilon a d}_{W_c} + \underbrace{a\ell\sigma}_{W_f},
+\qquad
+T = \underbrace{\tfrac12\varepsilon a^2 d}_{T_c} + \underbrace{\tfrac12\mu\gamma a W_f}_{T_f}.\]</div>
+<ul class="simple">
+<li><p><strong>Inputs:</strong> <span class="math notranslate nohighlight">\(\varepsilon\)</span> (intrinsic specific energy), <span class="math notranslate nohighlight">\(\zeta\)</span>, <span class="math notranslate nohighlight">\(\ell\)</span>
+(wear-flat length), <span class="math notranslate nohighlight">\(\sigma\)</span> (contact pressure), <span class="math notranslate nohighlight">\(\mu\)</span>, <span class="math notranslate nohighlight">\(\gamma\)</span> (bit
+constant) and <span class="math notranslate nohighlight">\(a\)</span>. That is six rock and bit parameters plus geometry.</p></li>
+<li><p><strong>What the output depends on:</strong> in the library’s ROP calculation, the result
+depends only on the product <span class="math notranslate nohighlight">\(\zeta\varepsilon\)</span> and on <span class="math notranslate nohighlight">\(W_f\)</span>. The
+elasticities are −0.91 to <span class="math notranslate nohighlight">\(\varepsilon\)</span>, −0.91 to <span class="math notranslate nohighlight">\(\zeta\)</span> and −0.14 to each of
+<span class="math notranslate nohighlight">\(\sigma\)</span> and <span class="math notranslate nohighlight">\(\ell\)</span>; <span class="math notranslate nohighlight">\(\mu\)</span> has no effect.</p></li>
+</ul>
+</section>
+<section id="ziaja-1985">
+<h3>Ziaja (1985)<a class="headerlink" href="#ziaja-1985" title="Link to this heading"></a></h3>
+<p>This is a cutter-level model.</p>
+<ul class="simple">
+<li><p><strong>Forces per cutter:</strong> the cutting forces on each cutter are <span class="math notranslate nohighlight">\(R_c S_c\)</span>, where
+<span class="math notranslate nohighlight">\(S_c(d)\)</span> is the chord area of a round cutter. They are split by the back rake
+angle into a normal part, <span class="math notranslate nohighlight">\(R_c S_c\sin\alpha\)</span>, and a tangential part,
+<span class="math notranslate nohighlight">\(R_c S_c\cos\alpha\)</span>. A wear-flat force <span class="math notranslate nohighlight">\(R_p S_w\)</span> is added.</p></li>
+<li><p><strong>Inputs:</strong> <span class="math notranslate nohighlight">\(R_c\)</span>, <span class="math notranslate nohighlight">\(R_p\)</span>, <span class="math notranslate nohighlight">\(\alpha\)</span>, <span class="math notranslate nohighlight">\(\beta\)</span>, <span class="math notranslate nohighlight">\(d_c\)</span>, <span class="math notranslate nohighlight">\(n_c\)</span>, wear length and
+<span class="math notranslate nohighlight">\(\mu\)</span>.</p></li>
+<li><p><strong>Normal-to-tangential ratio:</strong> it is fixed at <span class="math notranslate nohighlight">\(\tan\alpha\)</span>, which is 0.21 in
+the sample.</p></li>
+<li><p><strong>ROP:</strong> the library computes ROP as <span class="math notranslate nohighlight">\(\text{rpm}\cdot d\cdot n_c\)</span>, with <span class="math notranslate nohighlight">\(d\)</span> as
+an <em>input</em>. So ROP has no dependence on WOB (elasticity 0) and is
+proportional to <span class="math notranslate nohighlight">\(d\)</span> and <span class="math notranslate nohighlight">\(n_c\)</span>.</p></li>
+</ul>
+</section>
+<section id="che-et-al-2016">
+<h3>Che et al. (2016)<a class="headerlink" href="#che-et-al-2016" title="Link to this heading"></a></h3>
+<p>This is a single-cutter chipping and crushing model.</p>
+<ul class="simple">
+<li><p><strong>Normal force:</strong> <span class="math notranslate nohighlight">\(F_n = \sigma_c\,w\,g(\alpha, \sigma_t/\sigma_c)\,d\)</span>, which
+is <strong>linear in depth of cut</strong>. In the sample, <span class="math notranslate nohighlight">\(g = 1.57\)</span>.</p></li>
+<li><p><strong>Use in the library:</strong> it is scaled to the bit with <span class="math notranslate nohighlight">\(n_c\)</span>, after subtracting
+the Detournay–Defourny wear-flat force.</p></li>
+<li><p><strong>What ROP depends on:</strong> WOB (elasticity 1.14), <span class="math notranslate nohighlight">\(\sigma_c\)</span> (−0.9), cutter
+width (−0.91) and <span class="math notranslate nohighlight">\(W_f\)</span> (−0.14). <span class="math notranslate nohighlight">\(\sigma_t\)</span> and <span class="math notranslate nohighlight">\(\alpha\)</span> hardly matter
+(≤ 0.08).</p></li>
+<li><p><strong>Torque:</strong> the model gives none.</p></li>
+</ul>
+</section>
+<section id="gerbaud-et-al-2006">
+<h3>Gerbaud et al. (2006)<a class="headerlink" href="#gerbaud-et-al-2006" title="Link to this heading"></a></h3>
+<p>This is a cutter model with cutting, chamfer and wear-flat terms.</p>
+<ul class="simple">
+<li><p><strong>Cutting force:</strong> the normal cutting force is
+<span class="math notranslate nohighlight">\(\tan(\theta_f + \alpha)\,A\,\varepsilon\)</span>. So Gerbaud’s effective
+normal-to-tangential ratio is <span class="math notranslate nohighlight">\(\tan(\theta_f+\alpha)\)</span>, which is 1.80 in the
+sample.</p></li>
+<li><p><strong>ROP:</strong> in the library ROP follows the cut area <span class="math notranslate nohighlight">\(A\)</span> (elasticity 0.93) and
+<span class="math notranslate nohighlight">\(\theta_f\)</span> (2.2), and has <strong>no dependence on WOB</strong>, because <span class="math notranslate nohighlight">\(A\)</span> is supplied as
+an input.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="what-they-have-in-common">
+<span id="2-what-they-have-in-common"></span><h2>2. What they have in common<a class="headerlink" href="#what-they-have-in-common" title="Link to this heading"></a></h2>
+<p>With the bookkeeping removed, all four models share one structure:</p>
+<div class="math notranslate nohighlight">
+\[\boxed{\;W = W_f + S\,a\,d, \qquad T = \frac{a}{2\zeta}\,W_c + \mu_f\,\frac{a}{2}\,W_f\;}\]</div>
+<ol class="arabic simple">
+<li><p><strong>Cutting forces are proportional to the depth of cut.</strong> This is exact in
+Detournay &amp; Defourny, Che and Gerbaud. Ziaja’s chord area is nominally
+nonlinear, but see §5.</p>
+<ul class="simple">
+<li><p>Every rock and cutter input (<span class="math notranslate nohighlight">\(\sigma_c\)</span>, <span class="math notranslate nohighlight">\(\sigma_t\)</span>, <span class="math notranslate nohighlight">\(R_c\)</span>, <span class="math notranslate nohighlight">\(\alpha\)</span>,
+<span class="math notranslate nohighlight">\(\beta\)</span>, <span class="math notranslate nohighlight">\(\theta_f\)</span>, <span class="math notranslate nohighlight">\(d_c\)</span>, <span class="math notranslate nohighlight">\(w\)</span>, <span class="math notranslate nohighlight">\(n_c\)</span>, <span class="math notranslate nohighlight">\(A\)</span>) enters only through two
+numbers. The first is the <strong>drilling strength</strong> <span class="math notranslate nohighlight">\(S = \zeta\varepsilon\)</span>, the
+axial cutting force per unit cut area. The second is the <strong>force ratio</strong>
+<span class="math notranslate nohighlight">\(\zeta\)</span>, normal over tangential cutting force.</p></li>
+<li><p>Che and Gerbaud are best read as ways to <em>estimate</em> <span class="math notranslate nohighlight">\(S\)</span> (and <span class="math notranslate nohighlight">\(\zeta\)</span>) from
+rock strength and cutter geometry, not as different laws.</p></li>
+</ul>
+</li>
+<li><p><strong>Wear-flat or chamfer contact adds a force that does not depend on depth of
+cut.</strong> This is <span class="math notranslate nohighlight">\(W_f\)</span>, with its frictional torque. It appears as <span class="math notranslate nohighlight">\(a\ell\sigma\)</span>
+in Detournay &amp; Defourny, <span class="math notranslate nohighlight">\(R_p S_w\)</span> in Ziaja and <span class="math notranslate nohighlight">\(\sigma_0 A_f\)</span> in Gerbaud,
+and Che subtracts it.</p></li>
+<li><p><strong>All four are rate independent.</strong> None of them has velocity weakening.
+Torque depends on <span class="math notranslate nohighlight">\(d\)</span> and <span class="math notranslate nohighlight">\(W\)</span>, not on <span class="math notranslate nohighlight">\(\omega\)</span>. For drillstring dynamics this
+matters: at the bit, stick-slip then has to come from somewhere other than
+these laws. The options are a static/kinetic friction difference, the
+regenerative (delayed) depth of cut, or along-string friction.</p></li>
+</ol>
+<p>Three things identify the bit from field data:</p>
+<ul class="simple">
+<li><p>the slope of TOB against WOB, which gives <span class="math notranslate nohighlight">\(a/(2\zeta)\)</span>;</p></li>
+<li><p>the slope of WOB against <span class="math notranslate nohighlight">\(d = 2\pi\,\text{ROP}/\omega\)</span>, which gives <span class="math notranslate nohighlight">\(Sa\)</span>;</p></li>
+<li><p>that line’s intercept, which gives <span class="math notranslate nohighlight">\(W_f\)</span>.</p></li>
+</ul>
+<p>These are the three numbers the reduced models keep.</p>
+</section>
+<hr class="docutils" />
+<section id="simplifications-and-why">
+<span id="3-simplifications-and-why"></span><h2>3. Simplifications and why<a class="headerlink" href="#simplifications-and-why" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Simplification</p></th>
+<th class="head"><p>Justification</p></th>
+<th class="head"><p>Effect in the sample data</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Collapse every rock and cutter input into <span class="math notranslate nohighlight">\(S\)</span> and <span class="math notranslate nohighlight">\(\zeta\)</span></p></td>
+<td><p>Every model is linear in <span class="math notranslate nohighlight">\(d\)</span>; the inputs only scale the slope (§2)</p></td>
+<td><p>Exact</p></td>
+</tr>
+<tr class="row-odd"><td><p>Contact friction <span class="math notranslate nohighlight">\(\mu_f = \mu\gamma \approx 1/\zeta\)</span>, so <span class="math notranslate nohighlight">\(T = aW/(2\zeta)\)</span> over the whole range</p></td>
+<td><p>Removes a parameter that cannot be told apart from <span class="math notranslate nohighlight">\(\zeta\)</span> without data at very low WOB</p></td>
+<td><p>Sample has <span class="math notranslate nohighlight">\(\mu\gamma = 0.9\)</span> and <span class="math notranslate nohighlight">\(1/\zeta = 1.0\)</span>, so the torque error is <span class="math notranslate nohighlight">\(\tfrac a2 W_f(1/\zeta-\mu\gamma) \approx\)</span> 1.7% of TOB</p></td>
+</tr>
+<tr class="row-even"><td><p>Linear rather than chord-area dependence on <span class="math notranslate nohighlight">\(d\)</span></p></td>
+<td><p>Over 0.0005–0.01 in, the Ziaja area as implemented scales as <span class="math notranslate nohighlight">\(d^{-0.02}\)</span>, so it is not usable as a nonlinearity. For a correct chord area the nonlinearity matters only at depths of cut well below field values</p></td>
+<td><p>–</p></td>
+</tr>
+<tr class="row-odd"><td><p>Depth of cut per bit revolution, <span class="math notranslate nohighlight">\(d = 2\pi v/\omega\)</span>, not per cutter × <span class="math notranslate nohighlight">\(n_c\)</span></p></td>
+<td><p>Avoids double counting cutters (§5) and needs no cutter layout</p></td>
+<td><p>–</p></td>
+</tr>
+<tr class="row-even"><td><p>Keep a static/kinetic difference only in the friction-dominated model</p></td>
+<td><p>Field evidence of bit-induced velocity weakening is for worn bits in the contact regime</p></td>
+<td><p>–</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="the-three-reduced-models">
+<span id="4-the-three-reduced-models"></span><h2>4. The three reduced models<a class="headerlink" href="#the-three-reduced-models" title="Link to this heading"></a></h2>
+<p>All three are implemented in the kernel (<code class="docutils literal notranslate"><span class="pre">BitParameters.model</span></code>), selectable in
+the UI, and share the drilling strength <span class="math notranslate nohighlight">\(S\)</span>.</p>
+<section id="model-1-coulomb-friction-dominated">
+<h3>Model 1: Coulomb (friction-dominated)<a class="headerlink" href="#model-1-coulomb-friction-dominated" title="Link to this heading"></a></h3>
+<p>Parameters: <span class="math notranslate nohighlight">\(\mu_s\)</span>, <span class="math notranslate nohighlight">\(\mu_k\)</span>, <span class="math notranslate nohighlight">\(S\)</span>.</p>
+<div class="math notranslate nohighlight">
+\[|T| \le \mu_s\,W\,\tfrac{D}{3}\ \ (\text{sticking}),\qquad
+T = \mu_k\,W\,\tfrac{D}{3}\ \ (\text{sliding}),\qquad
+\text{ROP} = \frac{\omega\,W}{2\pi a S}.\]</div>
+<ul class="simple">
+<li><p><strong>Physics:</strong> this is the Detournay &amp; Defourny model in the contact limit
+(<span class="math notranslate nohighlight">\(W \approx W_f\)</span>, a worn or dull bit), where torque is friction,
+<span class="math notranslate nohighlight">\(T = \mu\gamma\tfrac a2 W\)</span>. To that it adds the static/kinetic difference
+that gives velocity weakening and bit-induced stick-slip.</p></li>
+<li><p><strong>Fitting:</strong></p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(\mu_k\)</span> from TOB/WOB while drilling;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\mu_s\)</span> from the breakout torque on bottom;</p></li>
+<li><p><span class="math notranslate nohighlight">\(S\)</span> from the slope of ROP/RPM against WOB.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="model-2-cutting-detournay-defourny-quasi-static">
+<span id="model-2-cutting-detournay--defourny-quasi-static"></span><h3>Model 2: Cutting (Detournay &amp; Defourny, quasi-static)<a class="headerlink" href="#model-2-cutting-detournay-defourny-quasi-static" title="Link to this heading"></a></h3>
+<p>Parameters: <span class="math notranslate nohighlight">\(S\)</span>, <span class="math notranslate nohighlight">\(\zeta\)</span>, <span class="math notranslate nohighlight">\(W_f\)</span>.</p>
+<div class="math notranslate nohighlight">
+\[W = W_f + S\,a\,d,\qquad T = \frac{a}{2\zeta}\,W,\qquad
+\text{ROP} = \frac{\omega\,(W-W_f)^+}{2\pi a S}.\]</div>
+<ul class="simple">
+<li><p><strong>Physics:</strong> a sharp to moderately worn PDC bit with a cutting response.
+It has a WOB threshold before penetration and <strong>no velocity weakening</strong>. The
+bit sticks only when the string cannot supply <span class="math notranslate nohighlight">\(aW/(2\zeta)\)</span>.</p></li>
+<li><p><strong>Fitting:</strong></p>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(\zeta\)</span> from the slope of TOB against WOB;</p></li>
+<li><p><span class="math notranslate nohighlight">\(S\)</span> and <span class="math notranslate nohighlight">\(W_f\)</span> from a straight-line fit of WOB against
+<span class="math notranslate nohighlight">\(d = 2\pi\,\text{ROP}/\omega\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="model-3-regenerative-cutting-richard-germay-detournay-2007">
+<span id="model-3-regenerative-cutting-richard-germay--detournay-2007"></span><h3>Model 3: Regenerative cutting (Richard, Germay &amp; Detournay 2007)<a class="headerlink" href="#model-3-regenerative-cutting-richard-germay-detournay-2007" title="Link to this heading"></a></h3>
+<p>Parameters: <span class="math notranslate nohighlight">\(S\)</span>, <span class="math notranslate nohighlight">\(\zeta\)</span>, plus the blade count <span class="math notranslate nohighlight">\(n\)</span> (bit geometry).</p>
+<div class="math notranslate nohighlight">
+\[W = S\,a\sum_{j=1}^{n} d_j,\qquad T = \frac{a}{2\zeta}\,W,\qquad
+d_j = \bigl(u_b - s(\theta_j)\bigr)^+ .\]</div>
+<ul class="simple">
+<li><p><strong>Physics:</strong> the same cutting law, but the depth of cut of each blade is
+measured against the <strong>hole-bottom profile</strong> <span class="math notranslate nohighlight">\(s(\theta)\)</span> left by the previous
+blade. The profile is stored over 720 angular bins and updated as the blades
+sweep. This brings in the one-blade-passage delay (the regenerative effect),
+which couples axial and torsional motion at the bit.</p></li>
+<li><p><strong>Behaviour in the model:</strong></p>
+<ul>
+<li><p>Lift-off and stalling come out naturally: if the bit rises above the
+profile, <span class="math notranslate nohighlight">\(W = 0\)</span>; if it stops, the profile stops being cut.</p></li>
+<li><p>With enough damping it settles to exactly the Model 2 state with <span class="math notranslate nohighlight">\(W_f = 0\)</span>
+(test <code class="docutils literal notranslate"><span class="pre">test_regenerative_bit_converges_to_cutting_when_stable</span></code>).</p></li>
+<li><p>With light damping it self-excites into coupled bit bounce and stick-slip
+(test <code class="docutils literal notranslate"><span class="pre">test_regenerative_bit_self_excites_when_lightly_damped</span></code>).</p></li>
+</ul>
+</li>
+<li><p><strong>Fitting:</strong> the same <span class="math notranslate nohighlight">\(S\)</span> and <span class="math notranslate nohighlight">\(\zeta\)</span> as Model 2. The steady states agree, so
+<strong>no extra fitting</strong> is needed. <span class="math notranslate nohighlight">\(n\)</span> comes from the bit specification.</p></li>
+</ul>
+</section>
+<section id="rock-strength">
+<h3>Rock strength<a class="headerlink" href="#rock-strength" title="Link to this heading"></a></h3>
+<p>In all three models, <span class="math notranslate nohighlight">\(S\)</span> can be fixed or computed from the formation at the
+bit. That calculation covers confinement, pore pressure, temperature and mud
+cooling; see <a class="reference internal" href="derivation-rock-strength-and-temperature.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">rock-strength-and-temperature.md</span></code></span></a>.</p>
+</section>
+<section id="choosing-between-them">
+<h3>Choosing between them<a class="headerlink" href="#choosing-between-them" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Situation</p></th>
+<th class="head"><p>Model</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Worn or dull bit; torque dominated by friction; on-bottom stick-slip seen in the data</p></td>
+<td><p>Coulomb</p></td>
+</tr>
+<tr class="row-odd"><td><p>PDC bit at steady drilling; ROP and torque fitting; controller design for torque on bottom</p></td>
+<td><p>Cutting</p></td>
+</tr>
+<tr class="row-even"><td><p>Studying bit bounce, coupled axial–torsional instability, or how blade count, ROP and RPM affect stability</p></td>
+<td><p>Regenerative</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="issues-found-in-the-library-code-and-sample-data">
+<span id="5-issues-found-in-the-library-code-and-sample-data"></span><h2>5. Issues found in the library code and sample data<a class="headerlink" href="#issues-found-in-the-library-code-and-sample-data" title="Link to this heading"></a></h2>
+<p>These came up while reducing the models. They don’t affect the reduced models
+above, which follow the published equations, but they explain some of the
+sensitivities in §1 and are worth checking in the library.</p>
+<ol class="arabic simple">
+<li><p><strong>Detournay &amp; Defourny torque:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">detournay_wob_tob</span></code> omits the factor ½ on both <span class="math notranslate nohighlight">\(T_c\)</span> and <span class="math notranslate nohighlight">\(T_f\)</span>, so the
+torque comes out twice the published value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">detournay_rop</span></code> inverts the torque with the ½ included, so the two
+functions are inconsistent.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">d_avg</span></code> is computed but not used, so ROP comes from <span class="math notranslate nohighlight">\(d_{WOB}\)</span> only.</p></li>
+</ul>
+</li>
+<li><p><strong>Ziaja:</strong></p>
+<ul class="simple">
+<li><p>The chord-area expression for <span class="math notranslate nohighlight">\(S_c(d)\)</span> does not go to zero as <span class="math notranslate nohighlight">\(d \to 0\)</span>
+(0.19 in² at <span class="math notranslate nohighlight">\(d = 0\)</span>) and is almost independent of <span class="math notranslate nohighlight">\(d\)</span>. This suggests a
+transcription error.</p></li>
+<li><p>The wear-flat term is multiplied by <span class="math notranslate nohighlight">\(n_c\)</span> twice: 4,970 lbf instead of
+108 lbf in the sample.</p></li>
+</ul>
+</li>
+<li><p><strong>Depth of cut in the cutter models:</strong> Ziaja, Che and Gerbaud use
+ROP = rpm·<span class="math notranslate nohighlight">\(d\)</span>·<span class="math notranslate nohighlight">\(n_c\)</span>. This treats every cutter as removing a full layer each
+revolution. In Che, <span class="math notranslate nohighlight">\(n_c\)</span> cancels because force is also divided by <span class="math notranslate nohighlight">\(n_c\)</span>. In
+Gerbaud it does not, so ROP scales roughly as <span class="math notranslate nohighlight">\(n_c^2\)</span> (elasticity 2.1).</p></li>
+<li><p><strong>Gerbaud:</strong> the cut area <span class="math notranslate nohighlight">\(A\)</span> is an input rather than being computed from
+the depth of cut, so the calculation is circular, and ROP does not respond
+to WOB.</p></li>
+<li><p><strong>Sample data units:</strong> with the <code class="docutils literal notranslate"><span class="pre">tob</span></code> column read as lbf·ft, the implied bit
+friction <span class="math notranslate nohighlight">\(2T/(aW)\)</span> is 8.5, which is physically implausible. Read as lbf·in it
+is 0.71, which is typical, so the column is probably lbf·in.</p></li>
+</ol>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Detournay, E. and Defourny, P., 1992. A phenomenological model for the drilling action of drag bits. <em>Int. J. Rock Mech. Min. Sci.</em>, 29(1), 13–23.</p></li>
+<li><p>Richard, T., Germay, C. and Detournay, E., 2007. A simplified model to explore the root cause of stick–slip vibrations in drilling systems with drag bits. <em>J. Sound Vib.</em>, 305(3), 432–456.</p></li>
+<li><p>Ziaja, M.B., 1985. Mathematical model of the polycrystalline diamond bit drilling process and its practical application. <em>SPE/IADC Drilling Conference</em>.</p></li>
+<li><p>Gerbaud, L., Menand, S. and Sellami, H., 2006. PDC bits: all comes from the cutter/rock interaction. <em>IADC/SPE 98988</em>.</p></li>
+<li><p>Che, D., Zhu, W.-L. and Ehmann, K.F., 2016. Chipping and crushing mechanisms in orthogonal rock cutting. <em>Int. J. Mech. Sci.</em>, 119, 224–236.</p></li>
+<li><p>Bit Model Library: SPE-223715-MS, SPE/IADC Drilling Conference 2025.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="changelog.html" class="btn btn-neutral float-left" title="Changelog" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="derivation-hydraulics.html" class="btn btn-neutral float-right" title="Hydraulics: steady losses and drift-flux transients" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,207 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.controllers &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.controllers</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.controllers</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Top-drive controller factories (Aarsnes, di Meglio &amp; Shor 2018, Sec. 3).</span>
+
+<span class="sd">All three industrial controllers share one block diagram: a PI speed loop,</span>
+<span class="sd">optionally with impedance feedback of band-pass filtered pipe torque.  The</span>
+<span class="sd">factories compute gains from the drill-pipe characteristic impedance</span>
+<span class="sd">``zeta_p = J_p sqrt(G rho)`` and the top-drive inertia.</span>
+
+<span class="sd">Controllers that do not fit this structure can be written in Python and run in</span>
+<span class="sd">the simulator's external-torque mode (see :meth:`Simulation.step`).</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControllerParameters</span>
+
+
+<div class="viewcode-block" id="pipe_impedance">
+<a class="viewcode-back" href="../../api.html#DrillPyze.controllers.pipe_impedance">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pipe_impedance</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Torsional characteristic impedance of the top cell, zeta_p = J sqrt(G rho) (N m s)."""</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">J</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">G</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">rho</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
+
+
+
+<div class="viewcode-block" id="stiff">
+<a class="viewcode-back" href="../../api.html#DrillPyze.controllers.stiff">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">stiff</span><span class="p">(</span><span class="n">zeta_p</span><span class="p">,</span> <span class="n">inertia</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Industry-standard stiff PI: Kp = 100 zeta_p, Ki = 5 I_TD (eq. 8)."""</span>
+    <span class="k">return</span> <span class="n">ControllerParameters</span><span class="p">(</span><span class="n">kp</span><span class="o">=</span><span class="mf">100.0</span> <span class="o">*</span> <span class="n">zeta_p</span><span class="p">,</span> <span class="n">ki</span><span class="o">=</span><span class="mf">5.0</span> <span class="o">*</span> <span class="n">inertia</span><span class="p">,</span> <span class="n">impedance</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'stiff'</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="soft_torque">
+<a class="viewcode-back" href="../../api.html#DrillPyze.controllers.soft_torque">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">soft_torque</span><span class="p">(</span><span class="n">zeta_p</span><span class="p">,</span> <span class="n">inertia</span><span class="p">,</span> <span class="n">f_c</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    SoftTorque/SoftSpeed: Kp = 4 zeta_p, Ki = (2 pi f_c)^2 I_TD (eqs. 11-12),</span>
+<span class="sd">    where ``f_c`` (Hz) is the frequency at which the reflection coefficient is</span>
+<span class="sd">    minimised, normally the first torsional mode of the string.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">ControllerParameters</span><span class="p">(</span><span class="n">kp</span><span class="o">=</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">zeta_p</span><span class="p">,</span> <span class="n">ki</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">f_c</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">inertia</span><span class="p">,</span>
+                                <span class="n">impedance</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'soft_torque'</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="z_torque">
+<a class="viewcode-back" href="../../api.html#DrillPyze.controllers.z_torque">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">z_torque</span><span class="p">(</span><span class="n">zeta_p</span><span class="p">,</span> <span class="n">inertia</span><span class="p">,</span> <span class="n">t_hp</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">t_lp</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">t_en</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">kp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ki</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    ZTorque: a stiff inner speed loop whose reference is corrected by the</span>
+<span class="sd">    band-pass filtered pipe torque, Z = 1/zeta_p (eqs. 14-15), so the top drive</span>
+<span class="sd">    behaves like a matched impedance.  The inner loop must be stiff for the top</span>
+<span class="sd">    drive to actually follow the corrected reference; pairing the impedance</span>
+<span class="sd">    feedback with soft PI gains is unstable.  Defaults follow the paper (1 ms</span>
+<span class="sd">    speed and low-pass filters, 10 s high-pass).  Convergence to the set point</span>
+<span class="sd">    is governed by ``t_hp``.</span>
+<span class="sd">    """</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">stiff</span><span class="p">(</span><span class="n">zeta_p</span><span class="p">,</span> <span class="n">inertia</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">kp</span>
+    <span class="k">if</span> <span class="n">ki</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">ki</span> <span class="o">=</span> <span class="n">ki</span>
+    <span class="n">c</span><span class="o">.</span><span class="n">impedance</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">zeta_p</span>
+    <span class="n">c</span><span class="o">.</span><span class="n">t_hp</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">t_lp</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">t_en</span> <span class="o">=</span> <span class="n">t_hp</span><span class="p">,</span> <span class="n">t_lp</span><span class="p">,</span> <span class="n">t_en</span>
+    <span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s1">'z_torque'</span>
+    <span class="k">return</span> <span class="n">c</span></div>
+
+
+
+<div class="viewcode-block" id="custom">
+<a class="viewcode-back" href="../../api.html#DrillPyze.controllers.custom">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">custom</span><span class="p">(</span><span class="n">kp</span><span class="p">,</span> <span class="n">ki</span><span class="p">,</span> <span class="n">impedance</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">t_hp</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">t_lp</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">t_en</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'custom'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Any controller with the same block structure."""</span>
+    <span class="k">return</span> <span class="n">ControllerParameters</span><span class="p">(</span><span class="n">kp</span><span class="o">=</span><span class="n">kp</span><span class="p">,</span> <span class="n">ki</span><span class="o">=</span><span class="n">ki</span><span class="p">,</span> <span class="n">impedance</span><span class="o">=</span><span class="n">impedance</span><span class="p">,</span> <span class="n">t_hp</span><span class="o">=</span><span class="n">t_hp</span><span class="p">,</span>
+                                <span class="n">t_lp</span><span class="o">=</span><span class="n">t_lp</span><span class="p">,</span> <span class="n">t_en</span><span class="o">=</span><span class="n">t_en</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="reflection_coefficient">
+<a class="viewcode-back" href="../../api.html#DrillPyze.controllers.reflection_coefficient">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">reflection_coefficient</span><span class="p">(</span><span class="n">c</span><span class="p">:</span> <span class="n">ControllerParameters</span><span class="p">,</span> <span class="n">zeta_p</span><span class="p">,</span> <span class="n">inertia</span><span class="p">,</span> <span class="n">freqs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Top-side torsional reflection coefficient ``|(C(s)+I s - zeta)/(C(s)+I s + zeta)|``</span>
+<span class="sd">    at frequencies ``freqs`` (Hz), ignoring the impedance-feedback path (eq. 10).</span>
+<span class="sd">    """</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="mi">2</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">freqs</span><span class="p">)</span>
+    <span class="n">C</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">kp</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">ki</span> <span class="o">/</span> <span class="n">s</span> <span class="o">+</span> <span class="n">inertia</span> <span class="o">*</span> <span class="n">s</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">C</span> <span class="o">-</span> <span class="n">zeta_p</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">C</span> <span class="o">+</span> <span class="n">zeta_p</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

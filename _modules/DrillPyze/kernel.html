@@ -1,0 +1,751 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.kernel &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.kernel</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.kernel</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Numba time-stepping kernel for the coupled axial-torsional drillstring model.</span>
+
+<span class="sd">See ``docs/derivation/README.md`` for the equations.  The kernel is written over plain</span>
+<span class="sd">arrays so it compiles to tight machine code; :class:`DrillPyze.Simulation`</span>
+<span class="sd">owns the arrays and provides the user-facing API.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">njit</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">normal_force</span>
+
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="c1"># indices into the scalar state vector ``sc``</span>
+<span class="n">S_T</span> <span class="o">=</span> <span class="mi">0</span>           <span class="c1"># simulation time (s)</span>
+<span class="n">S_WTD</span> <span class="o">=</span> <span class="mi">1</span>         <span class="c1"># top drive speed (rad/s)</span>
+<span class="n">S_TAUM</span> <span class="o">=</span> <span class="mi">2</span>        <span class="c1"># motor torque (N m)</span>
+<span class="n">S_TAU0</span> <span class="o">=</span> <span class="mi">3</span>        <span class="c1"># pipe torque at top (N m)</span>
+<span class="n">S_INT</span> <span class="o">=</span> <span class="mi">4</span>         <span class="c1"># PI integrator state</span>
+<span class="n">S_LPTAU</span> <span class="o">=</span> <span class="mi">5</span>       <span class="c1"># low-pass state of tau_0 (ZTorque)</span>
+<span class="n">S_HPLP</span> <span class="o">=</span> <span class="mi">6</span>        <span class="c1"># internal low-pass state of the high-pass filter</span>
+<span class="n">S_WFILT</span> <span class="o">=</span> <span class="mi">7</span>       <span class="c1"># filtered top-drive speed</span>
+<span class="n">S_WSP</span> <span class="o">=</span> <span class="mi">8</span>         <span class="c1"># rate-limited speed set point (rad/s)</span>
+<span class="n">S_BITD</span> <span class="o">=</span> <span class="mi">9</span>        <span class="c1"># bit depth (m MD)</span>
+<span class="n">S_HOLED</span> <span class="o">=</span> <span class="mi">10</span>      <span class="c1"># hole depth (m MD)</span>
+<span class="n">S_WBIT</span> <span class="o">=</span> <span class="mi">11</span>       <span class="c1"># bit speed (rad/s)</span>
+<span class="n">S_TOB</span> <span class="o">=</span> <span class="mi">12</span>        <span class="c1"># torque on bit (N m)</span>
+<span class="n">S_VBIT</span> <span class="o">=</span> <span class="mi">13</span>       <span class="c1"># bit axial velocity (m/s)</span>
+<span class="n">S_WOB</span> <span class="o">=</span> <span class="mi">14</span>        <span class="c1"># weight on bit (N)</span>
+<span class="n">S_VBLK</span> <span class="o">=</span> <span class="mi">15</span>       <span class="c1"># block velocity (m/s, + down)</span>
+<span class="n">S_HKLD</span> <span class="o">=</span> <span class="mi">16</span>       <span class="c1"># hookload (N, effective tension at surface)</span>
+<span class="n">S_AD_INT</span> <span class="o">=</span> <span class="mi">17</span>     <span class="c1"># autodriller integrator</span>
+<span class="n">S_BLKPOS</span> <span class="o">=</span> <span class="mi">18</span>     <span class="c1"># block travel since start (m, + down)</span>
+<span class="n">S_BITSTUCK</span> <span class="o">=</span> <span class="mi">19</span>   <span class="c1"># 1 if bit rotationally sticking</span>
+<span class="n">S_PHIB</span> <span class="o">=</span> <span class="mi">20</span>       <span class="c1"># bit rotation angle (rad), regenerative model</span>
+<span class="n">S_WINT</span> <span class="o">=</span> <span class="mi">21</span>       <span class="c1"># integral of |omega_bit| dt (rad), for averages over slow updates</span>
+<span class="n">N_SCALARS</span> <span class="o">=</span> <span class="mi">22</span>
+
+<span class="c1"># indices into the float parameter vector ``pf``</span>
+<span class="n">P_DT</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">P_KT</span> <span class="o">=</span> <span class="mi">1</span>           <span class="c1"># unused (damping is per cell, see advance())</span>
+<span class="n">P_KA</span> <span class="o">=</span> <span class="mi">2</span>           <span class="c1"># unused</span>
+<span class="n">P_WC</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">P_VC</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">P_ITD</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">P_KP</span> <span class="o">=</span> <span class="mi">6</span>
+<span class="n">P_KI</span> <span class="o">=</span> <span class="mi">7</span>
+<span class="n">P_ZC</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="n">P_THP</span> <span class="o">=</span> <span class="mi">9</span>
+<span class="n">P_TLP</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">P_TEN</span> <span class="o">=</span> <span class="mi">11</span>
+<span class="n">P_TAUMAX</span> <span class="o">=</span> <span class="mi">12</span>
+<span class="n">P_RAMP</span> <span class="o">=</span> <span class="mi">13</span>        <span class="c1"># unused (set points ramp by time, see the ramp table)</span>
+<span class="n">P_LEVS</span> <span class="o">=</span> <span class="mi">14</span>       <span class="c1"># bit torque per unit WOB while sticking (m): TOB &lt;= P_LEVS * WOB</span>
+<span class="n">P_LEVK</span> <span class="o">=</span> <span class="mi">15</span>       <span class="c1"># bit torque per unit WOB while sliding (m):  TOB  = P_LEVK * WOB</span>
+<span class="n">P_KCUT</span> <span class="o">=</span> <span class="mi">16</span>       <span class="c1"># regenerative: axial cutting force per unit summed blade depth, S*a (N/m)</span>
+<span class="n">P_BLADES</span> <span class="o">=</span> <span class="mi">17</span>     <span class="c1"># regenerative: number of blades</span>
+<span class="n">P_KROP</span> <span class="o">=</span> <span class="mi">18</span>       <span class="c1"># quasi-static: ROP = P_KROP * max(WOB - P_W0, 0) * |omega|  (m/(N rad))</span>
+<span class="n">P_W0</span> <span class="o">=</span> <span class="mi">19</span>         <span class="c1"># quasi-static: contact (threshold) WOB (N)</span>
+<span class="n">P_QS_TOP</span> <span class="o">=</span> <span class="mi">20</span>      <span class="c1"># static compression at the top face (N)</span>
+<span class="n">P_AD_KP</span> <span class="o">=</span> <span class="mi">21</span>       <span class="c1"># autodriller gains (m/s per N)</span>
+<span class="n">P_AD_KI</span> <span class="o">=</span> <span class="mi">22</span>
+<span class="n">P_AD_VMAX</span> <span class="o">=</span> <span class="mi">23</span>     <span class="c1"># autodriller max block speed (m/s)</span>
+<span class="n">P_HKLD_REF</span> <span class="o">=</span> <span class="mi">24</span>    <span class="c1"># off-bottom reference hookload for autodriller (N)</span>
+<span class="n">P_AXC</span> <span class="o">=</span> <span class="mi">25</span>         <span class="c1"># axial static contrast c: mu_s,axial = mu_k + c (mu_s - mu_k)</span>
+<span class="n">P_WEAK</span> <span class="o">=</span> <span class="mi">26</span>        <span class="c1"># 0: step static-&gt;kinetic, 1: exponential weakening mu_k + (mu_s - mu_k) exp(-s)</span>
+<span class="n">P_BLK_ACC</span> <span class="o">=</span> <span class="mi">27</span>     <span class="c1"># block acceleration limit (m/s^2), 0 = unlimited</span>
+<span class="n">P_HP_T</span> <span class="o">=</span> <span class="mi">28</span>        <span class="c1"># high-pass filter coefficient for the torsional Stokes damping (per step)</span>
+<span class="n">P_HP_A</span> <span class="o">=</span> <span class="mi">29</span>        <span class="c1"># same, axial</span>
+<span class="n">P_KV</span> <span class="o">=</span> <span class="mi">30</span>          <span class="c1"># 1 if Kelvin-Voigt material damping is active</span>
+<span class="n">N_PF</span> <span class="o">=</span> <span class="mi">31</span>
+
+<span class="c1"># set-point ramp table: one row per input, columns (start value, start time, ramp time, target)</span>
+<span class="n">R_WSP</span><span class="p">,</span> <span class="n">R_VBLK</span><span class="p">,</span> <span class="n">R_TAUM</span><span class="p">,</span> <span class="n">R_WTD</span><span class="p">,</span> <span class="n">R_WOB</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span>
+<span class="n">N_RAMPS</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="c1"># indices into the integer parameter vector ``pi``</span>
+<span class="n">I_CTRL</span> <span class="o">=</span> <span class="mi">0</span>         <span class="c1"># 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed</span>
+<span class="n">I_AXIAL</span> <span class="o">=</span> <span class="mi">1</span>        <span class="c1"># 0 prescribed block velocity, 1 autodriller (WOB)</span>
+<span class="n">I_COUPLE</span> <span class="o">=</span> <span class="mi">2</span>       <span class="c1"># 1: 2-D Coulomb friction on (v, omega r) with live-tension F_N (default)</span>
+                   <span class="c1"># 0: independent axial/torsional friction with static F_N</span>
+<span class="n">I_BIT</span> <span class="o">=</span> <span class="mi">3</span>          <span class="c1"># 0 Coulomb, 1 cutting (quasi-static), 2 regenerative cutting</span>
+<span class="n">N_PI</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">BIT_MODELS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'coulomb'</span><span class="p">,</span> <span class="s1">'cutting'</span><span class="p">,</span> <span class="s1">'regenerative'</span><span class="p">)</span>
+
+<span class="c1"># recorded channels</span>
+<span class="n">REC_CHANNELS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'time'</span><span class="p">,</span> <span class="s1">'omega_td'</span><span class="p">,</span> <span class="s1">'motor_torque'</span><span class="p">,</span> <span class="s1">'pipe_torque'</span><span class="p">,</span> <span class="s1">'omega_bit'</span><span class="p">,</span>
+                <span class="s1">'tob'</span><span class="p">,</span> <span class="s1">'v_block'</span><span class="p">,</span> <span class="s1">'hookload'</span><span class="p">,</span> <span class="s1">'v_bit'</span><span class="p">,</span> <span class="s1">'wob'</span><span class="p">,</span> <span class="s1">'bit_depth'</span><span class="p">,</span>
+                <span class="s1">'hole_depth'</span><span class="p">,</span> <span class="s1">'omega_sp'</span><span class="p">)</span>
+<span class="n">N_REC</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">REC_CHANNELS</span><span class="p">)</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fastmath</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_face</span><span class="p">(</span><span class="n">aL</span><span class="p">,</span> <span class="n">bR</span><span class="p">,</span> <span class="n">ZL</span><span class="p">,</span> <span class="n">ZR</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Godunov face solution: returns (velocity, force) from incoming invariants."""</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">aL</span> <span class="o">-</span> <span class="n">bR</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">ZL</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">ZR</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">aL</span> <span class="o">-</span> <span class="n">f</span> <span class="o">/</span> <span class="n">ZL</span><span class="p">,</span> <span class="n">f</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_sign</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Sign of x (-1, 0 or 1)."""</span>
+    <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">1.0</span>
+    <span class="k">elif</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mf">1.0</span>
+    <span class="k">return</span> <span class="mf">0.0</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bit</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zt</span><span class="p">,</span> <span class="n">Za</span><span class="p">,</span> <span class="n">on_bottom</span><span class="p">,</span> <span class="n">w_prev</span><span class="p">,</span> <span class="n">stuck_prev</span><span class="p">,</span> <span class="n">pf</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Quasi-static bit boundary (Coulomb and cutting models).</span>
+
+<span class="sd">    Torque:  sticking (|omega_b| &lt;= omega_c):  |TOB| &lt;= LEVS * WOB</span>
+<span class="sd">             sliding:                          TOB  =  LEVK * WOB * sign(omega_b)</span>
+<span class="sd">    Penetration (depth of cut per revolution = 2 pi v / omega):</span>
+<span class="sd">             ROP = KROP * max(WOB - W0, 0) * |omega_b|</span>
+<span class="sd">    with the characteristic relations omega_b = alpha_t - TOB/Zt and</span>
+<span class="sd">    v_b = alpha_a - WOB/Za, and unilateral contact (WOB &gt;= 0).</span>
+
+<span class="sd">    Returns (omega_b, tob, v_b, wob, sticking).</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">on_bottom</span><span class="p">)</span> <span class="ow">or</span> <span class="n">alpha_a</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="c1"># off bottom, or the string is lifting the bit</span>
+        <span class="k">return</span> <span class="n">alpha_t</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+
+    <span class="n">lev_s</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_LEVS</span><span class="p">]</span>
+    <span class="n">lev_k</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_LEVK</span><span class="p">]</span>
+    <span class="n">kr</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_KROP</span><span class="p">]</span>
+    <span class="n">w0</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_W0</span><span class="p">]</span>
+    <span class="n">wc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_WC</span><span class="p">]</span>
+
+    <span class="n">w</span> <span class="o">=</span> <span class="n">alpha_t</span> <span class="k">if</span> <span class="n">alpha_t</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">wob</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">tob</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">stuck</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+        <span class="c1"># axial: penetration law and v_b = alpha_a - WOB/Za</span>
+        <span class="n">q_lin</span> <span class="o">=</span> <span class="n">Za</span> <span class="o">*</span> <span class="n">alpha_a</span>                     <span class="c1"># WOB if the bit does not advance</span>
+        <span class="n">aw</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">q_lin</span> <span class="o">&lt;=</span> <span class="n">w0</span> <span class="ow">or</span> <span class="n">kr</span> <span class="o">*</span> <span class="n">aw</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">wob</span> <span class="o">=</span> <span class="n">q_lin</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">wob</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha_a</span> <span class="o">+</span> <span class="n">kr</span> <span class="o">*</span> <span class="n">w0</span> <span class="o">*</span> <span class="n">aw</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">Za</span> <span class="o">+</span> <span class="n">kr</span> <span class="o">*</span> <span class="n">aw</span><span class="p">)</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">kr</span> <span class="o">*</span> <span class="p">(</span><span class="n">wob</span> <span class="o">-</span> <span class="n">w0</span><span class="p">)</span> <span class="o">*</span> <span class="n">aw</span>
+        <span class="c1"># torsional: TOB proportional to WOB, with sticking</span>
+        <span class="n">tau_stop</span> <span class="o">=</span> <span class="n">Zt</span> <span class="o">*</span> <span class="n">alpha_t</span>                  <span class="c1"># TOB that holds the bit at rest</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">w_prev</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">wc</span> <span class="ow">or</span> <span class="n">stuck_prev</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">tau_stop</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">lev_s</span> <span class="o">*</span> <span class="n">wob</span><span class="p">:</span>
+            <span class="n">tob</span> <span class="o">=</span> <span class="n">tau_stop</span>
+            <span class="n">w_new</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">stuck</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tob</span> <span class="o">=</span> <span class="n">_sign</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">)</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="n">lev_k</span> <span class="o">*</span> <span class="n">wob</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">tau_stop</span><span class="p">))</span>
+            <span class="n">w_new</span> <span class="o">=</span> <span class="n">alpha_t</span> <span class="o">-</span> <span class="n">tob</span> <span class="o">/</span> <span class="n">Zt</span>
+            <span class="n">stuck</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">w_new</span> <span class="o">-</span> <span class="n">w</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">w_new</span>
+            <span class="k">break</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">w_new</span>
+    <span class="k">return</span> <span class="n">w</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bit_regen</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zt</span><span class="p">,</span> <span class="n">Za</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">w_prev</span><span class="p">,</span> <span class="n">stuck_prev</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">surf</span><span class="p">,</span> <span class="n">pf</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Regenerative cutting bit (Richard, Germay &amp; Detournay 2007 type).</span>
+
+<span class="sd">    The hole bottom under the bit is stored as a profile ``surf`` over M</span>
+<span class="sd">    angular bins.  ``n`` blades sit at phi + 2 pi j / n.  The depth of cut of</span>
+<span class="sd">    blade j is d_j = max(u - surf[bin_j], 0): the material left by the</span>
+<span class="sd">    previous blade to pass that angle, so the depth of cut carries the delay</span>
+<span class="sd">    of one blade passage (the regenerative effect).</span>
+
+<span class="sd">        WOB = S a sum_j d_j        (axial cutting force; zero when lifted off)</span>
+<span class="sd">        TOB = WOB a / (2 zeta)     (cutting torque; sticking when stalled)</span>
+
+<span class="sd">    The axial contact is solved implicitly for the new bit depth.</span>
+<span class="sd">    Returns (omega_b, tob, v_b, wob, sticking).</span>
+<span class="sd">    """</span>
+    <span class="n">kc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_KCUT</span><span class="p">]</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pf</span><span class="p">[</span><span class="n">P_BLADES</span><span class="p">])</span>
+    <span class="n">lev</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_LEVK</span><span class="p">]</span>
+    <span class="n">wc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_WC</span><span class="p">]</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dth</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">M</span>
+
+    <span class="c1"># surface under each blade</span>
+    <span class="n">s_bl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">ang</span> <span class="o">=</span> <span class="n">phi</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">j</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">ang</span> <span class="o">/</span> <span class="n">dth</span><span class="p">))</span> <span class="o">%</span> <span class="n">M</span>
+        <span class="n">s_bl</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">surf</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+
+    <span class="c1"># implicit axial contact: u1 = u + dt (alpha_a - WOB/Za), WOB = kc sum (u1 - s_j)+</span>
+    <span class="n">u_free</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">alpha_a</span>
+    <span class="n">u1</span> <span class="o">=</span> <span class="n">u_free</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">ssum</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">s_bl</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">u1</span><span class="p">:</span>
+                <span class="n">m</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">ssum</span> <span class="o">+=</span> <span class="n">s_bl</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">u_new</span> <span class="o">=</span> <span class="n">u_free</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">kc</span> <span class="o">/</span> <span class="n">Za</span>
+            <span class="n">u_new</span> <span class="o">=</span> <span class="p">(</span><span class="n">u_free</span> <span class="o">+</span> <span class="n">g</span> <span class="o">*</span> <span class="n">ssum</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">g</span> <span class="o">*</span> <span class="n">m</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">u_new</span> <span class="o">-</span> <span class="n">u1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-15</span><span class="p">:</span>
+            <span class="n">u1</span> <span class="o">=</span> <span class="n">u_new</span>
+            <span class="k">break</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="n">u_new</span>
+    <span class="n">wob</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">u1</span> <span class="o">&gt;</span> <span class="n">s_bl</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span>
+            <span class="n">wob</span> <span class="o">+=</span> <span class="n">kc</span> <span class="o">*</span> <span class="p">(</span><span class="n">u1</span> <span class="o">-</span> <span class="n">s_bl</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="n">u1</span> <span class="o">-</span> <span class="n">u</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>
+
+    <span class="c1"># torque: cutting torque proportional to WOB, sticking when stalled</span>
+    <span class="n">tau_stop</span> <span class="o">=</span> <span class="n">Zt</span> <span class="o">*</span> <span class="n">alpha_t</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">w_prev</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">wc</span> <span class="ow">or</span> <span class="n">stuck_prev</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">tau_stop</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">lev</span> <span class="o">*</span> <span class="n">wob</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">tau_stop</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="mf">1.0</span>
+    <span class="n">tob</span> <span class="o">=</span> <span class="n">_sign</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">)</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="n">lev</span> <span class="o">*</span> <span class="n">wob</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">tau_stop</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">alpha_t</span> <span class="o">-</span> <span class="n">tob</span> <span class="o">/</span> <span class="n">Zt</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="mf">0.0</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_sweep</span><span class="p">(</span><span class="n">phi_old</span><span class="p">,</span> <span class="n">phi_new</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">surf</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Blades moving forward from phi_old to phi_new leave the surface at depth u."""</span>
+    <span class="k">if</span> <span class="n">phi_new</span> <span class="o">&lt;=</span> <span class="n">phi_old</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dth</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">M</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">off</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">j</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="n">b0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">phi_old</span> <span class="o">+</span> <span class="n">off</span><span class="p">)</span> <span class="o">/</span> <span class="n">dth</span><span class="p">))</span>
+        <span class="n">b1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">phi_new</span> <span class="o">+</span> <span class="n">off</span><span class="p">)</span> <span class="o">/</span> <span class="n">dth</span><span class="p">))</span>
+        <span class="c1"># bins the blade has left behind this step (it cuts the bin it occupies when it leaves)</span>
+        <span class="n">last</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">b1</span><span class="p">,</span> <span class="n">b0</span> <span class="o">+</span> <span class="n">M</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">b0</span><span class="p">,</span> <span class="n">last</span><span class="p">):</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">b</span> <span class="o">%</span> <span class="n">M</span>
+            <span class="k">if</span> <span class="n">u</span> <span class="o">&gt;</span> <span class="n">surf</span><span class="p">[</span><span class="n">k</span><span class="p">]:</span>
+                <span class="n">surf</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_coulomb_2d</span><span class="p">(</span><span class="n">va</span><span class="p">,</span> <span class="n">vt</span><span class="p">,</span> <span class="n">m_a</span><span class="p">,</span> <span class="n">m_t</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Implicit (backward-Euler) 2-D Coulomb friction on one cell.</span>
+
+<span class="sd">    Given the predicted sliding velocity (va, vt) = (v, omega r), the masses</span>
+<span class="sd">    per length in each direction (m_a = rho A, m_t = rho J / r^2) and the</span>
+<span class="sd">    friction impulse per length c = dt * mu * F_N, return the new velocity</span>
+
+<span class="sd">        V = V* - (dt/M) * mu F_N * V/|V|,</span>
+
+<span class="sd">    i.e. friction opposes the *new* sliding direction exactly.  If the</span>
+<span class="sd">    momentum |M V*| is within c the cell sticks (V = 0).  Otherwise</span>
+<span class="sd">    V_i = m_i V*_i s / (m_i s + c), where the new speed s = |V| solves</span>
+
+<span class="sd">        g(s) = sum_i (m_i V*_i / (m_i s + c))^2 - 1 = 0,</span>
+
+<span class="sd">    a convex decreasing function solved by Newton's method from s = |V*|.</span>
+<span class="sd">    """</span>
+    <span class="n">pa</span> <span class="o">=</span> <span class="n">m_a</span> <span class="o">*</span> <span class="n">va</span>
+    <span class="n">pt</span> <span class="o">=</span> <span class="n">m_t</span> <span class="o">*</span> <span class="n">vt</span>
+    <span class="k">if</span> <span class="n">pa</span> <span class="o">*</span> <span class="n">pa</span> <span class="o">+</span> <span class="n">pt</span> <span class="o">*</span> <span class="n">pt</span> <span class="o">&lt;=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">c</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+    <span class="k">if</span> <span class="n">c</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">va</span><span class="p">,</span> <span class="n">vt</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">va</span> <span class="o">*</span> <span class="n">va</span> <span class="o">+</span> <span class="n">vt</span> <span class="o">*</span> <span class="n">vt</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">50</span><span class="p">):</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="n">m_a</span> <span class="o">*</span> <span class="n">s</span> <span class="o">+</span> <span class="n">c</span>
+        <span class="n">dt_</span> <span class="o">=</span> <span class="n">m_t</span> <span class="o">*</span> <span class="n">s</span> <span class="o">+</span> <span class="n">c</span>
+        <span class="n">ra</span> <span class="o">=</span> <span class="n">pa</span> <span class="o">/</span> <span class="n">da</span>
+        <span class="n">rt</span> <span class="o">=</span> <span class="n">pt</span> <span class="o">/</span> <span class="n">dt_</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">ra</span> <span class="o">*</span> <span class="n">ra</span> <span class="o">+</span> <span class="n">rt</span> <span class="o">*</span> <span class="n">rt</span> <span class="o">-</span> <span class="mf">1.0</span>
+        <span class="n">dg</span> <span class="o">=</span> <span class="o">-</span><span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">ra</span> <span class="o">*</span> <span class="n">ra</span> <span class="o">*</span> <span class="n">m_a</span> <span class="o">/</span> <span class="n">da</span> <span class="o">+</span> <span class="n">rt</span> <span class="o">*</span> <span class="n">rt</span> <span class="o">*</span> <span class="n">m_t</span> <span class="o">/</span> <span class="n">dt_</span><span class="p">)</span>
+        <span class="n">s_new</span> <span class="o">=</span> <span class="n">s</span> <span class="o">-</span> <span class="n">g</span> <span class="o">/</span> <span class="n">dg</span>
+        <span class="k">if</span> <span class="n">s_new</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">s_new</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">s_new</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">1e-14</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="mf">1e-30</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">s_new</span>
+            <span class="k">break</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">s_new</span>
+    <span class="k">return</span> <span class="n">va</span> <span class="o">*</span> <span class="n">m_a</span> <span class="o">*</span> <span class="n">s</span> <span class="o">/</span> <span class="p">(</span><span class="n">m_a</span> <span class="o">*</span> <span class="n">s</span> <span class="o">+</span> <span class="n">c</span><span class="p">),</span> <span class="n">vt</span> <span class="o">*</span> <span class="n">m_t</span> <span class="o">*</span> <span class="n">s</span> <span class="o">/</span> <span class="p">(</span><span class="n">m_t</span> <span class="o">*</span> <span class="n">s</span> <span class="o">+</span> <span class="n">c</span><span class="p">)</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Value of ramped input k at time t: linear from (v0, t0) to the target over T."""</span>
+    <span class="n">v0</span> <span class="o">=</span> <span class="n">ramps</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">ramps</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">tgt</span> <span class="o">=</span> <span class="n">ramps</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">T</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tgt</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">ramps</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">T</span>
+    <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tgt</span>
+    <span class="k">if</span> <span class="n">f</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">v0</span>
+    <span class="k">return</span> <span class="n">v0</span> <span class="o">+</span> <span class="p">(</span><span class="n">tgt</span> <span class="o">-</span> <span class="n">v0</span><span class="p">)</span> <span class="o">*</span> <span class="n">f</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_kv_solve</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">dp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Backward-Euler Kelvin-Voigt step, in place (Thomas algorithm):</span>
+
+<span class="sd">        m_j h_j (x_j' - x_j) / dt = k_{j+1} (x_{j+1}' - x_j') - k_j (x_j' - x_{j-1}')</span>
+
+<span class="sd">    with face conductances k (length n+1, k_0 = k_n = 0: no viscous flux</span>
+<span class="sd">    through the top drive / bit faces).  Unconditionally stable and</span>
+<span class="sd">    momentum-conserving; dissipates sum k (dx)^2 &gt;= 0.</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">mh</span> <span class="o">=</span> <span class="n">m</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dt</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="o">-</span><span class="n">k</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>                    <span class="c1"># sub-diagonal</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">mh</span> <span class="o">+</span> <span class="n">k</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">k</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>     <span class="c1"># diagonal</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="o">-</span><span class="n">k</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>                <span class="c1"># super-diagonal</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">mh</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">/</span> <span class="n">b</span>
+            <span class="n">dp</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span> <span class="o">/</span> <span class="n">b</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">den</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">cp</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">cp</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">/</span> <span class="n">den</span>
+            <span class="n">dp</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">d</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">dp</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">den</span>
+    <span class="n">x</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dp</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">dp</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">cp</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="advance">
+<a class="viewcode-back" href="../../api.html#DrillPyze.kernel.advance">[docs]</a>
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fastmath</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">advance</span><span class="p">(</span><span class="n">nsteps</span><span class="p">,</span> <span class="n">sc</span><span class="p">,</span> <span class="n">pf</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span>
+            <span class="c1"># grid</span>
+            <span class="n">h</span><span class="p">,</span> <span class="n">Kt</span><span class="p">,</span> <span class="n">mt</span><span class="p">,</span> <span class="n">Zt</span><span class="p">,</span> <span class="n">Ka</span><span class="p">,</span> <span class="n">ma</span><span class="p">,</span> <span class="n">Za</span><span class="p">,</span> <span class="n">rc</span><span class="p">,</span> <span class="n">wb_len</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">kz</span><span class="p">,</span> <span class="n">zx</span><span class="p">,</span> <span class="n">zy</span><span class="p">,</span> <span class="n">zz</span><span class="p">,</span>
+            <span class="n">mus</span><span class="p">,</span> <span class="n">muk</span><span class="p">,</span> <span class="n">qs_c</span><span class="p">,</span> <span class="n">fn0</span><span class="p">,</span>
+            <span class="c1"># state</span>
+            <span class="n">w</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">qd</span><span class="p">,</span>
+            <span class="c1"># inputs (held constant over the call)</span>
+            <span class="n">ramps</span><span class="p">,</span>
+            <span class="c1"># recording</span>
+            <span class="n">rec</span><span class="p">,</span> <span class="n">rec_idx</span><span class="p">,</span> <span class="n">rec_every</span><span class="p">,</span> <span class="n">rec_phase</span><span class="p">,</span>
+            <span class="c1"># scratch</span>
+            <span class="n">wf</span><span class="p">,</span> <span class="n">tf</span><span class="p">,</span> <span class="n">vf</span><span class="p">,</span> <span class="n">qf</span><span class="p">,</span>
+            <span class="c1"># regenerative bit: hole-bottom profile over angular bins</span>
+            <span class="n">surf</span><span class="p">,</span>
+            <span class="c1"># damping (per cell / per face), see docs/derivation sec. 5.6</span>
+            <span class="n">k0t</span><span class="p">,</span> <span class="n">k0a</span><span class="p">,</span> <span class="n">k1t</span><span class="p">,</span> <span class="n">k1a</span><span class="p">,</span> <span class="n">wbar</span><span class="p">,</span> <span class="n">vbar</span><span class="p">,</span> <span class="n">kvt</span><span class="p">,</span> <span class="n">kva</span><span class="p">,</span> <span class="n">fy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Advance the model ``nsteps`` time steps.  State arrays are updated in</span>
+<span class="sd">    place.</span>
+
+<span class="sd">    Damping: k0* (1/s) act on the full velocity (Couette + calibration),</span>
+<span class="sd">    k1* (1/s) on the oscillatory part w - wbar (Stokes layer; wbar is a</span>
+<span class="sd">    per-cell low-pass state), kv* (N s/m resp. N m s) are Kelvin-Voigt face</span>
+<span class="sd">    conductances (n+1, zero at the ends), fy (N/m) the yield-stress drag.  Every ``rec_every`` steps a row is written into ``rec`` starting at</span>
+<span class="sd">    ``rec_idx``; returns (new rec_idx, new rec_phase).</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_DT</span><span class="p">]</span>
+    <span class="n">a_hp_t</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_HP_T</span><span class="p">]</span>
+    <span class="n">a_hp_a</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_HP_A</span><span class="p">]</span>
+    <span class="n">use_kv</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_KV</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
+    <span class="n">w_old_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">v_old_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">wst</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">vst</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">cpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">dpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">wc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_WC</span><span class="p">]</span>
+    <span class="n">vc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_VC</span><span class="p">]</span>
+    <span class="n">I</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_ITD</span><span class="p">]</span>
+    <span class="n">ctrl</span> <span class="o">=</span> <span class="n">pi</span><span class="p">[</span><span class="n">I_CTRL</span><span class="p">]</span>
+    <span class="n">axial_mode</span> <span class="o">=</span> <span class="n">pi</span><span class="p">[</span><span class="n">I_AXIAL</span><span class="p">]</span>
+    <span class="n">coupled</span> <span class="o">=</span> <span class="n">pi</span><span class="p">[</span><span class="n">I_COUPLE</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="n">bit_model</span> <span class="o">=</span> <span class="n">pi</span><span class="p">[</span><span class="n">I_BIT</span><span class="p">]</span>
+    <span class="n">n_blades</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pf</span><span class="p">[</span><span class="n">P_BLADES</span><span class="p">])</span>
+    <span class="n">axc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_AXC</span><span class="p">]</span>
+    <span class="n">weak_exp</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_WEAK</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
+
+    <span class="c1"># filter coefficients (exact discretisation of first-order lags)</span>
+    <span class="n">a_en</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dt</span> <span class="o">/</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TEN</span><span class="p">])</span> <span class="k">if</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TEN</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">a_lp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dt</span> <span class="o">/</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TLP</span><span class="p">])</span> <span class="k">if</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TLP</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">a_hp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dt</span> <span class="o">/</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_THP</span><span class="p">])</span> <span class="k">if</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_THP</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+    <span class="n">nrec</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span><span class="p">):</span>
+        <span class="c1"># ---------------------------------------------------- top drive input</span>
+        <span class="n">wtd</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WTD</span><span class="p">]</span>
+        <span class="n">t_now</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_T</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span>
+        <span class="n">w_sp_target</span> <span class="o">=</span> <span class="n">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">R_WSP</span><span class="p">,</span> <span class="n">t_now</span><span class="p">)</span>
+        <span class="n">v_blk_in</span> <span class="o">=</span> <span class="n">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">R_VBLK</span><span class="p">,</span> <span class="n">t_now</span><span class="p">)</span>
+        <span class="n">taum_ext</span> <span class="o">=</span> <span class="n">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">R_TAUM</span><span class="p">,</span> <span class="n">t_now</span><span class="p">)</span>
+        <span class="n">wtd_ext</span> <span class="o">=</span> <span class="n">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">R_WTD</span><span class="p">,</span> <span class="n">t_now</span><span class="p">)</span>
+        <span class="n">wob_sp</span> <span class="o">=</span> <span class="n">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">R_WOB</span><span class="p">,</span> <span class="n">t_now</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ctrl</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># set point ramps by time (ramp table)</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_WSP</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_sp_target</span>
+            <span class="c1"># measurements (speed filter, torque band-pass for ZTorque)</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_WFILT</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_en</span> <span class="o">*</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WFILT</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">a_en</span><span class="p">)</span> <span class="o">*</span> <span class="n">wtd</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_LPTAU</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_lp</span> <span class="o">*</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_LPTAU</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">a_lp</span><span class="p">)</span> <span class="o">*</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_TAU0</span><span class="p">]</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_HPLP</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_hp</span> <span class="o">*</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HPLP</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">a_hp</span><span class="p">)</span> <span class="o">*</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_LPTAU</span><span class="p">]</span>
+            <span class="n">tau_bp</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_LPTAU</span><span class="p">]</span> <span class="o">-</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HPLP</span><span class="p">]</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WSP</span><span class="p">]</span> <span class="o">-</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WFILT</span><span class="p">]</span> <span class="o">-</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_ZC</span><span class="p">]</span> <span class="o">*</span> <span class="n">tau_bp</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_KP</span><span class="p">]</span> <span class="o">*</span> <span class="n">e</span> <span class="o">+</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_KI</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_INT</span><span class="p">]</span> <span class="o">+</span> <span class="n">e</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+            <span class="n">tmax</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TAUMAX</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">tmax</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tmax</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">tmax</span> <span class="o">*</span> <span class="n">_sign</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>          <span class="c1"># saturate, freeze integrator</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sc</span><span class="p">[</span><span class="n">S_INT</span><span class="p">]</span> <span class="o">+=</span> <span class="n">e</span> <span class="o">*</span> <span class="n">dt</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_TAUM</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span>
+        <span class="k">elif</span> <span class="n">ctrl</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_TAUM</span><span class="p">]</span> <span class="o">=</span> <span class="n">taum_ext</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_WSP</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_sp_target</span>
+
+        <span class="c1"># ------------------------------------------------ top drive dynamics</span>
+        <span class="n">beta_t1</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">Zt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">ctrl</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">w_new_td</span> <span class="o">=</span> <span class="n">wtd_ext</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w_new_td</span> <span class="o">=</span> <span class="p">(</span><span class="n">I</span> <span class="o">*</span> <span class="n">wtd</span> <span class="o">/</span> <span class="n">dt</span> <span class="o">+</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_TAUM</span><span class="p">]</span> <span class="o">+</span> <span class="n">Zt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">beta_t1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">I</span> <span class="o">/</span> <span class="n">dt</span> <span class="o">+</span> <span class="n">Zt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">tau0</span> <span class="o">=</span> <span class="n">Zt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">w_new_td</span> <span class="o">-</span> <span class="n">beta_t1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ctrl</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_TAUM</span><span class="p">]</span> <span class="o">=</span> <span class="n">tau0</span> <span class="o">+</span> <span class="n">I</span> <span class="o">*</span> <span class="p">(</span><span class="n">w_new_td</span> <span class="o">-</span> <span class="n">wtd</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_WSP</span><span class="p">]</span> <span class="o">=</span> <span class="n">wtd_ext</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_WTD</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_new_td</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_TAU0</span><span class="p">]</span> <span class="o">=</span> <span class="n">tau0</span>
+        <span class="n">wf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_new_td</span>
+        <span class="n">tf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">tau0</span>
+
+        <span class="c1"># ---------------------------------------------------- drawworks input</span>
+        <span class="k">if</span> <span class="n">axial_mode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">wob_surf</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_HKLD_REF</span><span class="p">]</span> <span class="o">-</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HKLD</span><span class="p">]</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="n">wob_sp</span> <span class="o">-</span> <span class="n">wob_surf</span>
+            <span class="n">vb</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_AD_KP</span><span class="p">]</span> <span class="o">*</span> <span class="n">err</span> <span class="o">+</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_AD_KI</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_AD_INT</span><span class="p">]</span> <span class="o">+</span> <span class="n">err</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+            <span class="n">vmax</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_AD_VMAX</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">vb</span> <span class="o">&gt;</span> <span class="n">vmax</span><span class="p">:</span>
+                <span class="n">vb</span> <span class="o">=</span> <span class="n">vmax</span>
+            <span class="k">elif</span> <span class="n">vb</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">vmax</span><span class="p">:</span>
+                <span class="n">vb</span> <span class="o">=</span> <span class="o">-</span><span class="n">vmax</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sc</span><span class="p">[</span><span class="n">S_AD_INT</span><span class="p">]</span> <span class="o">+=</span> <span class="n">err</span> <span class="o">*</span> <span class="n">dt</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span> <span class="o">=</span> <span class="n">vb</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">acc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_BLK_ACC</span><span class="p">]</span>
+            <span class="n">dv</span> <span class="o">=</span> <span class="n">v_blk_in</span> <span class="o">-</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">acc</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">acc</span> <span class="o">*</span> <span class="n">dt</span><span class="p">:</span>
+                <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span> <span class="o">+=</span> <span class="n">acc</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">_sign</span><span class="p">(</span><span class="n">dv</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_blk_in</span>
+        <span class="n">beta_a1</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">qd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">Za</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">q0</span> <span class="o">=</span> <span class="n">Za</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span> <span class="o">-</span> <span class="n">beta_a1</span><span class="p">)</span>
+        <span class="n">v_top</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span>
+        <span class="c1"># the hook can only hold the string up: hookload &gt;= 0 (the block stacks out)</span>
+        <span class="k">if</span> <span class="o">-</span><span class="p">(</span><span class="n">q0</span> <span class="o">+</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_QS_TOP</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">q0</span> <span class="o">=</span> <span class="o">-</span><span class="n">pf</span><span class="p">[</span><span class="n">P_QS_TOP</span><span class="p">]</span>
+            <span class="n">v_top</span> <span class="o">=</span> <span class="n">beta_a1</span> <span class="o">+</span> <span class="n">q0</span> <span class="o">/</span> <span class="n">Za</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">vf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_top</span>
+        <span class="n">qf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">q0</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_HKLD</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">q0</span> <span class="o">+</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_QS_TOP</span><span class="p">])</span>
+
+        <span class="c1"># --------------------------------------------------- interior faces</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">a_t</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">Zt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">b_t</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tau</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Zt</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">wf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">tf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_face</span><span class="p">(</span><span class="n">a_t</span><span class="p">,</span> <span class="n">b_t</span><span class="p">,</span> <span class="n">Zt</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Zt</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">a_a</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">qd</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">Za</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">b_a</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">qd</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Za</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">vf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">qf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_face</span><span class="p">(</span><span class="n">a_a</span><span class="p">,</span> <span class="n">b_a</span><span class="p">,</span> <span class="n">Za</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Za</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># ---------------------------------------------------------- bit face</span>
+        <span class="n">alpha_t</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">tau</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">alpha_a</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">qd</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">bit_model</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">wb_</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">vb_</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span> <span class="o">=</span> <span class="n">_bit_regen</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">],</span> <span class="n">dt</span><span class="p">,</span>
+                                                   <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITSTUCK</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">],</span> <span class="n">surf</span><span class="p">,</span> <span class="n">pf</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">on_bottom</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1e-9</span>
+            <span class="n">wb_</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">vb_</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span> <span class="o">=</span> <span class="n">_bit</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
+                                             <span class="n">on_bottom</span><span class="p">,</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITSTUCK</span><span class="p">],</span> <span class="n">pf</span><span class="p">)</span>
+        <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span>
+        <span class="n">tf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">tob</span>
+        <span class="n">vf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">vb_</span>
+        <span class="n">qf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wob</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_TOB</span><span class="p">]</span> <span class="o">=</span> <span class="n">tob</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_VBIT</span><span class="p">]</span> <span class="o">=</span> <span class="n">vb_</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_WOB</span><span class="p">]</span> <span class="o">=</span> <span class="n">wob</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_BITSTUCK</span><span class="p">]</span> <span class="o">=</span> <span class="n">stuck</span>
+
+        <span class="c1"># -------------------------------------------- cell update + sources</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">w_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">v_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="c1"># flux update</span>
+            <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">Kt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">wf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">wf</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">ws</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">/</span> <span class="p">(</span><span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">tf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tf</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">qd</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">Ka</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">vf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">vf</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">vs</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">/</span> <span class="p">(</span><span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">qf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">qf</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="c1"># implicit linear fluid damping: Couette (+ calibration) on the full</span>
+            <span class="c1"># velocity, Stokes layer on the part above the high-pass corner</span>
+            <span class="n">wst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">ws</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k1t</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">wbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">k0t</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">k1t</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+            <span class="n">vst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vs</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k1a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">vbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">k0a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">k1a</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+
+        <span class="c1"># implicit Kelvin-Voigt material damping: one tridiagonal solve each</span>
+        <span class="k">if</span> <span class="n">use_kv</span><span class="p">:</span>
+            <span class="n">_kv_solve</span><span class="p">(</span><span class="n">wst</span><span class="p">,</span> <span class="n">mt</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">kvt</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">cpr</span><span class="p">,</span> <span class="n">dpr</span><span class="p">)</span>
+            <span class="n">_kv_solve</span><span class="p">(</span><span class="n">vst</span><span class="p">,</span> <span class="n">ma</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">kva</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">cpr</span><span class="p">,</span> <span class="n">dpr</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">w_old</span> <span class="o">=</span> <span class="n">w_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">v_old</span> <span class="o">=</span> <span class="n">v_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">ws</span> <span class="o">=</span> <span class="n">wst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">vs</span> <span class="o">=</span> <span class="n">vst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">fyj</span> <span class="o">=</span> <span class="n">fy</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">rc</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">coupled</span><span class="p">:</span>
+                <span class="c1"># ---- 2-D Coulomb inclusion on the sliding velocity (v, omega r)</span>
+                <span class="c1">#      with the normal force from the live tension: axial load</span>
+                <span class="c1">#      changes torque and rotation changes drag</span>
+                <span class="n">T</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">qs_c</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">qd</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">fn</span> <span class="o">=</span> <span class="n">normal_force</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">wb_len</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">kx</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">ky</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">kz</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">zx</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">zy</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">zz</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="c1"># static limit: an ellipse with axial and torsional static factors</span>
+                <span class="n">mu_sa</span> <span class="o">=</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">axc</span> <span class="o">*</span> <span class="p">(</span><span class="n">mus</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">mu_st</span> <span class="o">=</span> <span class="n">mus</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">vt_s</span> <span class="o">=</span> <span class="n">ws</span> <span class="o">*</span> <span class="n">r</span>
+                <span class="n">spd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">vs</span> <span class="o">*</span> <span class="n">vs</span> <span class="o">+</span> <span class="n">vt_s</span> <span class="o">*</span> <span class="n">vt_s</span><span class="p">)</span>
+                <span class="n">ea</span> <span class="o">=</span> <span class="n">vs</span> <span class="o">/</span> <span class="n">spd</span> <span class="k">if</span> <span class="n">spd</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+                <span class="n">et</span> <span class="o">=</span> <span class="n">vt_s</span> <span class="o">/</span> <span class="n">spd</span> <span class="k">if</span> <span class="n">spd</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">1.0</span>
+                <span class="n">s_old</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">v_old</span> <span class="o">/</span> <span class="n">vc</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">w_old</span> <span class="o">/</span> <span class="n">wc</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="c1"># resisting force capacities (N/m): wall friction + mud yield stress</span>
+                <span class="n">fa_s</span> <span class="o">=</span> <span class="n">mu_sa</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span>
+                <span class="n">ft_s</span> <span class="o">=</span> <span class="n">mu_st</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span>
+                <span class="k">if</span> <span class="n">spd</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">fa_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">ft_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">f_sd</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">ea</span> <span class="o">/</span> <span class="n">fa_s</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">et</span> <span class="o">/</span> <span class="n">ft_s</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">f_sd</span> <span class="o">=</span> <span class="n">ft_s</span>
+                <span class="k">if</span> <span class="n">s_old</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+                    <span class="c1"># near rest: stick if the static ellipse can hold the cell</span>
+                    <span class="n">pa</span> <span class="o">=</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">vs</span> <span class="o">/</span> <span class="p">(</span><span class="n">dt</span> <span class="o">*</span> <span class="n">fa_s</span><span class="p">)</span> <span class="k">if</span> <span class="n">fa_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">1e30</span>
+                    <span class="n">pt</span> <span class="o">=</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">ws</span> <span class="o">/</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">ft_s</span><span class="p">)</span> <span class="k">if</span> <span class="n">ft_s</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">1e30</span>
+                    <span class="k">if</span> <span class="n">pa</span> <span class="o">*</span> <span class="n">pa</span> <span class="o">+</span> <span class="n">pt</span> <span class="o">*</span> <span class="n">pt</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+                        <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                        <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                        <span class="k">continue</span>
+                    <span class="n">f_res</span> <span class="o">=</span> <span class="n">f_sd</span>
+                <span class="k">elif</span> <span class="n">weak_exp</span><span class="p">:</span>
+                    <span class="n">f_res</span> <span class="o">=</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span> <span class="o">+</span> <span class="p">(</span><span class="n">f_sd</span> <span class="o">-</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">-</span> <span class="n">fyj</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">s_old</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">f_res</span> <span class="o">=</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span>
+                <span class="n">va</span><span class="p">,</span> <span class="n">vt</span> <span class="o">=</span> <span class="n">_coulomb_2d</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="n">vt_s</span><span class="p">,</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">r</span><span class="p">),</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_res</span><span class="p">)</span>
+                <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">va</span>
+                <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">vt</span> <span class="o">/</span> <span class="n">r</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># ---- independent 1-D Coulomb inclusions (Aarsnes &amp; Shor eqs. 4, 20-22)</span>
+                <span class="n">fn</span> <span class="o">=</span> <span class="n">fn0</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="c1"># torsion: torque per length needed to stop the cell this step</span>
+                <span class="n">t_stop</span> <span class="o">=</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">ws</span> <span class="o">/</span> <span class="n">dt</span>
+                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">w_old</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">wc</span><span class="p">:</span>
+                    <span class="n">cap</span> <span class="o">=</span> <span class="p">(</span><span class="n">mus</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span><span class="p">)</span> <span class="o">*</span> <span class="n">r</span>
+                <span class="k">elif</span> <span class="n">weak_exp</span><span class="p">:</span>
+                    <span class="n">cap</span> <span class="o">=</span> <span class="p">((</span><span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">mus</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="nb">abs</span><span class="p">(</span><span class="n">w_old</span><span class="p">)</span> <span class="o">/</span> <span class="n">wc</span><span class="p">))</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span><span class="p">)</span> <span class="o">*</span> <span class="n">r</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cap</span> <span class="o">=</span> <span class="p">(</span><span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span><span class="p">)</span> <span class="o">*</span> <span class="n">r</span>
+                <span class="k">if</span> <span class="n">t_stop</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
+                    <span class="n">t_stop</span> <span class="o">=</span> <span class="n">cap</span>
+                <span class="k">elif</span> <span class="n">t_stop</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">cap</span><span class="p">:</span>
+                    <span class="n">t_stop</span> <span class="o">=</span> <span class="o">-</span><span class="n">cap</span>
+                <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ws</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">t_stop</span> <span class="o">/</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="c1"># axial: force per length needed to stop the cell this step</span>
+                <span class="n">f_stop</span> <span class="o">=</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">vs</span> <span class="o">/</span> <span class="n">dt</span>
+                <span class="n">mu_sa</span> <span class="o">=</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">axc</span> <span class="o">*</span> <span class="p">(</span><span class="n">mus</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v_old</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">vc</span><span class="p">:</span>
+                    <span class="n">cap</span> <span class="o">=</span> <span class="n">mu_sa</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span>
+                <span class="k">elif</span> <span class="n">weak_exp</span><span class="p">:</span>
+                    <span class="n">cap</span> <span class="o">=</span> <span class="p">(</span><span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">mu_sa</span> <span class="o">-</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="nb">abs</span><span class="p">(</span><span class="n">v_old</span><span class="p">)</span> <span class="o">/</span> <span class="n">vc</span><span class="p">))</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cap</span> <span class="o">=</span> <span class="n">muk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fyj</span>
+                <span class="k">if</span> <span class="n">f_stop</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
+                    <span class="n">f_stop</span> <span class="o">=</span> <span class="n">cap</span>
+                <span class="k">elif</span> <span class="n">f_stop</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">cap</span><span class="p">:</span>
+                    <span class="n">f_stop</span> <span class="o">=</span> <span class="o">-</span><span class="n">cap</span>
+                <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">vs</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_stop</span> <span class="o">/</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+
+        <span class="c1"># mean (low-passed) velocities seen by the Stokes-layer damping</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">wbar</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a_hp_t</span> <span class="o">*</span> <span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">wbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">vbar</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a_hp_a</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">vbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+
+        <span class="c1"># -------------------------------------------------- bookkeeping</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_T</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBIT</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_BLKPOS</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_WINT</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">])</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">bit_model</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">phi_new</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">]</span> <span class="o">+</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
+            <span class="n">_sweep</span><span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">],</span> <span class="n">phi_new</span><span class="p">,</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">],</span> <span class="n">surf</span><span class="p">,</span> <span class="n">n_blades</span><span class="p">)</span>
+            <span class="c1"># keep the angle bounded without disturbing bin alignment</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">]</span> <span class="o">=</span> <span class="n">phi_new</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">phi_new</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="k">if</span> <span class="n">phi_new</span> <span class="o">&gt;</span> <span class="mf">1e6</span> <span class="k">else</span> <span class="n">phi_new</span>
+            <span class="k">if</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]:</span>
+                <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]:</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span>
+
+        <span class="n">rec_phase</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">rec_phase</span> <span class="o">&gt;=</span> <span class="n">rec_every</span><span class="p">:</span>
+            <span class="n">rec_phase</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">rec_idx</span> <span class="o">&lt;</span> <span class="n">nrec</span><span class="p">:</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_T</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WTD</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_TAUM</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_TAU0</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_TOB</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HKLD</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBIT</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">9</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WOB</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">11</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">12</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WSP</span><span class="p">]</span>
+                <span class="n">rec_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">rec_idx</span><span class="p">,</span> <span class="n">rec_phase</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

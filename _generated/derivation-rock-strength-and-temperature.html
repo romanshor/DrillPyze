@@ -1,0 +1,528 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rock strength, pore pressure and temperature at the bit &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Physics specification" href="specification.html" />
+    <link rel="prev" title="Derivation of the DrillPyze coupled axial–torsional model" href="derivation-readme.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Rock strength, pore pressure and temperature at the bit</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#confinement-by-the-overbalance-p1">1. Confinement by the overbalance (P1)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#permeable-rock-drained">Permeable rock (drained)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#low-permeability-low-porosity-rock-undrained">Low-permeability, low-porosity rock (undrained)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#blending-by-porosity">Blending by porosity</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#thermal-weakening-t1">2. Thermal weakening (T1)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cooling-induced-thermal-stress-at-the-hole-bottom-t2">3. Cooling-induced thermal stress at the hole bottom (T2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#wellbore-temperature-the-growing-wellbore-drift-flux-model">4. Wellbore temperature: the growing-wellbore drift-flux model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#conservation-equations">Conservation equations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#radial-heat-transfer-paper-eqs-69">Radial heat transfer (paper eqs. 6–9)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#formation">Formation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#growing-wellbore-paper-eqs-10-1420-figs-13">Growing wellbore (paper eqs. 10, 14–20; Figs. 1–3)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#numerics">Numerics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#verification-against-spe-214836-ms">Verification against SPE-214836-MS</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#parameters-and-forge-defaults">5. Parameters and FORGE defaults</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Rock strength, pore pressure and temperature at the bit</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_generated/derivation-rock-strength-and-temperature.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="rock-strength-pore-pressure-and-temperature-at-the-bit">
+<h1>Rock strength, pore pressure and temperature at the bit<a class="headerlink" href="#rock-strength-pore-pressure-and-temperature-at-the-bit" title="Link to this heading"></a></h1>
+<p>This note derives how DrillPyze sets the rock strength seen by the bit
+(<code class="docutils literal notranslate"><span class="pre">DrillPyze.formation</span></code>) and how it models the wellbore temperature that feeds
+it (<code class="docutils literal notranslate"><span class="pre">DrillPyze.thermal</span></code>). The bit models of <a class="reference internal" href="derivation-bit-models.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">bit-models.md</span></code></span></a> all
+scale with the drilling strength <span class="math notranslate nohighlight">\(S = \zeta\varepsilon\)</span>. When
+<code class="docutils literal notranslate"><span class="pre">BitParameters.strength_source</span> <span class="pre">=</span> <span class="pre">'formation'</span></code>, the intrinsic specific energy is
+taken from the rock’s confined compressive strength:</p>
+<div class="math notranslate nohighlight">
+\[\varepsilon = \frac{\text{CCS}_\text{eff}}{\eta},\qquad S = \frac{\zeta\,\text{CCS}_\text{eff}}{\eta}.\]</div>
+<p><span class="math notranslate nohighlight">\(\eta\)</span> is a cutting efficiency, equal to 1 for a sharp cutter. Two lines of
+evidence support linking <span class="math notranslate nohighlight">\(\varepsilon\)</span> to compressive strength:</p>
+<ul class="simple">
+<li><p>scratch tests show that <span class="math notranslate nohighlight">\(\varepsilon\)</span> is well correlated with UCS for a sharp
+cutter in ductile mode [Mitaim et al. 2004];</p></li>
+<li><p>field MSE methods equate bit specific energy with CCS divided by a mechanical
+efficiency [Teale 1965; Pessier &amp; Fear 1992; Caicedo et al. 2005].</p></li>
+</ul>
+<p><span class="math notranslate nohighlight">\(\text{CCS}_\text{eff}\)</span> combines three effects, described in §1–3. All depths
+are in m, pressures in Pa and temperatures in °C.</p>
+<hr class="docutils" />
+<section id="confinement-by-the-overbalance-p1">
+<span id="1-confinement-by-the-overbalance-p1"></span><h2>1. Confinement by the overbalance (P1)<a class="headerlink" href="#confinement-by-the-overbalance-p1" title="Link to this heading"></a></h2>
+<p>Mohr–Coulomb strength under a confining stress equal to the differential
+pressure <span class="math notranslate nohighlight">\(\Delta p\)</span> across the rock at the bit gives
+[Caicedo, Calhoun &amp; Ewy 2005, eq. 2]</p>
+<div class="math notranslate nohighlight">
+\[\text{CCS} = \text{UCS} + \Delta p\,\frac{1+\sin\varphi}{1-\sin\varphi}
+= \text{UCS} + \Delta p + \frac{2\,\Delta p\,\sin\varphi}{1-\sin\varphi}.\]</div>
+<section id="permeable-rock-drained">
+<h3>Permeable rock (drained)<a class="headerlink" href="#permeable-rock-drained" title="Link to this heading"></a></h3>
+<p>Pore pressure has time to equalise at the cutting face:</p>
+<div class="math notranslate nohighlight">
+\[\Delta p_\text{HP} = p_\text{bh} - p_p .\]</div>
+</section>
+<section id="low-permeability-low-porosity-rock-undrained">
+<h3>Low-permeability, low-porosity rock (undrained)<a class="headerlink" href="#low-permeability-low-porosity-rock-undrained" title="Link to this heading"></a></h3>
+<p>When the bit removes the overburden from the rock beneath it, the rock is
+unloaded from <span class="math notranslate nohighlight">\(\sigma_v\)</span> to <span class="math notranslate nohighlight">\(p_\text{bh}\)</span> faster than pore fluid can flow. The
+pore pressure then drops by Skempton’s response to the change in mean stress
+[Skempton 1954]. Following Caicedo et al. (eqs. 11–13), the effective pore
+pressure is</p>
+<div class="math notranslate nohighlight">
+\[p_p^{*} = p_p - B\,\frac{\sigma_v - p_\text{bh}}{3},
+\qquad \Delta p_\text{LP} = p_\text{bh} - p_p^{*},\]</div>
+<p>with <span class="math notranslate nohighlight">\(B = 1\)</span> in their formulation. That is the default here, and it can be
+adjusted when lab <span class="math notranslate nohighlight">\(B\)</span> values are available. For FORGE, OU measured Skempton
+and Biot coefficients on 58-32 and 78-32 cores [GDR submission 1464].</p>
+</section>
+<section id="blending-by-porosity">
+<h3>Blending by porosity<a class="headerlink" href="#blending-by-porosity" title="Link to this heading"></a></h3>
+<p>Effective porosity <span class="math notranslate nohighlight">\(\phi_e\)</span> is the proxy for drainage, and the strength is
+blended linearly [Caicedo et al. 2005]:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><span class="math notranslate nohighlight">\(\phi_e\)</span></p></th>
+<th class="head"><p>CCS used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\le 0.05\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{CCS}_\text{LP}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\ge 0.20\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{CCS}_\text{HP}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>in between</p></td>
+<td><p>linear blend of the two</p></td>
+</tr>
+</tbody>
+</table>
+<p>Granite has very low permeability (FORGE matrix permeability below 30 µD) and
+very low porosity (matrix porosity below 0.5%) [Utah FORGE review 2026]. It is
+therefore treated as fully undrained. For FORGE-like conditions this raises CCS
+well above the drained value. For example, at 2,500 m TVD with hydrostatic pore
+pressure and a 25 kPa/m overburden gradient, <span class="math notranslate nohighlight">\(\Delta p_\text{LP}\)</span> is about
+12 MPa larger than <span class="math notranslate nohighlight">\(\Delta p_\text{HP}\)</span>.</p>
+<p><strong>Context.</strong> Detournay &amp; Atkinson (2000) showed that in shear-dilatant,
+low-permeability rock, cutting at drilling speeds is undrained. Detournay &amp; Tan
+(2002) found that shale specific energy then depends on <span class="math notranslate nohighlight">\(p_\text{bh}\)</span> and not on
+<span class="math notranslate nohighlight">\(p_\text{bh} - p_p\)</span>: <span class="math notranslate nohighlight">\(\varepsilon = \varepsilon_0 + m\,p_\text{bh}\)</span>. The
+Skempton construction above is the engineering counterpart. Both say the far
+field pore pressure matters little in tight rock. Whether FORGE granite follows
+the drained or the undrained limit can be tested directly against the field
+ROP data.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="thermal-weakening-t1">
+<span id="2-thermal-weakening-t1"></span><h2>2. Thermal weakening (T1)<a class="headerlink" href="#thermal-weakening-t1" title="Link to this heading"></a></h2>
+<div class="math notranslate nohighlight">
+\[\text{UCS}(T) = \text{UCS}_0\,\bigl[1 - \beta\,\max(T - T^{*}, 0)\bigr],\]</div>
+<p>where <span class="math notranslate nohighlight">\(T\)</span> is the undisturbed formation temperature at the bit, from the
+geothermal gradient. The rock ahead of the bit has not yet been cooled
+[Wang et al. 2023, assumption 6].</p>
+<p><span class="math notranslate nohighlight">\(T^{*} = 193\)</span> °C and <span class="math notranslate nohighlight">\(\beta = 1.41\times10^{-3}\)</span> /K are a least-squares fit
+(RMS error 3.8%) to the residual UCS of granite heated to 250–650 °C and air
+cooled [Xu et al. 2019]:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>T (°C)</p></th>
+<th class="head"><p>250</p></th>
+<th class="head"><p>350</p></th>
+<th class="head"><p>450</p></th>
+<th class="head"><p>550</p></th>
+<th class="head"><p>650</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>measured loss</p></td>
+<td><p>12%</p></td>
+<td><p>14%</p></td>
+<td><p>38%</p></td>
+<td><p>53%</p></td>
+<td><p>63%</p></td>
+</tr>
+<tr class="row-odd"><td><p>fitted loss</p></td>
+<td><p>8%</p></td>
+<td><p>22%</p></td>
+<td><p>36%</p></td>
+<td><p>50%</p></td>
+<td><p>64%</p></td>
+</tr>
+</tbody>
+</table>
+<p>At FORGE temperatures (about 200–230 °C) the effect is small, 1–5%.</p>
+<p>Caveat: these are residual strengths measured after cooling. Strength measured
+at temperature can differ, and so can the effect of repeated quenching.</p>
+</section>
+<hr class="docutils" />
+<section id="cooling-induced-thermal-stress-at-the-hole-bottom-t2">
+<span id="3-cooling-induced-thermal-stress-at-the-hole-bottom-t2"></span><h2>3. Cooling-induced thermal stress at the hole bottom (T2)<a class="headerlink" href="#cooling-induced-thermal-stress-at-the-hole-bottom-t2" title="Link to this heading"></a></h2>
+<p>Circulating mud is cooler than the rock at the bit by
+<span class="math notranslate nohighlight">\(\Delta T = T_\text{rock} - T_\text{mud,bit}\)</span>. A cooled surface layer that is
+constrained laterally carries an in-plane thermoelastic tensile stress
+[e.g. Timoshenko &amp; Goodier 1970]:</p>
+<div class="math notranslate nohighlight">
+\[\sigma_\text{th} = \frac{\alpha E\,\Delta T}{1-\nu}.\]</div>
+<p>For FORGE granite (<span class="math notranslate nohighlight">\(\alpha = 6\times10^{-6}\)</span> /K, <span class="math notranslate nohighlight">\(E = 55\)</span> GPa, <span class="math notranslate nohighlight">\(\nu = 0.26\)</span>) this
+is about 0.45 MPa/K, or 45 MPa per 100 K. That is comparable to the tensile
+strength (about 11 MPa) and to the overbalance term.</p>
+<p>The cooled layer is thin. Between blade passes (<span class="math notranslate nohighlight">\(t_p = 2\pi/(n\omega)\)</span>, with <span class="math notranslate nohighlight">\(n\)</span>
+blades) heat diffuses to a depth</p>
+<div class="math notranslate nohighlight">
+\[\delta = \sqrt{\pi\,D_\text{th}\,t_p},
+\qquad D_\text{th} = \frac{k}{\rho c}\approx 0.9\ \text{mm}^2/\text{s},\]</div>
+<p>while each blade cuts to depth <span class="math notranslate nohighlight">\(d_b = \text{ROP}\cdot t_p\)</span>. Only the cooled
+fraction of the cut is weakened:</p>
+<div class="math notranslate nohighlight">
+\[\text{CCS}_\text{eff} = \max\!\Bigl(\text{CCS} - \kappa\,\sigma_\text{th}\,\min(1, \delta/d_b),\ \ f_\text{floor}\,\text{UCS}(T)\Bigr).\]</div>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\kappa \in [0, 1]\)</span> is the efficiency of the thermal stress. It is the one
+parameter that has to be calibrated; the default is 0.5.</p></li>
+<li><p><span class="math notranslate nohighlight">\(f_\text{floor} = 0.1\)</span> keeps the strength physical.</p></li>
+<li><p>The term makes the thermal benefit depend on ROP, RPM and blade count. It is
+largest at low ROP, high RPM and with many blades.</p></li>
+</ul>
+<p>Status: this formulation is DrillPyze’s own, built from standard
+thermoelasticity and conduction. SPE-217718 studies the effect of rapid cooling
+on cutting hot dry rock experimentally and is the natural source for
+calibrating <span class="math notranslate nohighlight">\(\kappa\)</span>.</p>
+</section>
+<hr class="docutils" />
+<section id="wellbore-temperature-the-growing-wellbore-drift-flux-model">
+<span id="4-wellbore-temperature-the-growing-wellbore-drift-flux-model"></span><h2>4. Wellbore temperature: the growing-wellbore drift-flux model<a class="headerlink" href="#wellbore-temperature-the-growing-wellbore-drift-flux-model" title="Link to this heading"></a></h2>
+<p>The mud temperature at the bit and the bottomhole pressure come from the model
+of <strong>Wang, Khaled, Luu, Ashok &amp; van Oort (2023), SPE-214836-MS</strong>. That model
+couples thermohydraulic flow to a wellbore that grows as it is drilled, and it
+was validated against Utah FORGE 16(78)-32. It builds on Evje &amp; Fjelde (2002),
+Fallah et al. (2019) and Khaled et al. (2023c).</p>
+<p>DrillPyze implements it in the <strong>single-phase liquid</strong> form (gas volume fraction
+zero), which is the case for water-based mud.</p>
+<section id="conservation-equations">
+<h3>Conservation equations<a class="headerlink" href="#conservation-equations" title="Link to this heading"></a></h3>
+<p>For each flow path (inside the drillstring, flowing down; in the annulus,
+flowing up), the mixture energy equation (paper eq. 4) becomes, per cell of
+length <span class="math notranslate nohighlight">\(\Delta x\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\rho c A\,\Delta x\,\frac{dT}{dt}
+= \rho c Q\,(T_\text{upstream} - T) + \dot Q_\text{wall}\,\Delta x
++ \dot m_\text{cut} c_r\,(T_\text{rock} - T)\,\delta_{k,\text{bottom}} .\]</div>
+<ul>
+<li><p><span class="math notranslate nohighlight">\(Q\)</span> is the pump rate.</p></li>
+<li><p>The mass and momentum equations (eqs. 1, 3) reduce to <span class="math notranslate nohighlight">\(v = Q/A\)</span>. Assumption 1
+of the paper, ROP ≪ mud velocity, justifies this.</p></li>
+<li><p>Mud density follows paper eq. 2:</p>
+<div class="math notranslate nohighlight">
+\[\rho(T,p) = \bigl(1 - (T - T_\text{ref})\,c_\text{exp}\bigr)\rho_\text{ref} + \frac{p - p_\text{ref}}{v_\text{sound}^2}.\]</div>
+<p>It is integrated up the annulus, together with the frictional loss (Fanning,
+Newtonian), to give <span class="math notranslate nohighlight">\(p_\text{bh}\)</span> and the ECD used in §1.</p>
+</li>
+</ul>
+</section>
+<section id="radial-heat-transfer-paper-eqs-69">
+<h3>Radial heat transfer (paper eqs. 6–9)<a class="headerlink" href="#radial-heat-transfer-paper-eqs-69" title="Link to this heading"></a></h3>
+<div class="math notranslate nohighlight">
+\[\dot q_\text{ds} = \frac{T_\text{ann} - T_\text{ds}}{R_\text{ds}},\qquad
+\dot q_\text{ann} = \frac{T_\text{for} - T_\text{ann}}{R_\text{for}} + \frac{T_\text{ds} - T_\text{ann}}{R_\text{ds}} .\]</div>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(R_\text{ds}\)</span> is inside convection, plus conduction through the pipe wall,
+plus outside convection.</p></li>
+<li><p><span class="math notranslate nohighlight">\(R_\text{for}\)</span> is wall convection, plus conduction through the casing where
+cased, plus conduction to the first formation node.</p></li>
+<li><p>Each convective resistance is <span class="math notranslate nohighlight">\(1/(h\pi D)\)</span>, with <span class="math notranslate nohighlight">\(h = \text{Nu}\,k/D_h\)</span>.</p></li>
+<li><p>The paper does not state its Nusselt correlation. DrillPyze uses
+Dittus–Boelter, <span class="math notranslate nohighlight">\(\text{Nu} = 0.023\,\text{Re}^{0.8}\text{Pr}^{0.4}\)</span> [Dittus &amp;
+Boelter 1930], for turbulent flow and <span class="math notranslate nohighlight">\(\text{Nu} = 3.66\)</span> for laminar flow.</p></li>
+</ul>
+</section>
+<section id="formation">
+<h3>Formation<a class="headerlink" href="#formation" title="Link to this heading"></a></h3>
+<p>Each axial cell has 12 radial conduction cells, log-spaced out to 5 m beyond
+the wall, solved implicitly. The outer boundary is held at the undisturbed
+geothermal temperature (paper boundary conditions; Khaled et al. 2023c).</p>
+</section>
+<section id="growing-wellbore-paper-eqs-10-1420-figs-13">
+<h3>Growing wellbore (paper eqs. 10, 14–20; Figs. 1–3)<a class="headerlink" href="#growing-wellbore-paper-eqs-10-1420-figs-13" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Bottom cell.</strong> The bottom cell lengthens at the ROP. When it reaches 1.5 cell
+lengths it is cut in two, and both halves keep the state of the original cell
+(“grow-cut-grow”).</p></li>
+<li><p><strong>Cuttings.</strong> Cuttings enter the bottom annulus cell at the undisturbed
+formation temperature. DrillPyze uses the rock’s density and heat capacity for
+them; the paper assumes mud properties.</p></li>
+<li><p><strong>Bottom formation cells.</strong> As the hole deepens, they relax toward the
+undisturbed temperature:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[T^\text{bottom}_{t+\Delta t} = T^\text{bottom}_t + \frac{\text{ROP}\,\Delta t}{L_\text{bottom}}\bigl(T^\text{bottom,formation}_t - T^\text{bottom}_t\bigr).\]</div>
+<ul class="simple">
+<li><p><strong>Moving string.</strong> The string geometry is volume-averaged over each cell at
+every update (Fig. 1). The ROP-scaled area-change terms of eqs. 11–13 are of
+order ROP/<span class="math notranslate nohighlight">\(v\)</span> and are omitted.</p></li>
+</ul>
+</section>
+<section id="numerics">
+<h3>Numerics<a class="headerlink" href="#numerics" title="Link to this heading"></a></h3>
+<p>Each step uses backward Euler for the fluid and the formation, coupled by three
+Gauss–Seidel iterations: drillstring downstream, annulus upstream from the bit,
+then a tridiagonal solve for each formation layer. The time step is at most
+2 s, and the model is updated from the drilling simulation every 2 s of
+simulated time.</p>
+</section>
+<section id="verification-against-spe-214836-ms">
+<h3>Verification against SPE-214836-MS<a class="headerlink" href="#verification-against-spe-214836-ms" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">examples/forge_thermal_spe214836.py</span></code> and <code class="docutils literal notranslate"><span class="pre">tests/test_thermal_rock.py</span></code> use the
+paper’s FORGE case: about 5,900 ft MD, 550 gpm, 40 °C surface temperature and
+69.1 °C/km, with Table 2 properties. The inlet temperature is not given in the
+paper; 35 °C is assumed.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>quantity</p></th>
+<th class="head"><p>SPE-214836</p></th>
+<th class="head"><p>DrillPyze</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>downhole temperature at pump start → after 30 min</p></td>
+<td><p>≈ 310 → 210 °F (Fig. 6)</p></td>
+<td><p>325 → 209 °F</p></td>
+</tr>
+<tr class="row-odd"><td><p>downhole rise from drilling after 30 min, 40 / 60 / 72 ft/h</p></td>
+<td><p>≈ 1.3 / 2.2 / 2.7 °F (Fig. 7)</p></td>
+<td><p>1.25 / 1.87 / 2.24 °F</p></td>
+</tr>
+<tr class="row-even"><td><p>rise linear in ROP</p></td>
+<td><p>yes</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>ROP → 0 converges to the static wellbore</p></td>
+<td><p>yes</p></td>
+<td><p>yes (test)</p></td>
+</tr>
+<tr class="row-even"><td><p>static well stays at the geothermal profile</p></td>
+<td><p>–</p></td>
+<td><p>exact (test)</p></td>
+</tr>
+<tr class="row-odd"><td><p>energy balance while circulating</p></td>
+<td><p>–</p></td>
+<td><p>within 3% (test)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Open item.</strong> The time history of the drilling-induced rise differs:</p>
+<ul class="simple">
+<li><p>In the paper it jumps to most of its final value within a minute and then
+plateaus.</p></li>
+<li><p>In DrillPyze it builds steadily. About 60% of it comes from the bit advancing
+into hotter rock along the 69 °C/km gradient; cuttings and the freshly
+exposed wall give a prompt rise of about 0.4 °F at 60 ft/h.</p></li>
+<li><p>Possible causes include the unstated inlet temperature, the paper’s mesh, and
+details of its eqs. 10 and 19 (for example, whether the cuttings enthalpy is
+taken relative to the mud temperature or to a reference temperature).</p></li>
+<li><p>The result is insensitive to the DrillPyze cell size (2–30 m).</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="parameters-and-forge-defaults">
+<span id="5-parameters-and-forge-defaults"></span><h2>5. Parameters and FORGE defaults<a class="headerlink" href="#parameters-and-forge-defaults" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>parameter</p></th>
+<th class="head"><p>default</p></th>
+<th class="head"><p>source</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>UCS</p></td>
+<td><p>110 MPa</p></td>
+<td><p>FORGE core 91–126 MPa [Ye et al. 2022, via Utah FORGE review 2026]</p></td>
+</tr>
+<tr class="row-odd"><td><p>friction angle φ</p></td>
+<td><p>36°</p></td>
+<td><p>FORGE granitoid model value [Finnila &amp; Podgorney 2020]; core 32–48°</p></td>
+</tr>
+<tr class="row-even"><td><p>porosity</p></td>
+<td><p>0.005</p></td>
+<td><p>matrix &lt; 0.5% [Utah FORGE review 2026]</p></td>
+</tr>
+<tr class="row-odd"><td><p>pore pressure gradient</p></td>
+<td><p>9.79 kPa/m</p></td>
+<td><p>hydrostatic</p></td>
+</tr>
+<tr class="row-even"><td><p>overburden gradient</p></td>
+<td><p>25 kPa/m</p></td>
+<td><p>assumed</p></td>
+</tr>
+<tr class="row-odd"><td><p>Skempton B</p></td>
+<td><p>1.0</p></td>
+<td><p>Caicedo et al. 2005</p></td>
+</tr>
+<tr class="row-even"><td><p>surface T, gradient</p></td>
+<td><p>40 °C, 69.1 °C/km</p></td>
+<td><p>SPE-214836 Table 2</p></td>
+</tr>
+<tr class="row-odd"><td><p>rock ρ, c, k</p></td>
+<td><p>2800 kg/m³, 930 J/kg K, 2.31 W/m K</p></td>
+<td><p>SPE-214836 Table 2</p></td>
+</tr>
+<tr class="row-even"><td><p>α, E, ν</p></td>
+<td><p>6×10⁻⁶ /K, 55 GPa, 0.26</p></td>
+<td><p>Podgorney et al. 2021; Utah FORGE review 2026</p></td>
+</tr>
+<tr class="row-odd"><td><p>T*, β</p></td>
+<td><p>193 °C, 1.41×10⁻³ /K</p></td>
+<td><p>fit to Xu et al. 2019</p></td>
+</tr>
+<tr class="row-even"><td><p>κ</p></td>
+<td><p>0.5</p></td>
+<td><p>to be calibrated (§3)</p></td>
+</tr>
+<tr class="row-odd"><td><p>mud c, k, expansion, viscosity</p></td>
+<td><p>3750 J/kg K, 0.75 W/m K, 10⁻⁴ /K, 20 mPa·s</p></td>
+<td><p>SPE-214836 Table 2</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Wang, N., Khaled, M.S., Luu, A., Ashok, P. and van Oort, E., 2023.</strong> Downhole Temperature Estimation of a Growing High-Temperature Wellbore Using a Modified Drift Flux Modeling Approach. SPE Annual Technical Conference and Exhibition, San Antonio, Texas. SPE-214836-MS. https://doi.org/10.2118/214836-MS</p></li>
+<li><p>Khaled, M.S., Wang, N., Ashok, P. and van Oort, E., 2023c. Downhole heat management for drilling shallow and ultra-deep high enthalpy geothermal wells. <em>Geothermics</em> 107, 102604. https://doi.org/10.1016/j.geothermics.2022.102604</p></li>
+<li><p>Evje, S. and Fjelde, K.K., 2002. Relaxation schemes for the calculation of two-phase flow in pipes. <em>Math. Comput. Model.</em> 36(4–5), 535–567.</p></li>
+<li><p>Fallah, A. et al., 2019. An integrated thermal and multi-phase flow model for estimating transient temperature dynamics during drilling operations. SPE/IADC-194083-MS.</p></li>
+<li><p>Caicedo, H.U., Calhoun, W.M. and Ewy, R.T., 2005. Unique ROP predictor using bit-specific coefficient of sliding friction and mechanical efficiency as a function of confined compressive strength impacts drilling performance. SPE/IADC-92576-MS. CCS equations as given in US Patent 7,412,331 (https://patents.google.com/patent/US7412331) and the Skempton low-permeability form in US Patent 7,555,414.</p></li>
+<li><p>Skempton, A.W., 1954. The pore-pressure coefficients A and B. <em>Géotechnique</em> 4(4), 143–147.</p></li>
+<li><p>Detournay, E. and Atkinson, C., 2000. Influence of pore pressure on the drilling response in low-permeability shear-dilatant rocks. <em>Int. J. Rock Mech. Min. Sci.</em> 37(7), 1091–1101. https://doi.org/10.1016/S1365-1609(00)00050-2</p></li>
+<li><p>Detournay, E. and Tan, C.P., 2002. Dependence of drilling specific energy on bottom-hole pressure in shales. SPE/ISRM Rock Mechanics Conference, Irving, Texas, 526–535.</p></li>
+<li><p>Mitaim, S., Dagrain, F., Richard, T., Detournay, E. and Drescher, A., 2004. A novel apparatus to determine the rock strength parameters. 9th National Convention on Civil Engineering, Thailand. https://orbi.umons.ac.be/handle/20.500.12907/1650</p></li>
+<li><p>Teale, R., 1965. The concept of specific energy in rock drilling. <em>Int. J. Rock Mech. Min. Sci.</em> 2, 57–73.</p></li>
+<li><p>Pessier, R.C. and Fear, M.J., 1992. Quantifying common drilling problems with mechanical specific energy and a bit-specific coefficient of sliding friction. SPE-24584-MS.</p></li>
+<li><p>Xu, C., Sun, Q., Pan, X., Zhang, W. and Wang, Y., 2019. Variation on thermal damage rate of granite specimen with thermal cycle treatment. <em>High Temp. Mater. Process.</em> 38, 849–855. https://doi.org/10.1515/htmp-2019-0046</p></li>
+<li><p>SPE-217718, 2025. Study examines thermal effects on drilling performance in hot dry rock (<em>JPT</em> synopsis). https://jpt.spe.org/study-examines-thermal-effects-on-drilling-performance-in-hot-dry-rock-restricted</p></li>
+<li><p>Timoshenko, S.P. and Goodier, J.N., 1970. <em>Theory of Elasticity</em>, 3rd ed. McGraw-Hill (thermal stresses).</p></li>
+<li><p>Dittus, F.W. and Boelter, L.M.K., 1930. Heat transfer in automobile radiators of the tubular type. <em>Univ. Calif. Publ. Eng.</em> 2, 443–461.</p></li>
+<li><p>Utah FORGE: A Decade of Innovation — Comprehensive Review of Field-Scale Advances (Part 1), 2026. <em>Processes</em> 14(3), 512. https://doi.org/10.3390/pr14030512 (compiles Ye et al. 2022, ARMA-2022-0272; Finnila &amp; Podgorney 2020, SGP-TR-216; Podgorney et al. 2021, <em>Energies</em> 14, 4758).</p></li>
+<li><p>Utah FORGE 5-2615: Well 58-32 and 78-32 Poroelastic Properties (dataset), GDR submission 1464. https://gdr.openei.org/submissions/1464</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="derivation-readme.html" class="btn btn-neutral float-left" title="Derivation of the DrillPyze coupled axial–torsional model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="specification.html" class="btn btn-neutral float-right" title="Physics specification" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

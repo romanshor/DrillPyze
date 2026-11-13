@@ -1,25 +1,25 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Documentation for the DrillPyze Python Package &mdash; DrillPyze 0.0.2a documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+  <title>DrillPyze: coupled drillstring model &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
   
-        <script src="_static/jquery.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=a480e030"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="DrillPyze - The Drillstring Dynamics Library" href="readme.html" /> 
+    <link rel="next" title="DrillPyze — coupled drillstring dynamics" href="_generated/readme.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -41,10 +41,25 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze - The Drillstring Dynamics Library</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">Function documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API reference</a></li>
 </ul>
 
         </div>
@@ -61,7 +76,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Documentation for the DrillPyze Python Package</li>
+      <li class="breadcrumb-item active">DrillPyze: coupled drillstring model</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -71,48 +86,93 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="documentation-for-the-drillpyze-python-package">
-<h1>Documentation for the DrillPyze Python Package<a class="headerlink" href="#documentation-for-the-drillpyze-python-package" title="Permalink to this heading"></a></h1>
-<p>This is an object oriented library that is able to simulation coupled dynamics of a drillstring in real-time and provides basic estimation capabilities for a specified parameter.</p>
+  <section id="drillpyze-coupled-drillstring-model">
+<h1>DrillPyze: coupled drillstring model<a class="headerlink" href="#drillpyze-coupled-drillstring-model" title="Link to this heading"></a></h1>
+<p>DrillPyze simulates the coupled axial–torsional dynamics of a drillstring in
+real time: soft-string friction along the well path, bit–rock interaction,
+top-drive controllers and an autodriller, circulating hydraulics, wellbore
+temperature and rock strength at the bit. It includes an interactive
+simulator UI with a driller’s display and a browser version (DrillPyze Lite).</p>
+<p>Version 1.0.0a1.</p>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze - The Drillstring Dynamics Library</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#references">References</a></li>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#directory-structure">Directory Structure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#dependencies">Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#output">Output</a></li>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#function-documentation">Function Documentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#using-the-library">Using the library</a></li>
-<li class="toctree-l2"><a class="reference internal" href="readme.html#useful-commands">Useful commands</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/readme.html">DrillPyze — coupled drillstring dynamics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#mathematical-model">Mathematical model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#interactive-simulator">Interactive simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#workflow-set-up-initialise-step">Workflow: set up, initialise, step</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#performance">Performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#verification-tests">Verification (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_generated/readme.html#references">References</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">Function documentation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="DrillPyze.html">DrillPyze package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="_generated/changelog.html#a1-1-0-alpha-2026-11-13">1.0.0a1 — 1.0 alpha (2026-11-13)</a></li>
 </ul>
 </li>
 </ul>
 </div>
-</section>
-<section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="_generated/specification.html">Physics specification</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze">DrillPyze</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.config">Case files and builder (<code class="docutils literal notranslate"><span class="pre">config</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.simulation">Simulation (<code class="docutils literal notranslate"><span class="pre">simulation</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.parameters">Parameters (<code class="docutils literal notranslate"><span class="pre">parameters</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.controllers">Top-drive controllers (<code class="docutils literal notranslate"><span class="pre">controllers</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.kernel">Time-step kernel (<code class="docutils literal notranslate"><span class="pre">kernel</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.survey">Well path (<code class="docutils literal notranslate"><span class="pre">survey</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.wellbore">Wellbore and fluid (<code class="docutils literal notranslate"><span class="pre">wellbore</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.drillstring">Drillstring (<code class="docutils literal notranslate"><span class="pre">drillstring</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.geometry">Cell geometry (<code class="docutils literal notranslate"><span class="pre">geometry</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.statics">Steady torque and drag (<code class="docutils literal notranslate"><span class="pre">statics</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.hydraulics">Hydraulics (<code class="docutils literal notranslate"><span class="pre">hydraulics</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.thermal">Wellbore temperature (<code class="docutils literal notranslate"><span class="pre">thermal</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.formation">Formation and rock strength (<code class="docutils literal notranslate"><span class="pre">formation</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.units">Units (<code class="docutils literal notranslate"><span class="pre">units</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-DrillPyze.ui.server">Simulator UI server (<code class="docutils literal notranslate"><span class="pre">ui.server</span></code>)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<section id="indices">
+<h2>Indices<a class="headerlink" href="#indices" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 </ul>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="readme.html" class="btn btn-neutral float-right" title="DrillPyze - The Drillstring Dynamics Library" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="_generated/readme.html" class="btn btn-neutral float-right" title="DrillPyze — coupled drillstring dynamics" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2023, Roman J. Shor.</p>
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

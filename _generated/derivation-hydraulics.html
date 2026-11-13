@@ -1,0 +1,598 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hydraulics: steady losses and drift-flux transients &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Derivation of the DrillPyze coupled axial–torsional model" href="derivation-readme.html" />
+    <link rel="prev" title="Bit–rock interaction: from the Bit Model Library to three reduced models" href="derivation-bit-models.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Hydraulics: steady losses and drift-flux transients</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#rheology-and-steady-pressure-losses-chapter-7">1. Rheology and steady pressure losses (chapter 7)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#transient-model-single-phase-drift-flux">2. Transient model: single-phase drift flux</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#discretisation">2.1 Discretisation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#moving-geometry-surge-swab-growth">2.2 Moving geometry: surge, swab, growth</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#outputs">3. Outputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#coupling-to-the-simulation">4. Coupling to the simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#verification-tests-test-hydraulics-py-docs-derivation-hydraulics-verification-py">5. Verification (<code class="docutils literal notranslate"><span class="pre">tests/test_hydraulics.py</span></code>, <code class="docutils literal notranslate"><span class="pre">docs/derivation/hydraulics_verification.py</span></code>)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#textbook-cases-chapter-7">5.1 Textbook cases (chapter 7)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#transient-model">5.2 Transient model</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#set-point-ramps">6. Set-point ramps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#limitations">7. Limitations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Hydraulics: steady losses and drift-flux transients</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_generated/derivation-hydraulics.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="hydraulics-steady-losses-and-drift-flux-transients">
+<h1>Hydraulics: steady losses and drift-flux transients<a class="headerlink" href="#hydraulics-steady-losses-and-drift-flux-transients" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">DrillPyze.hydraulics</span></code> computes standpipe pressure (SPP), bottomhole pressure
+(BHP) and ECD for the circulating system.</p>
+<ul class="simple">
+<li><p><strong>Steady state.</strong> Pressure losses follow the borehole-hydraulics chapter of
+Shor, <em>Introduction to Drilling Engineering</em>, ch. 7
+(<a class="reference external" href="https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html">online</a>).</p></li>
+<li><p><strong>Transients.</strong> Pump start and stop, water hammer, surge and swab come from
+the single-phase limit of the drift-flux model of Wang, Khaled, Luu, Ashok &amp;
+van Oort (2023, SPE-214836-MS). That model builds on Evje &amp; Fjelde (2002).
+The transient model reduces exactly to the steady model when nothing changes
+(§5).</p></li>
+</ul>
+<p>All quantities are SI. Pressures are gauge.</p>
+<hr class="docutils" />
+<section id="rheology-and-steady-pressure-losses-chapter-7">
+<span id="1-rheology-and-steady-pressure-losses-chapter-7"></span><h2>1. Rheology and steady pressure losses (chapter 7)<a class="headerlink" href="#rheology-and-steady-pressure-losses-chapter-7" title="Link to this heading"></a></h2>
+<p><strong>Rheology.</strong> The mud is Bingham plastic, <span class="math notranslate nohighlight">\(\tau = \text{PV}\,\dot\gamma + \tau_y\)</span>,
+when a yield point is given. Otherwise it is Newtonian, <span class="math notranslate nohighlight">\(\tau = \mu\dot\gamma\)</span>
+(<span class="math notranslate nohighlight">\(\tau_y = 0\)</span>, <span class="math notranslate nohighlight">\(\text{PV} = \mu\)</span>).</p>
+<p><strong>Velocity and flow regime.</strong> The mean velocity is <span class="math notranslate nohighlight">\(v = Q/A\)</span>. With <span class="math notranslate nohighlight">\(D\)</span> the
+pipe inner diameter and <span class="math notranslate nohighlight">\(h = D_2 - D_1\)</span> (hole or casing ID minus pipe OD), the
+apparent viscosity and Reynolds number are</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>apparent viscosity</p></th>
+<th class="head"><p>Reynolds number</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>pipe</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_a = \text{PV} + \dfrac{\tau_y D}{6v}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{Re} = \dfrac{\rho v D}{\mu_a}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>annulus</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mu_a = \text{PV} + \dfrac{\tau_y h}{8v}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{Re} = \dfrac{\rho v\,(0.816\,h)}{\mu_a}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+<p>Flow is laminar for <span class="math notranslate nohighlight">\(\text{Re} &lt; 2100\)</span>. Above that it is treated as turbulent;
+the chapter treats the transition range the same way.</p>
+<p><strong>Laminar losses.</strong> The annulus is treated as a slot of gap <span class="math notranslate nohighlight">\(h/2\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\left(\frac{dp}{dL}\right)_\text{pipe} = \frac{32\,\text{PV}\,v}{D^2} + \frac{16\,\tau_y}{3D},
+\qquad
+\left(\frac{dp}{dL}\right)_\text{ann} = \frac{48\,\text{PV}\,v}{h^2} + \frac{6\,\tau_y}{h}. \tag{1.1}\]</div>
+<p><strong>Turbulent losses.</strong> Fanning friction with the Blasius factor, using PV and
+the equivalent diameter <span class="math notranslate nohighlight">\(D_e = D\)</span> (pipe) or <span class="math notranslate nohighlight">\(0.816\,h\)</span> (annulus):</p>
+<div class="math notranslate nohighlight">
+\[f = 0.0791\,\text{Re}_\text{PV}^{-1/4},\quad \text{Re}_\text{PV} = \frac{\rho v D_e}{\text{PV}},
+\qquad
+\frac{dp}{dL} = \frac{2 f \rho v^2}{D_e}. \tag{1.2}\]</div>
+<p><strong>System totals.</strong> The bit nozzle loss, standpipe pressure, bottomhole
+pressure and ECD are</p>
+<div class="math notranslate nohighlight">
+\[\Delta p_\text{bit} = \frac{\rho Q^2}{2 C_d^2 A_n^2},
+\qquad
+\text{SPP} = \Delta p_\text{surf} + \Delta p_\text{string} + \Delta p_\text{bit} + \Delta p_\text{ann},\]</div>
+<div class="math notranslate nohighlight">
+\[\text{BHP} = \rho g\,\text{TVD} + \Delta p_\text{ann},
+\qquad
+\text{ECD} = \rho + \frac{\Delta p_\text{ann}}{g\,\text{TVD}}. \tag{1.3}\]</div>
+<p>Here <span class="math notranslate nohighlight">\(A_n\)</span> is the total nozzle area (<span class="math notranslate nohighlight">\(\pi(n/64)^2\)</span> in² per <span class="math notranslate nohighlight">\(n/32\)</span> in nozzle)
+and <span class="math notranslate nohighlight">\(C_d = 0.95\)</span>. The chapter gives no correlation for the surface loss, so
+its empirical form <span class="math notranslate nohighlight">\(\Delta p_\text{surf} = c\,Q^m\)</span> is used; <span class="math notranslate nohighlight">\(c = 0\)</span> by
+default.</p>
+<p>These are the chapter’s field-unit equations written in SI. For example, its
+<span class="math notranslate nohighlight">\(\mu v/(1000\,h^2)\)</span> psi/ft (cP, ft/s, in) is <span class="math notranslate nohighlight">\(48\,\mu v/h^2\)</span> Pa/m. They are
+coded in <code class="docutils literal notranslate"><span class="pre">hydraulics._coeffs</span></code> and <code class="docutils literal notranslate"><span class="pre">hydraulics.steady_state</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="transient-model-single-phase-drift-flux">
+<span id="2-transient-model-single-phase-drift-flux"></span><h2>2. Transient model: single-phase drift flux<a class="headerlink" href="#transient-model-single-phase-drift-flux" title="Link to this heading"></a></h2>
+<p>Wang et al. (2023) write mass, mixture momentum and energy equations for each
+flow path (drillstring bore, flowing down; annulus, flowing up) on a mesh whose
+cell edges are fixed in measured depth. Each cell’s cross section is
+volume-averaged over the string currently in it (their Fig. 1). With no gas,
+the drift relation drops out and the system becomes</p>
+<div class="math notranslate nohighlight">
+\[\frac{\partial (\rho A)}{\partial t} + \frac{\partial (\rho A u)}{\partial x} = 0,
+\qquad
+\frac{\partial (\rho A u)}{\partial t} + A\frac{\partial p}{\partial x} = A\left(\rho g\cos\theta - \frac{dp}{dL}\Big|_\text{fric}\right), \tag{2.1}\]</div>
+<p>with the liquid equation of state of their eq. 2:</p>
+<div class="math notranslate nohighlight">
+\[\rho(T, p) = \bigl(1 - (T - T_\text{ref})\,c_\text{exp}\bigr)\,\rho_\text{ref} + \frac{p}{c^2}. \tag{2.2}\]</div>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(x\)</span> is measured depth and <span class="math notranslate nohighlight">\(u\)</span> is positive down.</p></li>
+<li><p>The convective flux <span class="math notranslate nohighlight">\(\rho A u^2\)</span> is dropped. The Mach number <span class="math notranslate nohighlight">\(u/c\)</span> is about
+<span class="math notranslate nohighlight">\(10^{-3}\)</span>.</p></li>
+<li><p>The speed of sound <span class="math notranslate nohighlight">\(c\)</span> is the effective wave speed in the conduit,
+<code class="docutils literal notranslate"><span class="pre">Fluid.sound_speed</span></code> (default 1500 m/s).</p></li>
+<li><p><span class="math notranslate nohighlight">\(T\)</span> comes from the wellbore thermal model when it is on (§4).</p></li>
+</ul>
+<p><strong>Boundary conditions</strong> (Wang et al.):</p>
+<ul class="simple">
+<li><p>a prescribed volume rate at the drillstring inlet (the pump);</p></li>
+<li><p>a constant pressure (<code class="docutils literal notranslate"><span class="pre">back_pressure</span></code>, 0 = open flowline) at the annulus
+outlet.</p></li>
+</ul>
+<p><strong>Bit.</strong> The bit nozzles are a face joining the bottom drillstring cell to the
+annulus cell that contains the bit. Below the bit, the rat hole is part of the
+annulus path and is closed at the hole bottom.</p>
+<section id="discretisation">
+<span id="21-discretisation"></span><h3>2.1 Discretisation<a class="headerlink" href="#discretisation" title="Link to this heading"></a></h3>
+<p>The scheme is staggered: mass <span class="math notranslate nohighlight">\(m_j\)</span> (kg) in each cell, and mass flux <span class="math notranslate nohighlight">\(G_k\)</span>
+(kg/s, positive down) on each face. A face between cells <span class="math notranslate nohighlight">\(u\)</span> (above) and <span class="math notranslate nohighlight">\(d\)</span>
+(below) obeys a lumped momentum balance:</p>
+<div class="math notranslate nohighlight">
+\[I_k\,\frac{dG_k}{dt} = \underbrace{p_u - p_d + \bar\rho_k\,g\,(z_d - z_u)}_{\text{drive}} - \Delta p_{\text{fric},k}(G_k),
+\qquad
+I_k = \tfrac12\Bigl(\frac{L_u}{A_u} + \frac{L_d}{A_d}\Bigr),\]</div>
+<div class="math notranslate nohighlight">
+\[\frac{dm_j}{dt} = G_\text{in} - G_\text{out},
+\qquad
+p_j = c^2\Bigl(\frac{m_j}{V_j} - \rho_{T,j}\Bigr). \tag{2.3}\]</div>
+<p><span class="math notranslate nohighlight">\(\Delta p_{\text{fric},k}\)</span> is the friction of the two half cells beside the
+face, from §1 and evaluated at their own velocities, plus the nozzle loss on
+the bit face. It is written as</p>
+<div class="math notranslate nohighlight">
+\[\Delta p_\text{fric} = R\,(G - G_s) + B\,\operatorname{sign}(G - G_s),\]</div>
+<p>where <span class="math notranslate nohighlight">\(R\)</span> collects the viscous and turbulent parts (<span class="math notranslate nohighlight">\(a\)</span> in <span class="math notranslate nohighlight">\(dp/dL = a u + b\)</span>)
+and <span class="math notranslate nohighlight">\(B\)</span> the Bingham yield term (<span class="math notranslate nohighlight">\(b\)</span>). <span class="math notranslate nohighlight">\(G_s\)</span> is the mass flux the moving pipe
+drags along (§2.2).</p>
+<p><strong>Time step.</strong> Each step has two parts:</p>
+<ol class="arabic">
+<li><p>Pressures are explicit, with an acoustic Courant limit
+<span class="math notranslate nohighlight">\(c\,\Delta t \le 0.8\,L_\text{min}\)</span>.</p></li>
+<li><p>Face fluxes are backward Euler, with two Picard iterations on <span class="math notranslate nohighlight">\(R\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[G^{n+1} = \frac{G^n + \frac{\Delta t}{I}\bigl(\text{drive} + R\,G_s - B s\bigr)}{1 + \frac{\Delta t}{I}R},
+\qquad
+G^{n+1} = G_s \ \text{ if } \ \Bigl|G^n + \tfrac{\Delta t}{I}(\text{drive} + R G_s) - (1 + \tfrac{\Delta t}{I} R)\,G_s\Bigr| \le \tfrac{\Delta t}{I} B .\]</div>
+</li>
+</ol>
+<p>The second line treats the yield stress as a Coulomb-like inclusion: a gelled
+column holds until the pressure difference breaks it. That reproduces the
+pressure needed to break circulation.</p>
+<p><strong>Discrete steady state.</strong> <code class="docutils literal notranslate"><span class="pre">WellboreHydraulics.set_steady(Q)</span></code> gives the
+exact discrete steady state. Every face carries the same mass flux, and
+drive = friction on every face. It is solved by marching from the outlet down
+the annulus, across the bit, then up the drillstring, with a fixed point on
+the face densities. With <span class="math notranslate nohighlight">\(Q = 0\)</span> it gives the hydrostatic column, which is an
+exact equilibrium of the scheme (well balanced).</p>
+</section>
+<section id="moving-geometry-surge-swab-growth">
+<span id="22-moving-geometry-surge-swab-growth"></span><h3>2.2 Moving geometry: surge, swab, growth<a class="headerlink" href="#moving-geometry-surge-swab-growth" title="Link to this heading"></a></h3>
+<p><strong>String motion.</strong> Each ~1 s tick, the string’s position gives new
+volume-averaged sections for every cell. Two things follow:</p>
+<ul class="simple">
+<li><p><strong>Displacement.</strong> Within the tick, cell volumes change linearly in time, so
+the steel moving in displaces mud through (2.3). This is surge when running
+in and swab when pulling out.</p></li>
+<li><p><strong>Wall drag.</strong> Friction acts on the velocity relative to the walls.</p>
+<ul>
+<li><p>In the bore, the whole wall moves with the pipe: <span class="math notranslate nohighlight">\(u - v_p\)</span>.</p></li>
+<li><p>In the annulus, a clinging constant <span class="math notranslate nohighlight">\(K_c\)</span> (Burkhardt 1961; default 0.45)
+sets the effective pipe-dragged velocity: <span class="math notranslate nohighlight">\(u - K_c v_p\)</span>.</p></li>
+<li><p>This sets <span class="math notranslate nohighlight">\(G_s = K\,v_p\,\bar\rho A\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>Growing hole.</strong> The bottom annulus cell lengthens as the hole deepens, and
+the bottom drillstring cell follows the bit. Each is cut in two at 1.5 cell
+lengths, and the bottom drillstring cell is merged with the one above below
+0.5 cell lengths. This is the grow-cut-grow scheme of Wang et al., Fig. 2:
+mass is split by volume and pressure is unchanged.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="outputs">
+<span id="3-outputs"></span><h2>3. Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>quantity</p></th>
+<th class="head"><p>definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SPP</p></td>
+<td><p>top-cell pressure, minus the hydrostatic head from the surface to its centre, plus half-cell friction and the surface loss</p></td>
+</tr>
+<tr class="row-odd"><td><p>BHP</p></td>
+<td><p>bottom annulus cell pressure plus the head to the hole bottom</p></td>
+</tr>
+<tr class="row-even"><td><p>ECD</p></td>
+<td><p>BHP / (g · TVD)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(Q_\text{in}\)</span>, <span class="math notranslate nohighlight">\(Q_\text{out}\)</span></p></td>
+<td><p>pump rate, and return rate at the flowline</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(Q_\text{bit}\)</span>, <span class="math notranslate nohighlight">\(\Delta p_\text{bit}\)</span></p></td>
+<td><p>nozzle flow and nozzle loss</p></td>
+</tr>
+<tr class="row-odd"><td><p>pit gain</p></td>
+<td><p>(returned − pumped mass) / ρ, from exact mass counters in the kernel</p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">Simulation.hydraulics_results()</span></code> returns these channels once per slow tick
+(~1 s). <code class="docutils literal notranslate"><span class="pre">Simulation.latest()</span></code> carries the latest SPP, BHP, ECD and return
+flow.</p>
+</section>
+<hr class="docutils" />
+<section id="coupling-to-the-simulation">
+<span id="4-coupling-to-the-simulation"></span><h2>4. Coupling to the simulation<a class="headerlink" href="#coupling-to-the-simulation" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Advance.</strong> Hydraulics advances at every slow tick, which is at fixed step
+counts, so pausing and resuming stays exact.</p></li>
+<li><p><strong>Inputs.</strong> It uses the ramped pump rate (§6), the bit and hole depths, and
+the average string velocity over the tick.</p></li>
+<li><p><strong>Temperature.</strong> When the thermal model is on, its bore and annulus
+temperatures set <span class="math notranslate nohighlight">\(\rho_T\)</span> in (2.2). Heating or cooling the mud therefore
+changes the pressures.</p></li>
+<li><p><strong>Rock strength.</strong> The circulating BHP from hydraulics is the <span class="math notranslate nohighlight">\(p_\text{bh}\)</span>
+used by the rock-strength model (confinement P1). The thermal model’s own
+simplified pressure is no longer used for that.</p></li>
+<li><p><strong>Cost.</strong> Hydraulics costs about 20% of run time: Well A runs at 83× real
+time with it and 103× without.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="verification-tests-test-hydraulics-py-docs-derivation-hydraulics-verification-py">
+<span id="5-verification-teststest_hydraulicspy-docsderivationhydraulics_verificationpy"></span><h2>5. Verification (<code class="docutils literal notranslate"><span class="pre">tests/test_hydraulics.py</span></code>, <code class="docutils literal notranslate"><span class="pre">docs/derivation/hydraulics_verification.py</span></code>)<a class="headerlink" href="#verification-tests-test-hydraulics-py-docs-derivation-hydraulics-verification-py" title="Link to this heading"></a></h2>
+<section id="textbook-cases-chapter-7">
+<span id="51-textbook-cases-chapter-7"></span><h3>5.1 Textbook cases (chapter 7)<a class="headerlink" href="#textbook-cases-chapter-7" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>case</p></th>
+<th class="head"><p>quantity</p></th>
+<th class="head"><p>chapter</p></th>
+<th class="head"><p>DrillPyze</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Example 7.1 (Bingham, 400 gpm)</p></td>
+<td><p>velocities DP / DC / DC-OH / DP-OH (ft/s)</p></td>
+<td><p>8.94 / 19.77 / 5.27 / 3.17</p></td>
+<td><p>8.94 / 19.77 / 5.27 / 3.17</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>apparent viscosity (cP)</p></td>
+<td><p>69.6 / 38.5 / 51.6 / 107.8</p></td>
+<td><p>69.5 / 38.5 / 51.5 / 107.6</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>Reynolds number, regime</p></td>
+<td><p>5861 T / 15776 T / 1777 L / 957 L</p></td>
+<td><p>5862 T / 15733 T / 1782 L / 961 L</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>losses DP / DC / DC-OH / DP-OH (psi)</p></td>
+<td><p>571 / 172* / 34 / 238</p></td>
+<td><p>571 / 192 / 34 / 238</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>bit loss (psi), ECD (ppg)</p></td>
+<td><p>1119, 12.01</p></td>
+<td><p>1120, 12.01</p></td>
+</tr>
+<tr class="row-odd"><td><p>Problem 7.1 (Newtonian, 320 gpm)</p></td>
+<td><p>losses (psi)</p></td>
+<td><p>408 / 228* / 18.8 / 55.9</p></td>
+<td><p>411 / 248 / 19.6 / 54.5</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>bit loss (psi), ECD (ppg)</p></td>
+<td><p>1157, 9.68</p></td>
+<td><p>1156, 9.68</p></td>
+</tr>
+<tr class="row-odd"><td><p>Problem 7.2 (Bingham, 450 gpm)</p></td>
+<td><p>losses DP / annulus (psi)</p></td>
+<td><p>599* / 286</p></td>
+<td><p>532 / 286</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>bit loss (psi), ECD (ppg)</p></td>
+<td><p>1120, 12.68</p></td>
+<td><p>1118, 12.68</p></td>
+</tr>
+</tbody>
+</table>
+<p>* <strong>Errata in the chapter.</strong> In these three sections the printed powers of
+the turbulent formula are mis-evaluated, for example <span class="math notranslate nohighlight">\(19.77^{1.75}\)</span> printed as
+158 instead of 184.5. Re-evaluating the chapter’s own formula gives 191, 248
+and 532 psi, which is what DrillPyze computes. The printed SPPs of 2,134,
+1,868 and 2,005 psi carry these errors forward; with the corrected sections
+they are 2,156, 1,889 and 1,936 psi.</p>
+</section>
+<section id="transient-model">
+<span id="52-transient-model"></span><h3>5.2 Transient model<a class="headerlink" href="#transient-model" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>check</p></th>
+<th class="head"><p>reference</p></th>
+<th class="head"><p>result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>model steady state for Example 7.1 (c = 10⁶ m/s)</p></td>
+<td><p>textbook SPP 2,156 psi, BHP 6,425 psi</p></td>
+<td><p>SPP 2,156 psi (0.0%), BHP 6,422 psi (0.05%)</p></td>
+</tr>
+<tr class="row-odd"><td><p>compressible mud, c = 1500 m/s (eq. 2.2)</p></td>
+<td><p>ρgz(1 + ρgz/(2ρc²))</p></td>
+<td><p>within 0.02%; BHP +43 psi, ECD +0.08 ppg</p></td>
+</tr>
+<tr class="row-even"><td><p>static column, no flow, 20 s</p></td>
+<td><p>exact</p></td>
+<td><p>unchanged to 10⁻⁹</p></td>
+</tr>
+<tr class="row-odd"><td><p>pump start (20 s ramp) → steady state</p></td>
+<td><p>exact discrete steady state</p></td>
+<td><p>SPP within 0.1%, BHP within 0.01%, <span class="math notranslate nohighlight">\(Q_\text{out} = Q_\text{in}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>mass balance</p></td>
+<td><p>Δm = pumped − returned</p></td>
+<td><p>to round-off</p></td>
+</tr>
+<tr class="row-odd"><td><p>water hammer, 100 gpm step, 1 cP mud</p></td>
+<td><p>Joukowsky ρcΔQ/A = 1.408 MPa</p></td>
+<td><p>1.421 MPa (+0.9%)</p></td>
+</tr>
+<tr class="row-even"><td><p>pressure front at the bit</p></td>
+<td><p>L/c = 2.083 s</p></td>
+<td><p>2.08 s</p></td>
+</tr>
+<tr class="row-odd"><td><p>surge / swab, ±0.5 m/s, pumps off, Bingham mud</p></td>
+<td><p>sign; symmetry</p></td>
+<td><p>+213 / −209 psi (±0.40 ppg EMW)</p></td>
+</tr>
+<tr class="row-even"><td><p>Well A pump start (3 s ramp) in the full simulation</p></td>
+<td><p>discrete steady state</p></td>
+<td><p>SPP 2,069 vs 2,075 psi after 180 s (thermal still cooling the mud); ECD overshoots to 10.83 ppg before settling at 10.56 ppg</p></td>
+</tr>
+<tr class="row-odd"><td><p>set-point ramps</p></td>
+<td><p>linear in time</p></td>
+<td><p>exact; a ramp taken over from another mode starts from the present value</p></td>
+</tr>
+<tr class="row-even"><td><p>pause / resume with hydraulics</p></td>
+<td><p>bit-identical</p></td>
+<td><p>exact</p></td>
+</tr>
+</tbody>
+</table>
+<p>Figures: <code class="docutils literal notranslate"><span class="pre">docs/figures/hydraulics_water_hammer.png</span></code>, <code class="docutils literal notranslate"><span class="pre">hydraulics_pump_start.png</span></code>,
+<code class="docutils literal notranslate"><span class="pre">hydraulics_surge_swab.png</span></code>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="set-point-ramps">
+<span id="6-set-point-ramps"></span><h2>6. Set-point ramps<a class="headerlink" href="#set-point-ramps" title="Link to this heading"></a></h2>
+<p>Inputs that have no controller approach a new value linearly over a short ramp
+time (<code class="docutils literal notranslate"><span class="pre">ModelParameters.ramps</span></code>); 0 means instant. Set points that feed a
+controller are not ramped, because the controller shapes the response.</p>
+<p>Kernel inputs are evaluated at every time step inside the kernel, from a table
+of (start value, start time, ramp time, target). Pump rate and inlet
+temperature are evaluated at each slow tick and inside the hydraulic
+substeps. When an input takes over from another mode, for example <code class="docutils literal notranslate"><span class="pre">omega_td</span></code>
+after <code class="docutils literal notranslate"><span class="pre">omega_sp</span></code>, its ramp starts from the present physical value, which makes
+the transfer bumpless.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>input</p></th>
+<th class="head"><p>controller</p></th>
+<th class="head"><p>default ramp</p></th>
+<th class="head"><p>note</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">omega_sp</span></code> (speed set point)</p></td>
+<td><p>top-drive PI / SoftTorque / ZTorque</p></td>
+<td><p>none</p></td>
+<td><p>the controller shapes the response</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">wob_sp</span></code> (WOB set point)</p></td>
+<td><p>autodriller</p></td>
+<td><p>none</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">omega_td</span></code> (prescribed top-drive speed)</p></td>
+<td><p>none</p></td>
+<td><p>1 s</p></td>
+<td><p>linear interpolation between 1 s field samples</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">v_block</span></code> (block velocity)</p></td>
+<td><p>none</p></td>
+<td><p>2 s</p></td>
+<td><p>the optional block-acceleration limit still applies on top</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flow_rate</span></code> (pump rate)</p></td>
+<td><p>none</p></td>
+<td><p>3 s</p></td>
+<td><p>the pumps start at t = 0 and ramp to the initial rate</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">inlet_temperature</span></code></p></td>
+<td><p>none</p></td>
+<td><p>3 s</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">motor_torque</span></code></p></td>
+<td><p>external controller</p></td>
+<td><p>none</p></td>
+<td><p>an actuator command, not a set point</p></td>
+</tr>
+</tbody>
+</table>
+<p>The ramp times of the controlled set points can still be set for studies of
+set-point profiling. They replace the former 60 rpm/s rate limit on
+<code class="docutils literal notranslate"><span class="pre">omega_sp</span></code>.</p>
+<p>The verification tests that check step responses against analytic results
+(wave arrival, free decay) use <code class="docutils literal notranslate"><span class="pre">RampParameters.instant()</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="limitations">
+<span id="7-limitations"></span><h2>7. Limitations<a class="headerlink" href="#limitations" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Single phase.</strong> Gas kicks, cuttings loading and hole cleaning are not
+modelled, although the drift-flux structure allows a second phase.</p></li>
+<li><p><strong>Rheology.</strong> Newtonian or Bingham only, as in chapter 7.</p>
+<ul>
+<li><p>Power-law and Herschel–Bulkley losses are not included.</p></li>
+<li><p>The regime switch at Re = 2100 is sharp.</p></li>
+<li><p>Friction is quasi-steady: the steady correlations are used at each
+instant.</p></li>
+<li><p>Eccentricity and tool-joint losses are ignored.</p></li>
+</ul>
+</li>
+<li><p><strong>Surge and swab.</strong> The averaged string velocity over a ~1 s tick drives
+them. Axial vibrations faster than about 0.5 Hz do not pump mud in this
+model.</p></li>
+<li><p><strong>Yield stress.</strong> The yield point stands in for gel strength: the pressure
+to break circulation uses YP, not a time-dependent gel strength.</p></li>
+<li><p><strong>Wave speed and dissipation.</strong> The wave speed is one effective value,
+ignoring pipe-wall elasticity (Korteweg) and any difference between bore and
+annulus. The staggered acoustic scheme has little numerical dissipation, so
+acoustic ripples decay through friction alone (§5.2 figures).</p></li>
+<li><p><strong>Coupling direction.</strong> Hydraulic pressure does not act back on the string
+mechanics: there is no pump-open force and no pressure-area effect on WOB.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Shor, R.J., <em>Introduction to Drilling Engineering</em>, ch. 7, Borehole Hydraulics. https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html</p></li>
+<li><p>Wang, N., Khaled, M.S., Luu, A., Ashok, P. and van Oort, E., 2023. Downhole temperature estimation of a growing high-temperature wellbore using a modified drift flux modeling approach. SPE-214836-MS. https://doi.org/10.2118/214836-MS</p></li>
+<li><p>Evje, S. and Fjelde, K.K., 2002. Relaxation schemes for the calculation of two-phase flow in pipes. <em>Mathematical and Computer Modelling</em>, 36(4–5), 535–567.</p></li>
+<li><p>Bourgoyne, A.T., Millheim, K.K., Chenevert, M.E. and Young, F.S., 1986. <em>Applied Drilling Engineering</em>. SPE Textbook Series vol. 2 (origin of the chapter’s field-unit constants).</p></li>
+<li><p>Burkhardt, J.A., 1961. Wellbore pressure surges produced by pipe movement. <em>J. Petroleum Technology</em>, 13(6), 595–605.</p></li>
+<li><p>Wylie, E.B. and Streeter, V.L., 1993. <em>Fluid Transients in Systems</em>. Prentice Hall (Joukowsky relation).</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="derivation-bit-models.html" class="btn btn-neutral float-left" title="Bit–rock interaction: from the Bit Model Library to three reduced models" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="derivation-readme.html" class="btn btn-neutral float-right" title="Derivation of the DrillPyze coupled axial–torsional model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

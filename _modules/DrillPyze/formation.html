@@ -1,0 +1,324 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.formation &mdash; DrillPyze 1.0.0a1</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.formation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.formation</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Formation description and rock strength at the bit.</span>
+
+<span class="sd">Rock strength enters the bit models through the drilling strength</span>
+<span class="sd">S = zeta * epsilon, with the intrinsic specific energy taken as the confined</span>
+<span class="sd">compressive strength at the bit divided by a cutting efficiency eta::</span>
+
+<span class="sd">    epsilon = CCS_eff / eta</span>
+
+<span class="sd">CCS_eff combines three effects (see docs/derivation/rock-strength-and-temperature.md)::</span>
+
+<span class="sd">    P1  Confinement by the overbalance, Mohr-Coulomb</span>
+<span class="sd">            CCS = UCS + dp * (1 + sin phi) / (1 - sin phi)</span>
+<span class="sd">        with dp = p_bh - p_p for permeable rock, and for low-permeability /</span>
+<span class="sd">        low-porosity rock the undrained ("Skempton") pore pressure</span>
+<span class="sd">            p_p* = p_p - B (sigma_v - p_bh) / 3</span>
+<span class="sd">        blended by effective porosity (Caicedo, Calhoun &amp; Ewy 2005; US 7,412,331</span>
+<span class="sd">        and US 7,555,414).</span>
+<span class="sd">    T1  Thermal weakening of the rock</span>
+<span class="sd">            UCS(T) = UCS_0 [1 - beta max(T - T*, 0)]</span>
+<span class="sd">        fitted to granite data of Xu et al. (2019): T* = 193 C, beta = 1.41e-3 /K.</span>
+<span class="sd">    T2  Cooling-induced thermal stress at the hole bottom</span>
+<span class="sd">            sigma_th = alpha E (T_rock - T_mud) / (1 - nu)</span>
+<span class="sd">            CCS_eff  = CCS - kappa sigma_th min(1, delta / d_b)</span>
+<span class="sd">        where delta = sqrt(pi D_th t_pass) is the thermal skin cooled between</span>
+<span class="sd">        blade passes and d_b the depth of cut per blade.</span>
+
+<span class="sd">Temperatures are in deg C, pressures in Pa, depths in m.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">asdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+
+
+<div class="viewcode-block" id="FormationLayer">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.FormationLayer">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FormationLayer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A formation interval starting at ``top_md`` (m MD) and extending to the next layer."""</span>
+    <span class="n">top_md</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">ucs</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">110e6</span>               <span class="c1"># Pa</span>
+    <span class="n">friction_angle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">36.0</span>     <span class="c1"># degrees</span>
+    <span class="n">porosity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.005</span>          <span class="c1"># effective porosity (fraction)</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span></div>
+
+
+
+<div class="viewcode-block" id="Formation">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Formation</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Formation, pore-pressure and geothermal description.</span>
+
+<span class="sd">    Defaults are for the Utah FORGE granitoid:</span>
+<span class="sd">      UCS 91-126 MPa (Ye et al. 2022, ARMA-2022-0272), friction angle 36 deg</span>
+<span class="sd">      (Finnila &amp; Podgorney 2020), matrix porosity &lt; 0.5 %, E ~ 55 GPa,</span>
+<span class="sd">      nu ~ 0.26, alpha = 6e-6 /K (Podgorney et al. 2021; compiled in the Utah</span>
+<span class="sd">      FORGE decade review, Processes 2026, 14, 512); geothermal 40 C surface</span>
+<span class="sd">      and 69.1 C/km, rock density 2800 kg/m3, heat capacity 930 J/kg K,</span>
+<span class="sd">      conductivity 2.31 W/m K (Wang et al. 2023, SPE-214836-MS, Table 2).</span>
+<span class="sd">    """</span>
+    <span class="n">layers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">FormationLayer</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="n">FormationLayer</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'Granitoid'</span><span class="p">)])</span>
+    <span class="c1"># pressures</span>
+    <span class="n">pore_pressure_gradient</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">9.79e3</span>      <span class="c1"># Pa/m (fresh-water hydrostatic)</span>
+    <span class="n">overburden_gradient</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">25.0e3</span>         <span class="c1"># Pa/m</span>
+    <span class="n">skempton_b</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>                     <span class="c1"># undrained pore-pressure response (1 in Caicedo et al.)</span>
+    <span class="n">porosity_low</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>                  <span class="c1"># at or below: low-permeability (undrained) CCS</span>
+    <span class="n">porosity_high</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.20</span>                 <span class="c1"># at or above: permeable (drained) CCS</span>
+    <span class="c1"># geothermal and rock thermal properties</span>
+    <span class="n">surface_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">40.0</span>           <span class="c1"># C</span>
+    <span class="n">geothermal_gradient</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0691</span>         <span class="c1"># C/m</span>
+    <span class="n">rock_density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2800.0</span>                <span class="c1"># kg/m3</span>
+    <span class="n">rock_heat_capacity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">930.0</span>           <span class="c1"># J/(kg K)</span>
+    <span class="n">rock_conductivity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.31</span>             <span class="c1"># W/(m K)</span>
+    <span class="c1"># thermoelastic properties</span>
+    <span class="n">thermal_expansion</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">6.0e-6</span>           <span class="c1"># 1/K (linear)</span>
+    <span class="n">youngs_modulus</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">55e9</span>                <span class="c1"># Pa</span>
+    <span class="n">poisson_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.26</span>
+    <span class="c1"># T1: thermal weakening (fit to Xu et al. 2019 granite data)</span>
+    <span class="n">weakening_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">193.0</span>          <span class="c1"># C</span>
+    <span class="n">weakening_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.41e-3</span>             <span class="c1"># 1/K</span>
+    <span class="c1"># T2: cooling thermal stress</span>
+    <span class="n">thermal_stress_efficiency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>      <span class="c1"># kappa, 0..1 (1 = full thermoelastic stress)</span>
+    <span class="n">strength_floor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>                 <span class="c1"># CCS_eff &gt;= floor * UCS(T)</span>
+
+    <span class="c1"># ----------------------------------------------------------- profiles</span>
+<div class="viewcode-block" id="Formation.layer_at">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.layer_at">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">layer_at</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">md</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The layer containing measured depth `md` (the deepest layer with top &lt;= md)."""</span>
+        <span class="n">lay</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">l</span><span class="p">:</span> <span class="n">l</span><span class="o">.</span><span class="n">top_md</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">lay</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lay</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">md</span> <span class="o">&gt;=</span> <span class="n">l</span><span class="o">.</span><span class="n">top_md</span><span class="p">:</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">l</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="Formation.temperature">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.temperature">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tvd</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Undisturbed formation temperature (C) at TVD (m)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_temperature</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">geothermal_gradient</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tvd</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Formation.pore_pressure">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.pore_pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pore_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tvd</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Hydrostatic pore pressure at true vertical depth `tvd` (Pa)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pore_pressure_gradient</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tvd</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Formation.overburden">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.overburden">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">overburden</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tvd</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Overburden stress at true vertical depth `tvd` (Pa)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">overburden_gradient</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tvd</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_diffusivity</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Rock thermal diffusivity k / (rho c) (m^2/s)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rock_conductivity</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rock_density</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rock_heat_capacity</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------- rock strength</span>
+<div class="viewcode-block" id="Formation.strength">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.strength">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">strength</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">md</span><span class="p">,</span> <span class="n">tvd</span><span class="p">,</span> <span class="n">p_bh</span><span class="p">,</span> <span class="n">t_mud</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rop</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">omega</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">blades</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Rock strength at the bit.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        md, tvd : float</span>
+<span class="sd">            Hole depth (m MD) and its TVD (m).</span>
+<span class="sd">        p_bh : float</span>
+<span class="sd">            Bottomhole pressure (Pa), e.g. from the circulating thermal/hydraulic model.</span>
+<span class="sd">        t_mud : float, optional</span>
+<span class="sd">            Mud temperature at the bit (C).  None disables the thermal-stress term.</span>
+<span class="sd">        rop, omega : float</span>
+<span class="sd">            Penetration rate (m/s) and bit speed (rad/s), for the thermal skin ratio.</span>
+<span class="sd">        blades : int</span>
+<span class="sd">            Number of blades (sets the time between blade passes).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict with ucs0, t_rock, ucs_t, dp_drained, dp_undrained, w_drained,</span>
+<span class="sd">        ccs (P1 + T1), sigma_th, skin_ratio, ccs_eff (P1 + T1 + T2).</span>
+<span class="sd">        """</span>
+        <span class="n">lay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_at</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+        <span class="n">t_rock</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="n">tvd</span><span class="p">))</span>
+        <span class="c1"># T1</span>
+        <span class="n">ucs_t</span> <span class="o">=</span> <span class="n">lay</span><span class="o">.</span><span class="n">ucs</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">weakening_rate</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">t_rock</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">weakening_threshold</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="mf">0.05</span><span class="p">)</span>
+        <span class="c1"># P1: drained and undrained (Skempton) overbalance, blended by porosity</span>
+        <span class="n">pp</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pore_pressure</span><span class="p">(</span><span class="n">tvd</span><span class="p">))</span>
+        <span class="n">sv</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overburden</span><span class="p">(</span><span class="n">tvd</span><span class="p">))</span>
+        <span class="n">dp_hp</span> <span class="o">=</span> <span class="n">p_bh</span> <span class="o">-</span> <span class="n">pp</span>
+        <span class="n">pp_lp</span> <span class="o">=</span> <span class="n">pp</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">skempton_b</span> <span class="o">*</span> <span class="p">(</span><span class="n">sv</span> <span class="o">-</span> <span class="n">p_bh</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span>
+        <span class="n">dp_lp</span> <span class="o">=</span> <span class="n">p_bh</span> <span class="o">-</span> <span class="n">pp_lp</span>
+        <span class="n">phi_e</span> <span class="o">=</span> <span class="n">lay</span><span class="o">.</span><span class="n">porosity</span>
+        <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">porosity_low</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">porosity_high</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">phi_e</span> <span class="o">&lt;=</span> <span class="n">lo</span> <span class="k">else</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="n">phi_e</span> <span class="o">&gt;=</span> <span class="n">hi</span> <span class="k">else</span> <span class="p">(</span><span class="n">phi_e</span> <span class="o">-</span> <span class="n">lo</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">lay</span><span class="o">.</span><span class="n">friction_angle</span><span class="p">))</span>
+        <span class="n">n_phi</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span>
+        <span class="n">ccs</span> <span class="o">=</span> <span class="n">ucs_t</span> <span class="o">+</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">w</span><span class="p">)</span> <span class="o">*</span> <span class="n">dp_lp</span> <span class="o">+</span> <span class="n">w</span> <span class="o">*</span> <span class="n">dp_hp</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_phi</span>
+        <span class="c1"># T2</span>
+        <span class="n">sigma_th</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="n">t_mud</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sigma_th</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_expansion</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">youngs_modulus</span> <span class="o">*</span> <span class="p">(</span><span class="n">t_rock</span> <span class="o">-</span> <span class="n">t_mud</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">poisson_ratio</span><span class="p">)</span>
+            <span class="n">ratio</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">if</span> <span class="n">omega</span> <span class="o">&gt;</span> <span class="mf">1e-6</span> <span class="ow">and</span> <span class="n">rop</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+                <span class="n">t_pass</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">blades</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">omega</span><span class="p">)</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_diffusivity</span> <span class="o">*</span> <span class="n">t_pass</span><span class="p">)</span>
+                <span class="n">d_b</span> <span class="o">=</span> <span class="n">rop</span> <span class="o">*</span> <span class="n">t_pass</span>
+                <span class="n">ratio</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">d_b</span><span class="p">)</span>
+        <span class="n">ccs_eff</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">ccs</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_stress_efficiency</span> <span class="o">*</span> <span class="n">sigma_th</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">strength_floor</span> <span class="o">*</span> <span class="n">ucs_t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">ucs0</span><span class="o">=</span><span class="n">lay</span><span class="o">.</span><span class="n">ucs</span><span class="p">,</span> <span class="n">t_rock</span><span class="o">=</span><span class="n">t_rock</span><span class="p">,</span> <span class="n">ucs_t</span><span class="o">=</span><span class="n">ucs_t</span><span class="p">,</span> <span class="n">n_phi</span><span class="o">=</span><span class="n">n_phi</span><span class="p">,</span> <span class="n">dp_drained</span><span class="o">=</span><span class="n">dp_hp</span><span class="p">,</span>
+                    <span class="n">dp_undrained</span><span class="o">=</span><span class="n">dp_lp</span><span class="p">,</span> <span class="n">w_drained</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">ccs</span><span class="o">=</span><span class="n">ccs</span><span class="p">,</span> <span class="n">sigma_th</span><span class="o">=</span><span class="n">sigma_th</span><span class="p">,</span> <span class="n">skin_ratio</span><span class="o">=</span><span class="n">ratio</span><span class="p">,</span>
+                    <span class="n">ccs_eff</span><span class="o">=</span><span class="n">ccs_eff</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------ io</span>
+<div class="viewcode-block" id="Formation.to_dict">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.to_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Plain-dict form (for JSON cases)."""</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Formation.from_dict">
+<a class="viewcode-back" href="../../api.html#DrillPyze.formation.Formation.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Formation from its dict form; missing values take the defaults."""</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">d</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">FormationLayer</span><span class="p">(</span><span class="o">**</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">'layers'</span><span class="p">,</span> <span class="p">[])]</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">d</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">layers</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">layers</span>
+        <span class="k">return</span> <span class="n">f</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
