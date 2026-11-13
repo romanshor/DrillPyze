@@ -14,10 +14,9 @@ on:
 permissions:
   contents: write          # push to the gh-pages branch
 
-# one queue for every workflow that pushes to gh-pages, so publishes never race
 concurrency:
-  group: gh-pages-publish
-  cancel-in-progress: false
+  group: pages-lite
+  cancel-in-progress: true
 
 jobs:
   publish:
@@ -38,9 +37,7 @@ jobs:
       - name: Build the site
         run: python lite/build_site.py --out _site
       - name: Publish to gh-pages/lite
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: _site
-          destination_dir: lite
-          keep_files: false      # replaces lite/ only; the documentation at the root is untouched
+        # retries when another workflow pushed to gh-pages first
+        run: .github/scripts/publish-pages.sh _site lite
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -16,10 +16,9 @@ on:
 permissions:
   contents: write          # push to the gh-pages branch
 
-# one queue for every workflow that pushes to gh-pages, so publishes never race
 concurrency:
-  group: gh-pages-publish
-  cancel-in-progress: false
+  group: docs-coupled
+  cancel-in-progress: true
 
 jobs:
   docs:
@@ -34,9 +33,7 @@ jobs:
       - name: Build (warnings are errors)
         run: sphinx-build -W --keep-going -d "$RUNNER_TEMP/doctrees" -b html docs/source docs/build   # doctrees kept out of the site
       - name: Publish to gh-pages/coupled-model
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build
-          destination_dir: coupled-model
-          keep_files: false      # replaces coupled-model/ only
+        # retries when another workflow pushed to gh-pages first
+        run: .github/scripts/publish-pages.sh docs/build coupled-model
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
