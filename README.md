@@ -435,6 +435,20 @@ errors and publishes the pages to
 `https://<owner>.github.io/<repo>/coupled-model/`, next to the `main`
 documentation.
 
+## Branches and releases
+
+| Branch | Purpose | Published at |
+|---|---|---|
+| `main` | releases (currently 1.0.0a1) | documentation at the site root, DrillPyze Lite at `/lite/` |
+| `coupled-model` | development of the Python model, UI and docs | development docs at `/coupled-model/` |
+| `browser-lite` | brings DrillPyze Lite up to date with the physics | — |
+
+Changes flow `coupled-model` → `browser-lite` → `main`. A physics change on
+`coupled-model` may run ahead of the browser engine. There, the Lite checks
+report expected failures instead of errors. On `browser-lite`, on `main` and
+in pull requests into them, Lite must match the Python model. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md#branches-and-releases).
+
 ## Citing DrillPyze
 
 If you use DrillPyze in your work, please cite it. The citation details are

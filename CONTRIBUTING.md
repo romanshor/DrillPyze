@@ -40,6 +40,38 @@ implementation-level specification in `docs/spec/physics-spec.md`. A change to t
 
 `tests/test_spec_sync.py` enforces steps 1–3.
 
+## Branches and releases
+
+- **`coupled-model`:** development of the Python model, the simulator UI and
+  the documentation. Work here, or in feature branches merged into it. Each
+  push republishes the development docs at `/coupled-model/` on the
+  documentation site.
+- **`browser-lite`:** merge `coupled-model` into it, then bring DrillPyze Lite
+  up to date. Update the specification, run the manifest script and update the
+  browser engine, as described above.
+- **`main`:** releases only. Release by pull request from `browser-lite`
+  into `main`. Each push to `main` publishes the release docs and DrillPyze Lite.
+- **After a release:** merge `main` back into `coupled-model` and
+  `browser-lite`.
+
+**Branch-aware tests.** The Lite checks are strict on `browser-lite`, on
+`main` and in pull requests into them. These are `tests/test_lite_engine.py`
+and the spec-revision check in `tests/test_spec_sync.py`.
+
+On `coupled-model` the browser engine may lag the physics, so a Lite mismatch
+is reported as an expected failure (`xfail`, listed in the test summary)
+instead of an error. Physics regressions still fail on every branch, and so
+does a physics change without a spec review.
+
+The branch is taken from the CI environment or from `git`. To override it,
+set `DRILLPYZE_LITE_LAG=strict` or `allow`. For example, run
+`DRILLPYZE_LITE_LAG=strict pytest` on `coupled-model` to see how far Lite has
+fallen behind. The rules are in `tests/branches.py`.
+
+**Development versions.** After a release, set the development branches to
+the next pre-release with a `.dev0` suffix (for example `1.0.0a2.dev0`). The
+UI and the docs then show that the build is not a release.
+
 ## Releases
 
 The version lives in `pyproject.toml`, `DrillPyze/__init__.py` (with the

@@ -10,6 +10,10 @@ import importlib.util
 import json
 import pathlib
 import re
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from branches import lite_check  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('update_manifest', ROOT / 'docs' / 'spec' / 'update_manifest.py')
@@ -32,5 +36,5 @@ def test_manifest_revision_matches_spec():
 def test_lite_engine_implements_current_revision():
     src = (ROOT / 'lite' / 'engine' / 'spec.js').read_text()
     rev = int(re.search(r'SPEC_REVISION\s*=\s*(\d+)', src).group(1))
-    assert rev == um.spec_revision(), (f'lite/engine implements spec revision {rev}, the spec is at '
-                                       f'{um.spec_revision()}: update the browser engine')
+    lite_check(rev == um.spec_revision(), f'lite/engine implements spec revision {rev}, the spec is at '
+                                          f'{um.spec_revision()}: update the browser engine')
