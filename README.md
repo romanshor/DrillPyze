@@ -261,6 +261,50 @@ The server runs the same `Simulation` objects as the Python API (see
 `DrillPyze/ui/server.py`). Plotly is served from the installed `plotly`
 package, so the UI also works offline.
 
+## Physics specification
+
+`docs/spec/physics-spec.md` specifies every equation, algorithm and default
+of the model at implementation level: geometry, the time step, inputs and
+ramps, hydraulics, rock strength, temperature and outputs. It is the
+reference for independent implementations, including DrillPyze Lite.
+
+**Keep it current.** A change to the physics or numerics updates the spec in
+the same commit, raises its revision and refreshes the manifest:
+
+```bash
+python docs/spec/update_manifest.py
+```
+
+`tests/test_spec_sync.py` fails when a physics source file changes without
+this step. It also fails when the browser engine implements an older spec
+revision.
+
+## DrillPyze Lite (browser version)
+
+`lite/` runs the same simulator entirely in a web browser, with no install.
+- **Engine:** a JavaScript engine written from the specification runs in a
+  Web Worker behind the unchanged front end.
+- **Physics:** the whole model, including the wellbore temperature model.
+- **Speed:** about 20–30× real time for Well A.
+- **Conformance:** `tests/test_lite_engine.py` (Node.js) checks that it
+  reproduces the Python model to round-off, with and without the
+  temperature model.
+
+```bash
+python lite/build_site.py && python -m http.server -d _site 8000   # http://localhost:8000
+```
+
+**Publishing on GitHub Pages.** The workflow
+`.github/workflows/pages-lite.yml` runs the conformance tests, builds the
+site and publishes it to the `lite/` folder of the `gh-pages` branch. It
+runs on pushes to `main` or `browser-lite` that touch `lite/` or the front
+end, or by hand from the Actions tab.
+
+The site appears at `https://<owner>.github.io/<repo>/lite/`, next to the
+documentation. The one-time setting is *Settings → Pages → Build and
+deployment → Source: Deploy from a branch, `gh-pages` / `(root)`*. The
+documentation workflow keeps the `lite/` folder when it publishes.
+
 ## Workflow: set up, initialise, step
 
 ```python

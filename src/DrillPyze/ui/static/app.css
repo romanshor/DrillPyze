@@ -221,3 +221,4 @@ table.grid input[type=number]::-webkit-outer-spin-button { -webkit-appearance: n
 .head-tools { display: flex; gap: 8px; align-items: center; }
 .field select { grid-column: 2 / 4; }
 
+.field[hidden] { display: none; }

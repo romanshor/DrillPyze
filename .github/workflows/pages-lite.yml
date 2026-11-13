@@ -1,0 +1,45 @@
+# Publish DrillPyze Lite (the browser version) to GitHub Pages, in the lite/ folder of the
+# gh-pages branch next to the Sphinx documentation:  https://<owner>.github.io/<repo>/lite/
+name: Publish DrillPyze Lite
+
+on:
+  push:
+    branches: [main, browser-lite]
+    paths:
+      - 'lite/**'
+      - 'src/DrillPyze/ui/static/**'
+      - '.github/workflows/pages-lite.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write          # push to the gh-pages branch
+
+concurrency:
+  group: pages-lite
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # the browser engine must match the Python model before it is published
+      - name: Conformance tests
+        run: |
+          pip install -e ".[test,ui]"     # ui: Plotly, bundled with the site
+          pytest -q tests/test_lite_engine.py tests/test_spec_sync.py
+      - name: Build the site
+        run: python lite/build_site.py --out _site
+      - name: Publish to gh-pages/lite
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: _site
+          destination_dir: lite
+          keep_files: false      # replaces lite/ only; the documentation at the root is untouched

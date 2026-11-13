@@ -169,7 +169,7 @@ const SECTIONS = [
       ['formation.rock_density', 'Rock density', 'density'],
     ] },
   { title: 'Mud and circulation',
-    note: () => 'Wellbore temperature: drift-flux model of Wang et al. (2023, SPE-214836-MS). Pump rate and inlet temperature can be changed live in the control bar.',
+    note: () => 'Wellbore temperature: drift-flux model of Wang et al. (2023, SPE-214836-MS). Pump rate and inlet temperature can be changed live on the driller\'s display.',
     fields: [
       ['parameters.thermal.enabled', 'Model wellbore temperature', 'bool'],
       ['parameters.thermal.flow_rate', 'Pump rate at start', 'flow'],
@@ -243,6 +243,8 @@ function message(text, kind = 'error') {
   m.textContent = text; m.className = 'message' + (kind === 'info' ? ' info' : ''); m.hidden = false;
 }
 async function api(path, body) {
+  // DrillPyze Lite (lite/): the same API answered by the browser engine in a Web Worker
+  if (window.DRILLPYZE_LITE) return window.DRILLPYZE_LITE.api(path, body);
   const r = await fetch(path, body === undefined ? {} :
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await r.json().catch(() => ({ error: `Server error ${r.status}` }));
@@ -256,6 +258,7 @@ function fieldRow(spec) {
   const [path, label, kind, opt = {}] = spec;
   const row = document.createElement('div');
   const id = 'f-' + path.replace(/\./g, '-');
+  if (opt.fullOnly && window.DRILLPYZE_LITE) row.hidden = true;      // not available in DrillPyze Lite
   if (kind === 'bool') {
     row.className = 'field check';
     row.innerHTML = `<input type="checkbox" id="${id}"><label for="${id}">${label}</label>`;
@@ -788,6 +791,7 @@ async function initialise() {
     const i = r.info;
     $('speed-out').textContent = `${i.cells} cells, Δt ${(i.dt * 1e3).toFixed(2)} ms, ${i.controller.replace('_', ' ')}`;
     $('download').href = `/api/results.csv?session=${r.session}`;
+    if (window.DRILLPYZE_LITE) $('download').onclick = (e) => { e.preventDefault(); window.DRILLPYZE_LITE.download(state.session); };
   } catch (e) {
     message(e.message);
   } finally {
@@ -968,6 +972,6 @@ async function start() {
     buildForm();
     await initialise();
     message('Well A is loaded. Press Play (or Space) to start the off-bottom start-up at 60 rpm.', 'info');
-  } catch (e) { message(`Could not reach the DrillPyze server: ${e.message}`); }
+  } catch (e) { message(window.DRILLPYZE_LITE ? `The simulation engine failed: ${e.message}` : `Could not reach the DrillPyze server: ${e.message}`); }
 }
 start();
