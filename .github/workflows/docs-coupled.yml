@@ -1,0 +1,41 @@
+# Build the Sphinx documentation of the coupled model and publish it to the
+# coupled-model/ folder of the gh-pages branch:
+#   https://<owner>.github.io/<repo>/coupled-model/
+name: Coupled-model documentation
+
+on:
+  push:
+    branches: [coupled-model]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/docs-coupled.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write          # push to the gh-pages branch
+
+concurrency:
+  group: docs-coupled
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -e . sphinx sphinx-rtd-theme myst-parser
+      - name: Build (warnings are errors)
+        run: sphinx-build -W --keep-going -b html docs/source docs/build
+      - name: Publish to gh-pages/coupled-model
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/build
+          destination_dir: coupled-model
+          keep_files: false      # replaces coupled-model/ only

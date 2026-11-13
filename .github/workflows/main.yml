@@ -1,40 +1,40 @@
-name: Generate and Publish Documentation with Sphinx  
-  
-on:  
-  push:  
-    branches:  
-      - main  
-    paths:  
-      - '**.py'  
+# Build the Sphinx documentation from main and publish it at the root of the
+# gh-pages branch (https://<owner>.github.io/<repo>/).  Folders published by the
+# other workflows (lite/, coupled-model/) are kept.
+name: Generate and Publish Documentation with Sphinx
 
-env:
-  MODULE_PATHS: src
-  
-jobs:  
-  doc-gen:  
-    runs-on: ubuntu-latest  
-    permissions:
-      contents: write
-    steps:  
-      - name: Checkout  
-        uses: actions/checkout@v3
-      - name: Setup Python  
-        uses: actions/setup-python@v2  
-        with:  
-          python-version: 3.11.1 
-          architecture: x64  
-          cache: 'pip'  
-      - name: Install dependencies  
-        run: pip install -r requirements.txt  
-      - name: Generate documentation  
-        run: ./docs_generator.sh ${{ env.MODULE_PATHS }}  
-      - name: Commit changes  
-        uses: stefanzweifel/git-auto-commit-action@v4  
-        with:  
-          file_pattern: docs/build  
-          commit_message "docs: generation of documentation"
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.py'
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.github/workflows/main.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write          # push to the gh-pages branch
+
+concurrency:
+  group: docs-main
+  cancel-in-progress: true
+
+jobs:
+  doc-gen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -e . sphinx sphinx-rtd-theme myst-parser
+      - name: Build (warnings are errors)
+        run: sphinx-build -W --keep-going -b html docs/source docs/build
       - name: Publish to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/build

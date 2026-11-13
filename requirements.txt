@@ -1,11 +1,14 @@
-##### Required dependencies #####
-
-well_profile
-pandas
+##### Runtime #####
 numpy
+pandas
+numba>=0.57
 matplotlib
-pathos
+openpyxl
+
+##### Tests #####
+pytest
+
+##### Documentation #####
 sphinx>=1.8.3
 sphinx-rtd-theme
-recommonmark>=0.5.0
 myst_parser

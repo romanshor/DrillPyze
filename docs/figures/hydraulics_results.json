@@ -1,0 +1,81 @@
+{
+ "Example 7.1": {
+  "sections_psi": [
+   570.9,
+   192.0,
+   34.0,
+   238.3
+  ],
+  "bit_psi": 1120.4,
+  "spp_psi": 2155.6,
+  "ecd_ppg": 12.009,
+  "printed": {
+   "spp": 2134,
+   "ecd": 12.01,
+   "bit": 1119
+  }
+ },
+ "Problem 7.1": {
+  "sections_psi": [
+   410.9,
+   248.1,
+   19.6,
+   54.5
+  ],
+  "bit_psi": 1155.5,
+  "spp_psi": 1888.8,
+  "ecd_ppg": 9.676,
+  "printed": {
+   "spp": 1868,
+   "ecd": 9.68,
+   "bit": 1157
+  }
+ },
+ "Problem 7.2": {
+  "sections_psi": [
+   531.7,
+   286.0
+  ],
+  "bit_psi": 1118.4,
+  "spp_psi": 1936.0,
+  "ecd_ppg": 12.679,
+  "printed": {
+   "spp": 2005,
+   "ecd": 12.68,
+   "bit": 1120
+  }
+ },
+ "Example 7.1 model": {
+  "spp_psi": 2155.5944035497214,
+  "bhp_psi": 6422.1400425641905,
+  "ecd_ppg": 12.002543327068034,
+  "dp_bit_psi": 1120.3851711940745
+ },
+ "Example 7.1 model, compressible": {
+  "spp_psi": 2105.610346295851,
+  "bhp_psi": 6465.579413226581,
+  "ecd_ppg": 12.083728558940951
+ },
+ "water hammer": {
+  "joukowsky_MPa": 1.407572848099526,
+  "spp_early_MPa": 1.4208918966150255,
+  "arrival_s": 2.0799999999999996,
+  "L_over_c_s": 2.0827999999999998
+ },
+ "Well A pump start": {
+  "Q_m3s": 0.03333333333333333,
+  "spp_end_psi": 2068.6063145345233,
+  "spp_steady_psi": 2075.033497290242,
+  "pbh_end_psi": 3956.119594026891,
+  "pbh_steady_psi": 3957.0030714569916,
+  "ecd_end_ppg": 10.557228773645448
+ },
+ "surge/swab running in 0.5 m/s": {
+  "dp_bh_psi_at_30s": 212.62260984836476,
+  "emw_ppg": 0.39737720917096814
+ },
+ "surge/swab pulling out 0.5 m/s": {
+  "dp_bh_psi_at_30s": -208.68851328471845,
+  "emw_ppg": -0.39002465003256903
+ }
+}

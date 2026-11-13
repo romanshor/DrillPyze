@@ -1,95 +1,203 @@
 """
-A class describing a bottom hole assembly (BHA) and a drillstring for a 
-typical rotary deep drilling system.
+Drillstring description and spatial discretisation.
 
-The BHA description may be loaded from a file in either xls or csv format.
+Components are listed from the bit upward (the usual BHA-report order).  The
+top component (normally drill pipe) is stretched or shortened so that the
+string reaches the requested bit depth.  All values are SI.
 """
 
-import pandas as pd
+from dataclasses import dataclass, field
 import numpy as np
+import pandas as pd
+
+from . import units
 
 
-class BHA:
+@dataclass
+class Component:
     """
-    A class describing a bottom hole assembly with the ability
-    to discretize the string
+    One drillstring component.
+
+    Parameters
+    ----------
+    name : str
+        Description, e.g. 'Bit', 'Motor', 'DC', 'HWDP', 'DP'.
+    length : float
+        Length (m).
+    od, id : float
+        Body outer and inner diameter (m).
+    linear_mass : float, optional
+        Mass per length including tool joints (kg/m).  If omitted, the mass of
+        a plain steel tube is used.
+    contact_od : float, optional
+        Diameter that contacts the borehole (tool joint or stabiliser OD, m).
+        Defaults to ``od``.
+    E, G : float
+        Young's and shear modulus (Pa).  Steel by default.
+    density : float
+        Material density (kg/m^3), used when ``linear_mass`` is not given.
+    """
+    name: str
+    length: float
+    od: float
+    id: float
+    linear_mass: float = None
+    contact_od: float = None
+    E: float = units.STEEL_E
+    G: float = units.STEEL_G
+    density: float = units.STEEL_DENSITY
+
+    @property
+    def area(self):
+        """Steel cross-section (m^2)."""
+        return np.pi / 4 * (self.od ** 2 - self.id ** 2)
+
+    @property
+    def polar_moment(self):
+        """Polar second moment of area (m^4)."""
+        return np.pi / 32 * (self.od ** 4 - self.id ** 4)
+
+    @property
+    def mass_per_length(self):
+        """Mass per length (kg/m): `linear_mass` if given, else steel density x area."""
+        return self.linear_mass if self.linear_mass is not None else self.density * self.area
+
+    @property
+    def effective_density(self):
+        """Density that gives the stated mass per length over the body area."""
+        return self.mass_per_length / self.area
+
+
+@dataclass
+class Grid:
+    """Cell-wise properties of a discretised drillstring (index 0 at surface)."""
+    x_top: np.ndarray       # MD of the top of each cell (m)
+    dx: np.ndarray          # cell length (m)
+    od: np.ndarray
+    id: np.ndarray
+    r_contact: np.ndarray   # contact radius (m)
+    A: np.ndarray           # cross-sectional area (m^2)
+    J: np.ndarray           # polar moment (m^4)
+    rho: np.ndarray         # effective density (kg/m^3)
+    E: np.ndarray
+    G: np.ndarray
+    component: np.ndarray   # index into the component list
+
+    @property
+    def n(self):
+        """Number of cells."""
+        return len(self.dx)
+
+    @property
+    def x(self):
+        """MD of cell centres (m)."""
+        return self.x_top + 0.5 * self.dx
+
+    @property
+    def x_bottom(self):
+        """Measured depth of the bottom of each cell along the string (m)."""
+        return self.x_top + self.dx
+
+    @property
+    def c_axial(self):
+        """Axial wave speed per cell, sqrt(E/rho) (m/s)."""
+        return np.sqrt(self.E / self.rho)
+
+    @property
+    def c_torsional(self):
+        """Torsional wave speed per cell, sqrt(G/rho) (m/s)."""
+        return np.sqrt(self.G / self.rho)
+
+
+class Drillstring:
+    """
+    A drillstring built from components listed bit-first.
+
+    The last component in the list (top of the string) is the one that is
+    lengthened to reach surface; normally drill pipe.
     """
 
-    def __init__(self, name, filename):
-        """
-        Create a new BHA based on the input excel file.  Note, the first component
-        should be a single joint of drillpipe that will go to surface.
-
-        Parameters
-        ==========
-        name : str
-            Name of the BHA
-        filename : str
-            filename of the excel file containing the BHA.  Required columns are 'Component', 'Length', 'OD', 'ID', and 'Weight'.
-            'Component' must be one of ('DP', 'HWDP', 'DC', 'Stab', 'Tool', 'Bit')
-            'Weight' should be in lb/ft and is optional
-        """
+    def __init__(self, components, name='Drillstring'):
+        if len(components) == 0:
+            raise ValueError('At least one component is required')
         self.name = name
-        try:
-            self.data = pd.read_excel(filename)
+        self.components = list(components)
 
-        except:
-            print('Error loading BHA')
-
-
-    def discretize(self, dx, bit_depth):
+    # ------------------------------------------------------------------ io
+    @classmethod
+    def from_dataframe(cls, df, name='Drillstring', length_scale=1.0, diameter_scale=1.0,
+                       mass_scale=1.0, bit_first=True):
         """
-        Discretize the drillstring into compoments of maximum length dx.  Not all components will be the same length
-        
-        Parameters
-        ==========
-        dx : float
-            Maximal spacial discretization length
-        bit_depth : float
-            Desired length of the drillstring
-        
+        Build from a table with columns ``name, length, od, id`` and optional
+        ``linear_mass, contact_od``.  The scale arguments convert the table's
+        units to SI (e.g. ``length_scale=units.FT, diameter_scale=units.IN,
+        mass_scale=units.LB_FT``).
         """
-        self.bit_depth = bit_depth
-        self.dx = dx
+        cols = {c.lower(): c for c in df.columns}
+        rows = df.iterrows() if bit_first else df.iloc[::-1].iterrows()
+        comps = []
+        for _, r in rows:
+            def get(key, scale):
+                """Value of column `key` in this row, times `scale`, or None if absent."""
+                c = cols.get(key)
+                if c is None or pd.isna(r[c]):
+                    return None
+                return float(r[c]) * scale
+            comps.append(Component(
+                name=str(r[cols.get('name', cols.get('component'))]),
+                length=get('length', length_scale),
+                od=get('od', diameter_scale),
+                id=get('id', diameter_scale),
+                linear_mass=get('linear_mass', mass_scale),
+                contact_od=get('contact_od', diameter_scale),
+            ))
+        return cls(comps, name)
 
-        l_dp = bit_depth - self.data.iloc[1:,1].sum()
-        self.l_dp = l_dp
-        n_elem = np.zeros(len(self.data), dtype=int)
+    @property
+    def bha_length(self):
+        """Length of all components except the top (filler) component."""
+        return sum(c.length for c in self.components[:-1])
 
-        # Determine the number of discretization elements for each BHA component
-        for i in range(0,len(self.data)):
-            if i == 0:
-                n_elem[i] = int(np.ceil(l_dp/dx))
-            else:
-                n_elem[i] = int(np.ceil(self.data.iloc[i,1]/dx))
-        
-        # Allocate numpy arrays
-        elem = n_elem.sum()
-        OD = np.zeros(elem)
-        ID = np.zeros(elem)
-        l = np.zeros(elem)
-        x = np.zeros(elem)
+    # ------------------------------------------------------- discretisation
+    def discretize(self, bit_depth, dx=10.0):
+        """
+        Discretise the string with the bit at ``bit_depth`` (m MD).  Each
+        component is split into equal cells no longer than ``dx`` so cell edges
+        align with component boundaries.
 
+        Returns
+        -------
+        Grid
+        """
+        top_len = bit_depth - self.bha_length
+        if top_len <= 0:
+            raise ValueError('Bit depth is shallower than the BHA length')
 
-        # Populate numpy arrays with OD, ID, J, dx and w
-        offset = 0
-        curr_length = 0
-        for i in range(0,len(n_elem)):
-            for j in range(0,n_elem[i]):
-                OD[j+offset] = self.data.iloc[i,2]
-                ID[j+offset] = self.data.iloc[i,3]
-                if i==0:
-                    l[j+offset] = l_dp/n_elem[i]
-                else:
-                    l[j+offset] = self.data.iloc[i,1]/n_elem[i]
-                curr_length += l[j+offset]
-                x[j+offset] = curr_length
-            offset += n_elem[i]
+        # surface-down order
+        comps = list(reversed(self.components))
+        lengths = [top_len] + [c.length for c in comps[1:]]
 
-        self.OD = OD
-        self.ID = ID
-        self.J = np.pi / 32 * (np.power(self.OD/12, 4) - np.power(self.ID/12, 4))
-        self.l = l
-        self.w = l * 2.67 * (np.power(self.OD, 2) - np.power(self.ID, 2))
-        self.x = x
-        self.n_elem = elem
+        arrays = {k: [] for k in ('dx', 'od', 'id', 'rc', 'A', 'J', 'rho', 'E', 'G', 'comp')}
+        for k, (c, L) in enumerate(zip(comps, lengths)):
+            n = max(1, int(np.ceil(L / dx - 1e-9)))
+            h = L / n
+            cod = c.contact_od if c.contact_od is not None else c.od
+            arrays['dx'] += [h] * n
+            arrays['od'] += [c.od] * n
+            arrays['id'] += [c.id] * n
+            arrays['rc'] += [cod / 2] * n
+            arrays['A'] += [c.area] * n
+            arrays['J'] += [c.polar_moment] * n
+            arrays['rho'] += [c.effective_density] * n
+            arrays['E'] += [c.E] * n
+            arrays['G'] += [c.G] * n
+            arrays['comp'] += [len(comps) - 1 - k] * n   # index in the bit-first list
+
+        dxs = np.asarray(arrays['dx'])
+        x_top = np.concatenate([[0.0], np.cumsum(dxs)[:-1]])
+        return Grid(x_top=x_top, dx=dxs,
+                    od=np.asarray(arrays['od']), id=np.asarray(arrays['id']),
+                    r_contact=np.asarray(arrays['rc']), A=np.asarray(arrays['A']),
+                    J=np.asarray(arrays['J']), rho=np.asarray(arrays['rho']),
+                    E=np.asarray(arrays['E']), G=np.asarray(arrays['G']),
+                    component=np.asarray(arrays['comp'], dtype=int))

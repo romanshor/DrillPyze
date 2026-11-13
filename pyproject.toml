@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "DrillPyze"
+version = "1.0.0a1"
+description = "Coupled axial-torsional drillstring dynamics, torque & drag and controller test bench"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Roman J. Shor", email = "roman.shor@tamu.edu" }]
+requires-python = ">=3.9"
+dependencies = ["numpy", "pandas", "numba>=0.57", "matplotlib", "openpyxl"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+ui = ["plotly"]
+test = ["pytest"]
+docs = ["sphinx>=1.8.3", "sphinx-rtd-theme", "myst_parser"]
+
+[project.scripts]
+drillpyze-ui = "DrillPyze.ui.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"DrillPyze.ui" = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
