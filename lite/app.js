@@ -61,7 +61,7 @@ const state = {
   frames: [], traces: null, slow: null, playing: false, busy: false, scrub: null, windowS: 60,
   dirty: false, rpmMax: 200, tqMax: 1, tqMin: 0,
   scales: null, autoScale: {},
-  view: 'p-path', logPage: 0, shown: null,   // phone: along-string view on show, log page; last frame drawn
+  view: 'p-path', logPage: 0, shown: null, demo: false, demoPage: 0, demoFs: false,   // phone: along-string view on show, log page; last frame drawn
 };
 // Phone layout (matches the 760 px breakpoint in app.css): one along-string view at a
 // time, the log two tracks at a time, and no drag-to-zoom so a finger on a plot scrolls the page.
@@ -516,12 +516,12 @@ function drawStringViews(fr) {
     { x: [vs[nb]], y: [tvd[nb]], mode: 'markers', name: 'Bit', hovertemplate: bitTip + '<extra></extra>',
       marker: { symbol: 'diamond', size: 13, color: COLORS.trq, line: { color: COLORS.ink, width: 1 } } },
   ], baseLayout({ title: TITLE('Well path'), showlegend: true,
-    // on a phone the legend goes under the plot, where it does not cover the well
-    legend: ph ? { orientation: 'h', x: 0, xanchor: 'left', y: -0.26, yanchor: 'top', font: { size: 11 }, entrywidth: 0.5, entrywidthmode: 'fraction' }
+    // on a phone held upright the legend goes under the plot, where it does not cover the well
+    legend: ph && innerHeight > 520 ? { orientation: 'h', x: 0, xanchor: 'left', y: -0.26, yanchor: 'top', font: { size: 11 }, entrywidth: 0.5, entrywidthmode: 'fraction' }
                : { x: 0.98, xanchor: 'right', y: 0.98, yanchor: 'top', bgcolor: 'rgba(255,255,255,0.85)', font: { size: 11 } },
     xaxis: axis(`Horizontal displacement (${unitOf('length')})`, { scaleanchor: 'y', scaleratio: 1 }),
     yaxis: axis(`True vertical depth (${uD})`, { autorange: 'reversed' }),
-    margin: ph ? { l: 60, r: 12, t: 36, b: 120 } : { l: 64, r: 14, t: 40, b: 40 } }), PCONF);
+    margin: ph && innerHeight > 520 ? { l: 60, r: 12, t: 36, b: 120 } : { l: 64, r: 14, t: 40, b: 40 } }), PCONF);
 }
 
 function emptyTraces() {
@@ -649,7 +649,7 @@ function drawTraces(cursor) {
   }
   const n = tracks.length, wTrack = (1 - (n - 1) * LOG_GAP) / n;
   const el = $('t-log');
-  const height = ph ? LOG_HEIGHT_PHONE : LOG_HEIGHT, top = 30 + rows * LOG_ROW, bottom = 14;
+  const height = state.demo ? demoLogHeight() : ph ? LOG_HEIGHT_PHONE : LOG_HEIGHT, top = 30 + rows * LOG_ROW, bottom = 14;
   const px = (p) => p / (height - top - bottom);          // pixels -> paper units above the plot
   const data = [], shapes = [], annotations = [], hits = [];
   const layout = baseLayout({ height, margin: { l: clock0 == null ? (ph ? 52 : 64) : (ph ? 78 : 92), r: ph ? 6 : 12, t: top, b: bottom }, showlegend: false, hovermode: 'y unified',
@@ -865,12 +865,12 @@ function play() {
   if (state.dirty) message('Inputs have changed since the last reset. The run continues with the previous case until you apply.', 'info');
   goLive();
   state.playing = true;
-  $('play').textContent = 'Pause'; $('play').classList.add('playing'); $('play').setAttribute('aria-label', 'Pause');
+  for (const b of [$('play'), $('demo-play')]) { b.textContent = 'Pause'; b.classList.add('playing'); b.setAttribute('aria-label', 'Pause'); }
   loop();
 }
 function pause() {
   state.playing = false;
-  $('play').textContent = 'Play'; $('play').classList.remove('playing'); $('play').setAttribute('aria-label', 'Play');
+  for (const b of [$('play'), $('demo-play')]) { b.textContent = 'Play'; b.classList.remove('playing'); b.setAttribute('aria-label', 'Play'); }
 }
 
 async function runAhead() {
@@ -947,6 +947,7 @@ function wire() {
 
   for (const b of document.querySelectorAll('#units button')) b.addEventListener('click', () => setSystem(b.dataset.sys));
   wirePhone();
+  wireDemo();
 
   $('scrub').addEventListener('input', (e) => scrubTo(Number(e.target.value)));
   $('go-live').addEventListener('click', goLive);
@@ -971,6 +972,7 @@ function wire() {
   }
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input, select, textarea')) return;
+    if (state.demo && demoKey(e)) return;
     if (e.code === 'Space') { e.preventDefault(); state.playing ? pause() : play(); }
     if (e.code === 'ArrowRight' && !state.playing) { advance(Number($('frame-dt').value)); }
   });
@@ -1025,6 +1027,110 @@ function wirePhone() {
   PHONE.addEventListener('change', () => { if (!phone()) setInputsOpen(true); else setInputsOpen(false); redrawShown(); });
 }
 
+// --------------------------------------------------------------- demo mode
+// Full screen for showing the simulator: the dials fill the first page, the along-string
+// views and the log are pages below (scroll or swipe up) and to the right (swipe left),
+// and a slim bar keeps Play, the clock and the page picker in reach.
+const demoPages = () => [document.querySelector('.deck-wrap'), document.querySelector('.views-page'), document.querySelector('section.traces')];
+function demoLogHeight() {
+  const sec = document.querySelector('section.traces'), top = $('t-log').getBoundingClientRect().top - sec.getBoundingClientRect().top;
+  // at least ~240 px of plot under the curve headers; a short screen (a phone on its side) scrolls the page
+  const head = 30 + LOG_ROW * Math.max(...logTracks().map(k => k.curves.length));
+  return Math.max(head + 240, Math.floor(sec.clientHeight - top - 8));
+}
+// Lay the deck out with 2, 3, 4 or 8 columns at a few column widths and keep whichever fills the
+// screen best. Text and bars have fixed sizes while dials grow with the column, so narrow
+// columns suit a tall phone and wide ones a desktop.
+function fitDeck() {
+  const d = $('deck'), wrap = d.parentElement;
+  d.style.width = d.style.gridTemplateColumns = d.style.transform = '';
+  if (!state.demo) return;
+  const W = wrap.clientWidth - 16, H = wrap.clientHeight - 16, n = d.querySelectorAll('.gauge').length || 8;
+  let best = null;
+  for (const cols of [2, 3, 4, 8].filter(c => c <= n)) for (const cw of [140, 165, 190, 220]) {
+    const w = cols * cw + (cols - 1) * 8 + 22;
+    d.style.width = `${w}px`; d.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    const h = d.offsetHeight, s = Math.min(W / w, H / h);
+    if (!best || s > best.s * 1.02) best = { cols, w, h, s };   // ties go to the wider (earlier) dials
+  }
+  const { cols, w, h, s } = best;
+  d.style.width = `${w}px`; d.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  d.style.transform = `translate(${((W - w * s) / 2).toFixed(1)}px, ${((H - h * s) / 2).toFixed(1)}px) scale(${s.toFixed(4)})`;
+}
+function demoGo(i, smooth = true) {
+  const pages = demoPages(); i = Math.max(0, Math.min(i, pages.length - 1));
+  document.querySelector('.work').scrollTo({ top: pages[i].offsetTop, behavior: smooth ? 'smooth' : 'auto' });
+}
+function demoMark() {
+  const w = document.querySelector('.work'), i = Math.round(w.scrollTop / Math.max(1, w.clientHeight));
+  state.demoPage = i;
+  for (const b of document.querySelectorAll('#demo-pages button')) b.setAttribute('aria-selected', String(Number(b.dataset.p) === i));
+}
+function demoLayout() {
+  if (!state.demo) return;
+  fitDeck(); window.dispatchEvent(new Event('resize'));      // Plotly resizes its figures on this
+  redrawShown(); demoGo(state.demoPage, false);
+}
+function setDemo(on) {
+  if (on === state.demo) return;
+  state.demo = on; closeScalePop();
+  document.body.classList.toggle('demo', on);
+  $('demo-bar').hidden = !on;
+  if (on) {
+    state.demoPage = 0;
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen({ navigationUI: 'hide' }).then(() => { state.demoFs = true; }).catch(() => {});
+    const hint = $('demo-hint');
+    hint.classList.remove('fade');
+    hint.textContent = matchMedia('(pointer: coarse)').matches ? 'Swipe up or left for the plots' : 'Scroll, or use the arrow keys, for the plots · Esc to exit';
+    clearTimeout(state.hintTimer);
+    state.hintTimer = setTimeout(() => { hint.classList.add('fade'); state.hintTimer = setTimeout(() => { hint.textContent = ''; }, 500); }, 3500);
+  } else {
+    if (state.demoFs && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    state.demoFs = false; $('demo-hint').textContent = '';
+    fitDeck();
+  }
+  try { history.replaceState(null, '', on ? '#demo' : location.pathname + location.search); } catch (e) { /* not allowed here */ }
+  requestAnimationFrame(() => { if (on) demoLayout(); else { window.dispatchEvent(new Event('resize')); redrawShown(); } });
+}
+function demoKey(e) {
+  const k = e.key;
+  if (k === 'Escape') { setDemo(false); return true; }
+  if (k === 'ArrowDown' || k === 'PageDown' || k === 'ArrowRight') { e.preventDefault(); demoGo(state.demoPage + 1); return true; }
+  if (k === 'ArrowUp' || k === 'PageUp' || k === 'ArrowLeft') { e.preventDefault(); demoGo(state.demoPage - 1); return true; }
+  return false;
+}
+function wireDemo() {
+  $('demo').addEventListener('click', () => setDemo(true));
+  $('demo-exit').addEventListener('click', () => setDemo(false));
+  $('demo-play').addEventListener('click', () => (state.playing ? pause() : play()));
+  for (const b of document.querySelectorAll('#demo-pages button')) b.addEventListener('click', () => demoGo(Number(b.dataset.p)));
+  // the bar mirrors the transport's clock and speed
+  const mirror = (from, to) => new MutationObserver(() => { $(to).textContent = $(from).textContent; })
+    .observe($(from), { childList: true, characterData: true, subtree: true });
+  mirror('clock', 'demo-clock'); mirror('speed-out', 'demo-speed');
+  const work = document.querySelector('.work');
+  work.addEventListener('scroll', () => { if (state.demo) demoMark(); }, { passive: true });
+  // a sideways swipe moves between pages, except on a phone's log (where it pages the tracks)
+  // and when it starts on a set point (a drag)
+  let sw = null;
+  work.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    sw = state.demo && e.touches.length === 1 && !e.target.closest('.sp-handle') && !(phone() && e.target.closest('#t-log')) ? [t.clientX, t.clientY] : null;
+  }, { passive: true });
+  work.addEventListener('touchend', (e) => {
+    if (!sw) return;
+    const t = e.changedTouches[0], dx = t.clientX - sw[0], dy = t.clientY - sw[1]; sw = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) demoGo(state.demoPage + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+  let pending = false;
+  window.addEventListener('resize', (e) => {
+    if (!state.demo || !e.isTrusted || pending) return;
+    pending = true; requestAnimationFrame(() => { pending = false; demoLayout(); });
+  });
+  document.addEventListener('fullscreenchange', () => { if (state.demoFs && !document.fullscreenElement) setDemo(false); });
+}
+
 // version under the title: "1.0 alpha (v1.0.0a1)" and "Released 2026-11-13"
 function showVersion(d) {
   if (!d.version) return;
@@ -1048,6 +1154,7 @@ async function start() {
     buildForm();
     await initialise();
     message('Well A is loaded. Press Play (or Space) to start the off-bottom start-up at 60 rpm.', 'info');
+    if (location.hash === '#demo') setDemo(true);      // a shareable link straight into demo mode
   } catch (e) { message(window.DRILLPYZE_LITE ? `The simulation engine failed: ${e.message}` : `Could not reach the DrillPyze server: ${e.message}`); }
 }
 start();

@@ -209,6 +209,8 @@ section.traces { background: var(--panel); border: 1px solid var(--line); border
   .string-views .plot:first-child { grid-column: 1 / -1; }
 }
 .phone-only { display: none !important; }
+.views-page { display: contents; }          /* a page of its own only in demo mode */
+.demo-bar[hidden], .demo-hint:empty { display: none; }
 .log-nav { align-items: center; gap: 8px; padding: 0 6px 6px; }
 .log-nav span { flex: 1; text-align: center; font: 600 14px/1.2 var(--font-cond); }
 .log-nav .dots { display: inline-flex; gap: 5px; margin-left: 8px; vertical-align: middle; }
@@ -281,6 +283,11 @@ section.traces { background: var(--panel); border: 1px solid var(--line); border
   #scrub-label { min-width: 0; font-size: 13px; }
 
   section.traces { padding: 8px 4px 4px; }
+  body.demo .views-page .string-views { grid-template-columns: minmax(0, 1fr); }
+  .demo-bar { gap: 8px; }
+  .demo-bar .play-btn { min-width: 64px; padding-inline: 8px; }
+  .demo-clock span { display: none; }
+  .demo-bar .seg button { padding: 5px 8px; }
   .trace-head { flex-wrap: wrap; gap: 8px; padding: 0 6px 6px; }
   .trace-head > span { flex: 1 0 100%; }
   .trace-head .seg button { white-space: nowrap; padding: 4px 8px; }
@@ -289,6 +296,39 @@ section.traces { background: var(--panel); border: 1px solid var(--line); border
   .log-wrap { min-width: 0; touch-action: pan-y; }
   .scale-pop { width: min(250px, calc(100% - 8px)); }
 }
+/* ------------------------------------------------------------ demo mode
+   Full screen: the dials fill the first page (scaled to fit by fitDeck in app.js), with the
+   along-string views and the log as further pages, snapped one per screen. */
+:root { --demo-bar: 52px; }
+body.demo { overflow: hidden; background: var(--bg); }
+body.demo .app { display: block; height: 100vh; height: 100dvh; }
+body.demo .case, body.demo .transport, body.demo .message, body.demo .scrub, body.demo .deck-legend,
+body.demo .trace-head > span, body.demo #download { display: none !important; }
+body.demo .work { position: fixed; inset: var(--demo-bar) 0 0 0; display: block; padding: 0; overflow-x: hidden; overflow-y: auto;
+  scroll-snap-type: y mandatory; overscroll-behavior: contain; }
+body.demo .deck-wrap, body.demo .views-page, body.demo section.traces {
+  height: calc(100vh - var(--demo-bar)); height: calc(100dvh - var(--demo-bar));
+  scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; }
+body.demo .deck-wrap { padding: 8px; }
+body.demo .deck { transform-origin: 0 0; }
+body.demo .views-page { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+body.demo .string-views { flex: 1; min-height: 0; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; }
+body.demo .string-views .plot, body.demo .string-views .plot:first-child { height: 100%; min-height: 0; grid-column: auto; }
+body.demo section.traces { border: 0; border-radius: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+body.demo .deck-toast { top: calc(var(--demo-bar) + 8px); }
+.demo-bar { position: fixed; top: 0; left: 0; right: 0; height: var(--demo-bar); z-index: 30; display: flex; align-items: center; gap: 12px;
+  padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left)); background: var(--panel); border-bottom: 1px solid var(--line); }
+.demo-bar .play-btn { min-width: 76px; }
+.demo-clock { display: grid; line-height: 1.1; min-width: 0; }
+.demo-clock b { font: 600 20px/1.1 var(--font-cond); }
+.demo-clock span { font-size: 11px; color: var(--steel); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-bar .seg { margin-left: auto; }
+.demo-bar .seg button[aria-selected=true] { background: var(--ink); color: #fff; }
+.demo-hint { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30; max-width: calc(100% - 24px);
+  background: rgba(28, 39, 51, .88); color: #fff; border-radius: 18px; padding: 8px 16px; font-size: 14px; text-align: center;
+  transition: opacity .4s; pointer-events: none; }
+.demo-hint.fade { opacity: 0; }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 table.grid input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 table.grid input[type=number]::-webkit-inner-spin-button,

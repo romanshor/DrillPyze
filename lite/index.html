@@ -58,6 +58,7 @@
         <button class="btn play-btn" id="play" aria-label="Play">Play</button>
         <button class="btn" id="step" title="Advance one frame">Step</button>
         <button class="btn quiet" id="reset" title="Restart from the initial state">Reset</button>
+        <button class="btn quiet" id="demo" title="Full-screen demo: the dials fill the screen, with the plots below and to the right">Demo</button>
       </div>
 
       <div class="group clock">
@@ -117,6 +118,7 @@
     </section></div>
     <div class="deck-toast" id="deck-toast" role="status" aria-live="polite"></div>
 
+    <div class="views-page">
     <div class="seg view-tabs phone-only" role="tablist" aria-label="Along-string view" id="view-tabs">
       <button role="tab" data-v="p-path" aria-selected="true">Path</button>
       <button role="tab" data-v="p-rpm" aria-selected="false">RPM</button>
@@ -131,6 +133,7 @@
       <div class="plot" id="p-tension"></div>
       <div class="plot" id="p-temp"></div>
     </section>
+    </div>
 
     <section class="scrub" aria-label="Replay">
       <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Replay position">
@@ -171,6 +174,19 @@
     </section>
   </main>
 </div>
+
+<!-- demo mode: a slim bar over full-screen pages (dials, along-string views, log) -->
+<div class="demo-bar" id="demo-bar" hidden>
+  <button class="btn play-btn" id="demo-play" aria-label="Play">Play</button>
+  <div class="demo-clock"><b id="demo-clock">0.00 s</b><span id="demo-speed"></span></div>
+  <div class="seg" role="tablist" aria-label="Demo pages" id="demo-pages">
+    <button role="tab" data-p="0" aria-selected="true">Dials</button>
+    <button role="tab" data-p="1" aria-selected="false">String</button>
+    <button role="tab" data-p="2" aria-selected="false">Log</button>
+  </div>
+  <button class="icon-btn" id="demo-exit" aria-label="Exit demo" title="Exit demo (Esc)">×</button>
+</div>
+<div class="demo-hint" id="demo-hint" role="status" aria-live="polite"></div>
 
 <script src="lite-api.js"></script>
 <script src="deck.js"></script>
