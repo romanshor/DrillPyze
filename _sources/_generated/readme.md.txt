@@ -7,6 +7,7 @@
 **Version 1.0 alpha (1.0.0a1, released 2026-11-13).**
 [Documentation](https://romanshor.github.io/DrillPyze/) ·
 [Try it in your browser (DrillPyze Lite)](https://romanshor.github.io/DrillPyze/lite/) ·
+[Demo mode](https://romanshor.github.io/DrillPyze/lite/#demo) ·
 [Changelog](changelog.md)
 
 DrillPyze simulates the coupled axial and torsional dynamics of a drillstring
@@ -286,6 +287,10 @@ revision.
   Web Worker behind the unchanged front end.
 - **Physics:** the whole model, including the wellbore temperature model.
 - **Speed:** about 20–30× real time for Well A.
+- **Phones and demos:** the layout adapts to a phone. **Demo** (or a link
+  ending in `#demo`) goes full screen: the dials fill the screen, and the
+  along-string views and the log are pages below and to the right (swipe,
+  scroll or use the arrow keys; Esc exits).
 - **Conformance:** `tests/test_lite_engine.py` (Node.js) checks that it
   reproduces the Python model to round-off, with and without the
   temperature model.
