@@ -112,6 +112,7 @@
 <p><strong>Version 1.0 alpha (1.0.0a1, released 2026-11-13).</strong>
 <a class="reference external" href="https://romanshor.github.io/DrillPyze/">Documentation</a> ·
 <a class="reference external" href="https://romanshor.github.io/DrillPyze/lite/">Try it in your browser (DrillPyze Lite)</a> ·
+<a class="reference external" href="https://romanshor.github.io/DrillPyze/lite/#demo">Demo mode</a> ·
 <a class="reference internal" href="changelog.html"><span class="std std-doc">Changelog</span></a></p>
 <p>DrillPyze simulates the coupled axial and torsional dynamics of a drillstring
 in a 3-D wellbore, together with steady-state torque and drag. It is built to:</p>
@@ -412,6 +413,10 @@ revision.</p>
 Web Worker behind the unchanged front end.</p></li>
 <li><p><strong>Physics:</strong> the whole model, including the wellbore temperature model.</p></li>
 <li><p><strong>Speed:</strong> about 20–30× real time for Well A.</p></li>
+<li><p><strong>Phones and demos:</strong> the layout adapts to a phone. <strong>Demo</strong> (or a link
+ending in <code class="docutils literal notranslate"><span class="pre">#demo</span></code>) goes full screen: the dials fill the screen, and the
+along-string views and the log are pages below and to the right (swipe,
+scroll or use the arrow keys; Esc exits).</p></li>
 <li><p><strong>Conformance:</strong> <code class="docutils literal notranslate"><span class="pre">tests/test_lite_engine.py</span></code> (Node.js) checks that it
 reproduces the Python model to round-off, with and without the
 temperature model.</p></li>
