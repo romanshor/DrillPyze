@@ -9,6 +9,12 @@
 - The drilling log shows two tracks at a time; change them with the arrows or by swiping.
 - No plot spills past the screen edge, and plots no longer capture the page's scrolling.
 
+**Demo mode.** *Demo* in the transport bar, or a link ending in `#demo`, goes full screen (where the browser allows):
+- The driller's display fills the first page, scaled to fit any screen.
+- The along-string views and the log are further pages: swipe up or left, scroll, use the arrow keys, or tap *Dials · String · Log*.
+- A slim bar keeps Play, the clock and the simulation speed in reach.
+- Esc or × exits.
+
 ## 1.0.0a1 — 1.0 alpha (2026-11-13)
 
 First alpha of DrillPyze 1.0.
