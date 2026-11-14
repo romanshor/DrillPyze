@@ -61,7 +61,12 @@ const state = {
   frames: [], traces: null, slow: null, playing: false, busy: false, scrub: null, windowS: 60,
   dirty: false, rpmMax: 200, tqMax: 1, tqMin: 0,
   scales: null, autoScale: {},
+  view: 'p-path', logPage: 0, shown: null,   // phone: along-string view on show, log page; last frame drawn
 };
+// Phone layout (matches the 760 px breakpoint in app.css): one along-string view at a
+// time, the log two tracks at a time, and no drag-to-zoom so a finger on a plot scrolls the page.
+const PHONE = window.matchMedia('(max-width: 760px)');
+const phone = () => PHONE.matches;
 state.scales = loadScales();
 
 // ----------------------------------------------------------------- form spec
@@ -415,7 +420,7 @@ function baseLayout(extra) {
   return Object.assign({
     font: FONT, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     margin: { l: 56, r: 14, t: 34, b: 40 }, showlegend: false, uirevision: 'keep',
-  }, extra);
+  }, phone() ? { dragmode: false } : {}, extra);
 }
 function axis(title, extra) {
   return Object.assign({ title: { text: title, standoff: 6 }, gridcolor: '#e6ebf0', zerolinecolor: COLORS.line,
@@ -431,48 +436,52 @@ function drawStringViews(fr) {
   const ref = state.reference;
   const md = srv('depth', p.md), refMd = srv('depth', ref.md);
   const uD = unitOf('depth'), uT = unitOf('torque'), uF = unitOf('force');
+  // on a phone only the view on show is drawn, and each one carries its own depth labels
+  const ph = phone(), want = (id) => !ph || state.view === id;
+  const top = ph ? 76 : STRING_TOP, mside = ph ? { l: 56, r: 12, t: top, b: 40 } : { l: 14, r: 14, t: top, b: 40 };
   // ---- RPM along the string
   state.rpmMax = Math.max(state.rpmMax, ...p.rpm.map(Math.abs));
-  Plotly.react('p-rpm', [
+  if (want('p-rpm')) Plotly.react('p-rpm', [
     { x: p.rpm, y: md, mode: 'lines', line: { color: COLORS.rot, width: 2 }, hovertemplate: `%{x:.0f} rpm at %{y:.0f} ${uD}<extra></extra>` },
-  ], baseLayout({ title: TITLE('Rotary speed'), margin: { l: 56, r: 14, t: STRING_TOP, b: 40 },
+  ], baseLayout({ title: TITLE('Rotary speed'), margin: { l: 56, r: ph ? 12 : 14, t: top, b: 40 },
     xaxis: axis('rpm', { range: [-0.08 * state.rpmMax, state.rpmMax * 1.05] }), yaxis: depthAxis(true) }), PCONF);
 
   // ---- torque along the string with T&D references (range tracked in SI)
   state.tqMax = Math.max(state.tqMax, ...p.torque_knm, ...ref.torque_breakoff_knm);
   state.tqMin = Math.min(state.tqMin, ...p.torque_knm);
-  Plotly.react('p-torque', [
+  if (want('p-torque')) Plotly.react('p-torque', [
     { x: srv('torque', ref.torque_breakoff_knm), y: refMd, mode: 'lines', line: { color: COLORS.ref, dash: 'dot', width: 1.5 }, name: 'Static μ', hoverinfo: 'skip' },
     { x: srv('torque', ref.torque_rotating_knm), y: refMd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Kinetic μ', hoverinfo: 'skip' },
     { x: srv('torque', p.torque_knm), y: md, mode: 'lines', line: { color: COLORS.trq, width: 2 }, name: 'Simulated', hovertemplate: `%{x:.2f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
   ], baseLayout({ title: TITLE('Torque'), showlegend: true,
-    legend: LEGEND_TOP, margin: { l: 14, r: 14, t: STRING_TOP, b: 40 },
-    xaxis: axis(uT, { range: srv('torque', [Math.min(0, state.tqMin) * 1.1, state.tqMax * 1.08]) }), yaxis: depthAxis(false) }), PCONF);
+    legend: LEGEND_TOP, margin: mside,
+    xaxis: axis(uT, { range: srv('torque', [Math.min(0, state.tqMin) * 1.1, state.tqMax * 1.08]) }), yaxis: depthAxis(ph) }), PCONF);
 
   // ---- axial force
-  Plotly.react('p-tension', [
+  if (want('p-tension')) Plotly.react('p-tension', [
     { x: srv('force', ref.tension_hanging_kn), y: refMd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Hanging', hoverinfo: 'skip' },
     { x: srv('force', p.tension_kn), y: md, mode: 'lines', line: { color: COLORS.ax, width: 2 }, name: 'Simulated', hovertemplate: `%{x:.0f} ${uF} at %{y:.0f} ${uD}<extra></extra>` },
   ], baseLayout({ title: TITLE('Effective tension'), showlegend: true,
-    legend: LEGEND_TOP, margin: { l: 14, r: 14, t: STRING_TOP, b: 40 },
-    xaxis: axis(uF), yaxis: depthAxis(false) }), PCONF);
+    legend: LEGEND_TOP, margin: mside,
+    xaxis: axis(uF), yaxis: depthAxis(ph) }), PCONF);
 
   // ---- wellbore temperature (Wang et al. 2023 drift-flux model)
   const th = fr.thermal;
-  if (th) {
+  if (!want('p-temp')) { /* not on show */ } else if (th) {
     const tmd = srv('depth', th.md), uT = unitOf('temp');
     Plotly.react('p-temp', [
       { x: srv('temp', th.t_far), y: tmd, mode: 'lines', line: { color: COLORS.ref, dash: 'dash', width: 1.5 }, name: 'Formation', hoverinfo: 'skip' },
       { x: srv('temp', th.t_ds), y: tmd, mode: 'lines', line: { color: COLORS.rot, width: 2 }, name: 'Drillstring', hovertemplate: `%{x:.0f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
       { x: srv('temp', th.t_ann), y: tmd, mode: 'lines', line: { color: '#a3402a', width: 2 }, name: 'Annulus', hovertemplate: `%{x:.0f} ${uT} at %{y:.0f} ${uD}<extra></extra>` },
-    ], baseLayout({ title: TITLE('Temperature'), showlegend: true, legend: LEGEND_TOP, margin: { l: 14, r: 14, t: STRING_TOP, b: 40 },
-      xaxis: axis(uT), yaxis: depthAxis(false) }), PCONF);
+    ], baseLayout({ title: TITLE('Temperature'), showlegend: true, legend: LEGEND_TOP, margin: mside,
+      xaxis: axis(uT), yaxis: depthAxis(ph) }), PCONF);
   } else {
-    Plotly.react('p-temp', [], baseLayout({ title: TITLE('Temperature'), margin: { l: 14, r: 14, t: STRING_TOP, b: 40 }, xaxis: axis(''), yaxis: depthAxis(false),
+    Plotly.react('p-temp', [], baseLayout({ title: TITLE('Temperature'), margin: mside, xaxis: axis(''), yaxis: depthAxis(ph),
       annotations: [{ text: 'Wellbore temperature model is off', showarrow: false, xref: 'paper', yref: 'paper', x: 0.5, y: 0.5 }] }), PCONF);
   }
 
   // ---- well path with the drill pipe, BHA and bit positions
+  if (!want('p-path')) return;
   const path = state.path;
   const pvs = srv('length', path.vs), ptvd = srv('depth', path.tvd);
   // the survey between MD a and b, with end points interpolated so sections meet exactly
@@ -507,9 +516,12 @@ function drawStringViews(fr) {
     { x: [vs[nb]], y: [tvd[nb]], mode: 'markers', name: 'Bit', hovertemplate: bitTip + '<extra></extra>',
       marker: { symbol: 'diamond', size: 13, color: COLORS.trq, line: { color: COLORS.ink, width: 1 } } },
   ], baseLayout({ title: TITLE('Well path'), showlegend: true,
-    legend: { x: 0.98, xanchor: 'right', y: 0.98, yanchor: 'top', bgcolor: 'rgba(255,255,255,0.85)', font: { size: 11 } },
+    // on a phone the legend goes under the plot, where it does not cover the well
+    legend: ph ? { orientation: 'h', x: 0, xanchor: 'left', y: -0.26, yanchor: 'top', font: { size: 11 }, entrywidth: 0.5, entrywidthmode: 'fraction' }
+               : { x: 0.98, xanchor: 'right', y: 0.98, yanchor: 'top', bgcolor: 'rgba(255,255,255,0.85)', font: { size: 11 } },
     xaxis: axis(`Horizontal displacement (${unitOf('length')})`, { scaleanchor: 'y', scaleratio: 1 }),
-    yaxis: axis(`True vertical depth (${uD})`, { autorange: 'reversed' }), margin: { l: 64, r: 14, t: 40, b: 40 } }), PCONF);
+    yaxis: axis(`True vertical depth (${uD})`, { autorange: 'reversed' }),
+    margin: ph ? { l: 60, r: 12, t: 36, b: 120 } : { l: 64, r: 14, t: 40, b: 40 } }), PCONF);
 }
 
 function emptyTraces() {
@@ -550,6 +562,9 @@ function timeRange(tNow) {
 const LOG_GAP = 0.014;          // gap between tracks (fraction of plot width)
 const LOG_ROW = 38;             // header height per curve (px): name line + scale line
 const LOG_HEIGHT = 860;         // figure height (px)
+const LOG_HEIGHT_PHONE = 640;   // figure height on a phone, which shows LOG_PER_PAGE tracks at a time
+const LOG_PER_PAGE = 2;
+function logPages() { return Math.ceil(logTracks().length / LOG_PER_PAGE); }
 function logTracks() {
   const T = state.traces, L = state.slow, H = state.hyd;
   const dsp = (k, a) => a.map(v => toDisp(k, v));
@@ -620,16 +635,26 @@ function drawTraces(cursor) {
     if (!ymap.has(arr)) ymap.set(arr, arr.map(wall)); return ymap.get(arr); };
   const yv = (t) => (clock0 == null ? t : wall(t));
   const [t0, t1] = timeRange(tNow);
-  const tracks = logTracks();
-  const n = tracks.length, wTrack = (1 - (n - 1) * LOG_GAP) / n;
+  let tracks = logTracks();
+  const ph = phone();
+  // header rows for the busiest track of all, so the time axis stays put when a phone pages the log
   const rows = Math.max(...tracks.map(k => k.curves.length));
+  if (ph) {
+    const pages = Math.ceil(tracks.length / LOG_PER_PAGE);
+    state.logPage = Math.max(0, Math.min(state.logPage, pages - 1));
+    tracks = tracks.slice(state.logPage * LOG_PER_PAGE, (state.logPage + 1) * LOG_PER_PAGE);
+    $('log-label').innerHTML = `${tracks.map(k => k.title).join(' · ')}<span class="dots">${
+      Array.from({ length: pages }, (_, i) => `<i class="${i === state.logPage ? 'on' : ''}"></i>`).join('')}</span>`;
+    $('log-prev').disabled = state.logPage === 0; $('log-next').disabled = state.logPage === pages - 1;
+  }
+  const n = tracks.length, wTrack = (1 - (n - 1) * LOG_GAP) / n;
   const el = $('t-log');
-  const height = LOG_HEIGHT, top = 30 + rows * LOG_ROW, bottom = 14;
+  const height = ph ? LOG_HEIGHT_PHONE : LOG_HEIGHT, top = 30 + rows * LOG_ROW, bottom = 14;
   const px = (p) => p / (height - top - bottom);          // pixels -> paper units above the plot
   const data = [], shapes = [], annotations = [], hits = [];
-  const layout = baseLayout({ height, margin: { l: clock0 == null ? 64 : 92, r: 12, t: top, b: bottom }, showlegend: false, hovermode: 'y unified',
+  const layout = baseLayout({ height, margin: { l: clock0 == null ? (ph ? 52 : 64) : (ph ? 78 : 92), r: ph ? 6 : 12, t: top, b: bottom }, showlegend: false, hovermode: 'y unified',
     datarevision: `${T.time.length}-${SYSTEM}-${clock0}`,
-    yaxis: axis('', Object.assign({ range: [yv(t1), yv(t0)], autorange: false, gridcolor: '#dfe5eb', zeroline: false },
+    yaxis: axis('', Object.assign({ range: [yv(t1), yv(t0)], autorange: false, gridcolor: '#dfe5eb', zeroline: false, fixedrange: ph },
       clock0 == null ? { title: { text: 'Time (s)', standoff: 4 } }
                      : { type: 'date', tickformat: '%H:%M:%S', hoverformat: '%Y-%m-%d %H:%M:%S', title: { text: 'Time', standoff: 12 } })) });
   // data range in the window per scale group (curves with the same `group` share one scale:
@@ -764,6 +789,7 @@ function showStatus(L) {
 }
 
 function render(fr, live = true) {
+  state.shown = { fr, live };
   drawStringViews(fr);
   showStatus(fr.latest);
   deckUpdate(fr.latest, live ? null : fr.time);
@@ -920,6 +946,7 @@ function wire() {
   $('show-case').addEventListener('click', () => { document.querySelector('.app').classList.remove('case-hidden'); $('show-case').hidden = true; window.dispatchEvent(new Event('resize')); });
 
   for (const b of document.querySelectorAll('#units button')) b.addEventListener('click', () => setSystem(b.dataset.sys));
+  wirePhone();
 
   $('scrub').addEventListener('input', (e) => scrubTo(Number(e.target.value)));
   $('go-live').addEventListener('click', goLive);
@@ -947,6 +974,55 @@ function wire() {
     if (e.code === 'Space') { e.preventDefault(); state.playing ? pause() : play(); }
     if (e.code === 'ArrowRight' && !state.playing) { advance(Number($('frame-dt').value)); }
   });
+}
+
+// ------------------------------------------------------------ phone layout
+function setInputsOpen(open) {
+  document.querySelector('.app').classList.toggle('case-hidden', !open);
+  $('m-inputs').textContent = open ? 'Done' : 'Inputs';
+  $('m-inputs').setAttribute('aria-expanded', String(open));
+  $('show-case').hidden = open;
+}
+function redrawShown() {
+  const s = state.shown; if (!s) return;
+  drawStringViews(s.fr); drawTraces(s.live ? null : s.fr.time);
+}
+function showView(id) {
+  state.view = id;
+  for (const b of document.querySelectorAll('#view-tabs button')) b.setAttribute('aria-selected', String(b.dataset.v === id));
+  for (const el of document.querySelectorAll('.string-views .plot')) el.classList.toggle('active', el.id === id);
+  if (state.shown) drawStringViews(state.shown.fr);
+  if (phone()) Plotly.Plots.resize($(id));
+}
+function logPage(step) {
+  const p = Math.max(0, Math.min(state.logPage + step, logPages() - 1));
+  if (p === state.logPage) return;
+  state.logPage = p; closeScalePop();
+  const s = state.shown; drawTraces(s && !s.live ? s.fr.time : null);
+}
+function wirePhone() {
+  $('m-inputs').addEventListener('click', () => {
+    const open = document.querySelector('.app').classList.contains('case-hidden');
+    setInputsOpen(open);
+    if (!open) window.scrollTo({ top: 0 });
+  });
+  // applying new inputs on a phone closes them and goes back to the simulator
+  $('apply').addEventListener('click', () => { if (phone()) { setInputsOpen(false); window.scrollTo({ top: 0 }); } });
+  for (const b of document.querySelectorAll('#view-tabs button')) b.addEventListener('click', () => showView(b.dataset.v));
+  $('log-prev').addEventListener('click', () => logPage(-1));
+  $('log-next').addEventListener('click', () => logPage(1));
+  // swipe sideways on the log to change tracks
+  let t0 = null;
+  $('t-log').addEventListener('touchstart', (e) => { const t = e.touches[0]; t0 = e.touches.length === 1 ? [t.clientX, t.clientY] : null; }, { passive: true });
+  $('t-log').addEventListener('touchend', (e) => {
+    if (!t0 || !phone()) return;
+    const t = e.changedTouches[0], dx = t.clientX - t0[0], dy = t.clientY - t0[1]; t0 = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) logPage(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  showView(state.view);
+  if (phone()) setInputsOpen(false);
+  // crossing the breakpoint (rotating a tablet, resizing a window) redraws for the new layout
+  PHONE.addEventListener('change', () => { if (!phone()) setInputsOpen(true); else setInputsOpen(false); redrawShown(); });
 }
 
 // version under the title: "1.0 alpha (v1.0.0a1)" and "Released 2026-11-13"
