@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+**Simulator UI on phones** (shared by the Python UI and DrillPyze Lite).
+- The inputs fold away behind an *Inputs* button under a compact header, and *Apply* returns to the simulator.
+- Transport, rig status and the driller's display are laid out for a narrow screen; the page scrolls over the dials, and set points still drag.
+- The along-string views show one at a time, picked with tabs.
+- The drilling log shows two tracks at a time; change them with the arrows or by swiping.
+- No plot spills past the screen edge, and plots no longer capture the page's scrolling.
+
 ## 1.0.0a1 — 1.0 alpha (2026-11-13)
 
 First alpha of DrillPyze 1.0.
