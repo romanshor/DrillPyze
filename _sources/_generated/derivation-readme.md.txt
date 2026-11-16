@@ -282,11 +282,15 @@ plane of sliding, $\boldsymbol{\mathcal F} = (\mathcal F_a,\ \mathcal F_\theta)$
 with
 
 ```{math}
+:nowrap:
+
+\begin{equation}
 \boldsymbol{\mathcal F} \in
 \begin{cases}
 \left\{\,\mu_k F_N\,\dfrac{\mathbf V}{\|\mathbf V\|}\,\right\}, & \text{sliding},\\[8pt]
 \left\{\,\boldsymbol{\mathcal F} : \|\boldsymbol{\mathcal F}\| \le \mu_s F_N\,\right\}, & \text{sticking}.
 \end{cases} \tag{5.2}
+\end{equation}
 ```
 
 The regime is set by the normalised sliding speed: the contact is **sticking**
