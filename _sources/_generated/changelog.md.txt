@@ -15,6 +15,11 @@
 - A slim bar keeps Play, the clock and the simulation speed in reach.
 - Esc or × exits.
 
+**Visit counts for DrillPyze Lite.**
+- The hosted site counts anonymous visits with GoatCounter, which uses no cookies, and says so under the title.
+- It also counts a few events: first Play, run-ahead, demo mode, a new case and a results download.
+- The Python UI is unchanged. `lite/build_site.py --no-analytics` leaves the counter out.
+
 ## 1.0.0a1 — 1.0 alpha (2026-11-13)
 
 First alpha of DrillPyze 1.0.
