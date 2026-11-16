@@ -235,6 +235,22 @@ Aarsnes &amp; Shor (2018).</p>
 controller, by an external torque, or by a prescribed speed.</p></li>
 <li><p><strong>Drawworks:</strong> a prescribed block velocity, or an autodriller. The hook can
 only hold the string up, so hookload is never negative.</p></li>
+<li><p><strong>Mud motor</strong> (optional; derivation §6.4): a positive-displacement motor
+between the string and the bit, after Nguyen et al. (2017).</p>
+<ul>
+<li><p><strong>Speed:</strong> set by the motor constant (rev/gal) times the flow, with
+optional slip and bypass.</p></li>
+<li><p><strong>Torque:</strong> <span class="math notranslate nohighlight">\(T = K_T(\Delta p - \Delta p_0)\)</span>, with
+<span class="math notranslate nohighlight">\(K_T = \eta/(2\pi k_n)\)</span>, so the differential pressure reads the bit
+torque.</p></li>
+<li><p><strong>Stall:</strong> the bit stops above the stall differential.</p></li>
+<li><p><strong>Reactive torque:</strong> the motor’s reaction winds the string, so the
+toolface turns left with WOB while sliding.</p></li>
+<li><p><strong>Hydraulics:</strong> the motor differential adds to SPP.</p></li>
+<li><p><strong>Well A:</strong> has no motor by default. A generic 6¾” 7/8-lobe motor (0.28
+rev/gal) is ready to switch on.</p></li>
+</ul>
+</li>
 <li><p><strong>Wellbore temperature:</strong> the drift-flux model of Wang et al. (2023),
 coupled every 2 s of simulated time.</p></li>
 <li><p><strong>Hydraulics</strong> (<a class="reference internal" href="derivation-hydraulics.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/derivation/hydraulics.md</span></code></span></a>):
@@ -658,6 +674,7 @@ is released under the <a class="reference download internal" download="" href=".
 <li><p>Caicedo, H.U., Calhoun, W.M. and Ewy, R.T., 2005. Unique ROP predictor using bit-specific coefficient of sliding friction and mechanical efficiency as a function of confined compressive strength impacts drilling performance. SPE/IADC-92576-MS.</p></li>
 <li><p>Detournay, E. and Defourny, P., 1992. A phenomenological model for the drilling action of drag bits. <em>Int. J. Rock Mech. Min. Sci.</em>, 29(1), 13–23.</p></li>
 <li><p>Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. <em>JPT</em>, 36, 987–992.</p></li>
+<li><p>Nguyen, T.C., Bui, K.D., Al-Safran, E. and Saasen, A., 2017. Theoretical modeling of positive displacement motor performance. AADE-17-NTCE-026, AADE National Technical Conference and Exhibition, Houston, Texas. https://www.aade.org/application/files/8615/7132/1739/AADE-17-NTCE-026_-_Nguyen.pdf</p></li>
 <li><p>Richard, T., Germay, C. and Detournay, E., 2007. A simplified model to explore the root cause of stick–slip vibrations in drilling systems with drag bits. <em>J. Sound Vib.</em>, 305(3), 432–456.</p></li>
 <li><p>Shor, R.J. <em>Introduction to Drilling Engineering</em>, ch. 7, Borehole Hydraulics (online book). https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html</p></li>
 <li><p>Wang, N., Khaled, M.S., Luu, A., Ashok, P. and van Oort, E., 2023. Downhole temperature estimation of a growing high-temperature wellbore using a modified drift flux modeling approach. <em>SPE Annual Technical Conference and Exhibition</em>, San Antonio, Texas. SPE-214836-MS. https://doi.org/10.2118/214836-MS</p></li>

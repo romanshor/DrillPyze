@@ -113,7 +113,7 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="drillpyze-physics-specification">
 <h1>DrillPyze physics specification<a class="headerlink" href="#drillpyze-physics-specification" title="Link to this heading"></a></h1>
-<p><strong>Spec revision: 2</strong> (matches the Python model, DrillPyze 1.0.0a1, November 2026)</p>
+<p><strong>Spec revision: 3</strong> (matches the Python model, DrillPyze 1.0.0a1 + mud motor, November 2026)</p>
 <p>This document specifies, at implementation level, every piece of physics and
 numerics in the Python model (<code class="docutils literal notranslate"><span class="pre">src/DrillPyze</span></code>). It is precise enough to build
 an independent implementation; the browser version in <code class="docutils literal notranslate"><span class="pre">lite/</span></code> is built from
@@ -222,7 +222,7 @@ Rotary speeds are converted with 1 rpm = <span class="math notranslate nohighlig
 <td><p>components bit-first <code class="docutils literal notranslate"><span class="pre">{name,</span> <span class="pre">length,</span> <span class="pre">od,</span> <span class="pre">id,</span> <span class="pre">linear_mass,</span> <span class="pre">contact_od}</span></code>; the last row is stretched to surface</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code></p></td>
-<td><p>friction, damping, bit, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, <code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
+<td><p>friction, damping, bit, motor, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, <code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">simulation</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bit_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">hole_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">dx</span></code>, <code class="docutils literal notranslate"><span class="pre">record_rate</span></code>, <code class="docutils literal notranslate"><span class="pre">start_time</span></code>, <code class="docutils literal notranslate"><span class="pre">block_height</span></code></p></td>
@@ -330,6 +330,30 @@ Rotary speeds are converted with 1 rpm = <span class="math notranslate nohighlig
 <td><p><span class="math notranslate nohighlight">\(C_d\)</span></p></td>
 <td><p>0.95</p></td>
 </tr>
+<tr class="row-odd"><td><p>motor</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code></p></td>
+<td><p>false (no motor)</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>motor constant <span class="math notranslate nohighlight">\(k_n\)</span></p></td>
+<td><p>0.28 rev/gal = 73.968 rev/m³</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>efficiency <span class="math notranslate nohighlight">\(\eta\)</span></p></td>
+<td><p>0.75</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p><span class="math notranslate nohighlight">\(\Delta p_0\)</span>, <span class="math notranslate nohighlight">\(\Delta p_\text{max}\)</span>, <span class="math notranslate nohighlight">\(\Delta p_\text{stall}\)</span></p></td>
+<td><p>100, 750, 1125 psi</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>slip <span class="math notranslate nohighlight">\(s\)</span>, bypass <span class="math notranslate nohighlight">\(Q_\text{by}\)</span></p></td>
+<td><p>0, 0</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>toolface offset <span class="math notranslate nohighlight">\(\text{TF}_0\)</span></p></td>
+<td><p>0 rad</p></td>
+</tr>
 <tr class="row-odd"><td><p>top drive</p></td>
 <td><p>inertia <span class="math notranslate nohighlight">\(I\)</span></p></td>
 <td><p>2000 kg m²</p></td>
@@ -402,6 +426,7 @@ Rotary speeds are converted with 1 rpm = <span class="math notranslate nohighlig
 </li>
 <li><p><strong>Friction:</strong> cased 0.40 / 0.22, open 0.45 / 0.25.</p></li>
 <li><p><strong>Bit:</strong> <code class="docutils literal notranslate"><span class="pre">cutting</span></code> with <code class="docutils literal notranslate"><span class="pre">strength_source</span> <span class="pre">=</span> <span class="pre">formation</span></code>.</p></li>
+<li><p><strong>Motor:</strong> none (<code class="docutils literal notranslate"><span class="pre">enabled</span> <span class="pre">=</span> <span class="pre">false</span></code>; the defaults above are used when it is switched on).</p></li>
 <li><p><strong>Controller:</strong> <code class="docutils literal notranslate"><span class="pre">stiff</span></code>.</p></li>
 <li><p><strong>Circulation:</strong> flow 2000 L/min (0.03333 m³/s), inlet 30 °C.</p></li>
 <li><p><strong>Run settings:</strong></p>
@@ -589,6 +614,21 @@ parameter <span class="math notranslate nohighlight">\(q_{s,top}\)</span> is upd
 <tr class="row-even"><td><p>$W = \int</p></td>
 <td><p>\omega_b</p></td>
 </tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\phi_s\)</span></p></td>
+<td><p>string-bottom (motor stator) angle, <span class="math notranslate nohighlight">\(\int\omega_s dt\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\Delta p_m\)</span></p></td>
+<td><p>mud motor differential</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(P_m = \int\Delta p_m dt\)</span></p></td>
+<td><p>accumulated motor differential (for the hydraulics)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_r\)</span></p></td>
+<td><p>motor speed (rotor relative to stator)</p></td>
+</tr>
+<tr class="row-odd"><td><p>stall</p></td>
+<td><p>motor stall flag</p></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Initial state:</strong></p>
@@ -682,6 +722,9 @@ For the types other than <code class="docutils literal notranslate"><span class=
 </tbody>
 </table>
 <p>The regenerative model also uses the cutting stiffness <span class="math notranslate nohighlight">\(k_c = S a\)</span> and the blade count <span class="math notranslate nohighlight">\(n_b \ge 1\)</span>.</p>
+<p><strong>Mud motor</strong> (when <code class="docutils literal notranslate"><span class="pre">motor.enabled</span></code>): rad per volume <span class="math notranslate nohighlight">\(2\pi k_n\)</span>, torque constant
+<span class="math notranslate nohighlight">\(K_T = \eta/(2\pi k_n)\)</span> (N m/Pa), and <span class="math notranslate nohighlight">\(\Delta p_0, \Delta p_\text{max}, \Delta p_\text{stall}, s, Q_\text{by}\)</span>
+as given. The stall torque is <span class="math notranslate nohighlight">\(T_\text{stall} = K_T(\Delta p_\text{stall} - \Delta p_0)\)</span>.</p>
 </section>
 <section id="damping-derivation-sec-5-6">
 <span id="43-damping-derivation-sec-56"></span><h3>4.3 Damping (derivation sec. 5.6)<a class="headerlink" href="#damping-derivation-sec-5-6" title="Link to this heading"></a></h3>
@@ -730,13 +773,14 @@ Angular frequencies are <span class="math notranslate nohighlight">\(\omega_a = 
 <p>One step advances all states by <span class="math notranslate nohighlight">\(\Delta t\)</span>. Notation: <span class="math notranslate nohighlight">\(t^+ = t + \Delta t\)</span>.</p>
 <section id="ramped-inputs">
 <span id="51-ramped-inputs"></span><h3>5.1 Ramped inputs<a class="headerlink" href="#ramped-inputs" title="Link to this heading"></a></h3>
-<p>Five ramped inputs, each a row (start value <span class="math notranslate nohighlight">\(v_0\)</span>, start time <span class="math notranslate nohighlight">\(t_0\)</span>, ramp time <span class="math notranslate nohighlight">\(T_r\)</span>, target <span class="math notranslate nohighlight">\(v_1\)</span>):</p>
+<p>Six ramped inputs, each a row (start value <span class="math notranslate nohighlight">\(v_0\)</span>, start time <span class="math notranslate nohighlight">\(t_0\)</span>, ramp time <span class="math notranslate nohighlight">\(T_r\)</span>, target <span class="math notranslate nohighlight">\(v_1\)</span>):</p>
 <ul class="simple">
 <li><p>speed set point <span class="math notranslate nohighlight">\(\omega_{sp}\)</span>;</p></li>
 <li><p>block velocity;</p></li>
 <li><p>motor torque;</p></li>
 <li><p>prescribed top-drive speed;</p></li>
-<li><p>WOB set point.</p></li>
+<li><p>WOB set point;</p></li>
+<li><p>pump rate <span class="math notranslate nohighlight">\(Q\)</span> (a copy of the pump-rate slow ramp of section 6; it drives the mud motor).</p></li>
 </ul>
 <p>Each is evaluated at <span class="math notranslate nohighlight">\(t^+\)</span>:</p>
 <div class="math notranslate nohighlight">
@@ -834,6 +878,29 @@ the incoming invariant from the right <span class="math notranslate nohighlight"
 <li><p><strong>Torque:</strong> the same sticking and sliding rule as above, with <span class="math notranslate nohighlight">\(\ell = \ell_k\)</span> for both.</p></li>
 </ul>
 <p><strong>Bit face values.</strong> Face <span class="math notranslate nohighlight">\(n\)</span> gets <span class="math notranslate nohighlight">\((\omega_b, \text{TOB})\)</span> and <span class="math notranslate nohighlight">\((v_b, \text{WOB})\)</span>. The scalar bit state is updated.</p>
+<section id="mud-motor-derivation-sec-6-4">
+<h4>5.5.1 Mud motor (derivation sec. 6.4)<a class="headerlink" href="#mud-motor-derivation-sec-6-4" title="Link to this heading"></a></h4>
+<p>With a motor, the bit models above are called with a shifted invariant and impedance,
+and face <span class="math notranslate nohighlight">\(n\)</span> carries the string-bottom (stator) speed instead of the bit speed.</p>
+<ol class="arabic simple">
+<li><p><strong>Drive.</strong> <span class="math notranslate nohighlight">\(q = Q(t^+) - Q_\text{by}\)</span> from the pump-rate ramp row. If <span class="math notranslate nohighlight">\(q \le 0\)</span>:
+<span class="math notranslate nohighlight">\(\omega_0 = \omega_{r0} = g = 0\)</span>. Otherwise
+<span class="math notranslate nohighlight">\(\omega_0 = 2\pi k_n q\)</span>, <span class="math notranslate nohighlight">\(\omega_{r0} = \omega_0(1 - s\,\Delta p_0/\Delta p_\text{max})\)</span> and
+<span class="math notranslate nohighlight">\(g = \omega_0 s/(K_T\Delta p_\text{max})\)</span>.</p></li>
+<li><p><strong>Bit.</strong> If <span class="math notranslate nohighlight">\(\omega_0 &gt; 0\)</span>: <span class="math notranslate nohighlight">\(\alpha_b = \alpha_t + \omega_{r0}\)</span> and <span class="math notranslate nohighlight">\(Z_b = 1/(1/Z_{t,n-1} + g)\)</span>;
+else <span class="math notranslate nohighlight">\(\alpha_b = \alpha_t\)</span>, <span class="math notranslate nohighlight">\(Z_b = Z_{t,n-1}\)</span>. Evaluate the bit model with <span class="math notranslate nohighlight">\((\alpha_b, Z_b)\)</span> in place of
+<span class="math notranslate nohighlight">\((\alpha_t, Z_t)\)</span> (the on-bottom test is the same).</p></li>
+<li><p><strong>Stall</strong> (only if <span class="math notranslate nohighlight">\(\omega_0 &gt; 0\)</span>). If TOB <span class="math notranslate nohighlight">\(&gt; T_\text{stall}\)</span>: <span class="math notranslate nohighlight">\(\omega_b = 0\)</span>, TOB <span class="math notranslate nohighlight">\(= T_\text{stall}\)</span>, stuck = 1,
+stall = 1 and <span class="math notranslate nohighlight">\(\Delta p_m = \Delta p_\text{stall}\)</span>. For the quasi-static models also <span class="math notranslate nohighlight">\(v_b = 0\)</span> and
+WOB <span class="math notranslate nohighlight">\(= Z_a\alpha_a\)</span> if on bottom with <span class="math notranslate nohighlight">\(\alpha_a &gt; 0\)</span>, else 0; the regenerative model keeps its <span class="math notranslate nohighlight">\(v_b\)</span> and WOB.
+Otherwise stall = 0 and <span class="math notranslate nohighlight">\(\Delta p_m = \max(\Delta p_0 + \text{TOB}/K_T, 0)\)</span>.
+If <span class="math notranslate nohighlight">\(\omega_0 = 0\)</span>: <span class="math notranslate nohighlight">\(\Delta p_m = 0\)</span>, stall = 0.</p></li>
+<li><p><strong>Faces.</strong> <span class="math notranslate nohighlight">\(\omega_s = \alpha_t - \text{TOB}/Z_{t,n-1}\)</span>; face <span class="math notranslate nohighlight">\(n\)</span> gets <span class="math notranslate nohighlight">\((\omega_s, \text{TOB})\)</span> and
+<span class="math notranslate nohighlight">\((v_b, \text{WOB})\)</span>; <span class="math notranslate nohighlight">\(\omega_r = \omega_b - \omega_s\)</span>.</p></li>
+</ol>
+<p>Without a motor, face <span class="math notranslate nohighlight">\(n\)</span> carries <span class="math notranslate nohighlight">\(\omega_b\)</span> exactly as returned by the bit model, and
+<span class="math notranslate nohighlight">\(\omega_r = \Delta p_m = \text{stall} = 0\)</span>.</p>
+</section>
 </section>
 <section id="cell-update">
 <span id="56-cell-update"></span><h3>5.6 Cell update<a class="headerlink" href="#cell-update" title="Link to this heading"></a></h3>
@@ -915,7 +982,9 @@ damped predictions, <span class="math notranslate nohighlight">\(r = r_{c,j}\)</
 <li><p><span class="math notranslate nohighlight">\(t \mathrel{+}= \Delta t\)</span>;</p></li>
 <li><p><span class="math notranslate nohighlight">\(s_{bit} \mathrel{+}= v_b\Delta t\)</span>;</p></li>
 <li><p><span class="math notranslate nohighlight">\(x_{blk} \mathrel{+}= v_{blk}\Delta t\)</span>;</p></li>
-<li><p><span class="math notranslate nohighlight">\(W \mathrel{+}= |\omega_b|\Delta t\)</span>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(W \mathrel{+}= |\omega_b|\Delta t\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\phi_s \mathrel{+}= \omega_{face,n}\Delta t\)</span> (the speed on face <span class="math notranslate nohighlight">\(n\)</span>: the stator speed with a motor, the bit speed without);</p></li>
+<li><p><span class="math notranslate nohighlight">\(P_m \mathrel{+}= \Delta p_m\Delta t\)</span>.</p></li>
 </ul>
 <p><strong>Regenerative model only:</strong> the blades sweep from <span class="math notranslate nohighlight">\(\phi_b\)</span> to <span class="math notranslate nohighlight">\(\phi_b' = \phi_b + \omega_b\Delta t\)</span>.</p>
 <ul class="simple">
@@ -933,7 +1002,8 @@ steps, one row is recorded with these columns:</p>
 <li><p><span class="math notranslate nohighlight">\(v_{blk}\)</span>, <span class="math notranslate nohighlight">\(H\)</span>;</p></li>
 <li><p><span class="math notranslate nohighlight">\(v_b\)</span>, WOB;</p></li>
 <li><p><span class="math notranslate nohighlight">\(s_{bit}\)</span>, <span class="math notranslate nohighlight">\(s_{hole}\)</span>;</p></li>
-<li><p><span class="math notranslate nohighlight">\(\omega_{sp}\)</span>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(\omega_{sp}\)</span>;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\omega_r\)</span>, <span class="math notranslate nohighlight">\(\Delta p_m\)</span>, <span class="math notranslate nohighlight">\(\phi_s\)</span>.</p></li>
 </ul>
 </section>
 </section>
@@ -985,7 +1055,8 @@ with the ramp times of section 1.</p>
 <p><strong>Slow ramps.</strong> Pump rate and inlet temperature ramp the same way, evaluated
 at the time they are read. At initialisation the pump ramps from 0 at
 <span class="math notranslate nohighlight">\(t = 0\)</span> to the case flow rate over the flow ramp time; the inlet
-temperature starts at its value.</p>
+temperature starts at its value. The pump-rate ramp row of the kernel (5.1) is set to
+the pump-rate slow ramp at initialisation and whenever a new pump rate is given.</p>
 <p><strong>Zeroing the weight indicator.</strong> This sets <span class="math notranslate nohighlight">\(H_{ref} \leftarrow H\)</span>.</p>
 <p><strong>Splitting and pauses.</strong> Time stepping uses integer step counts:
 <span class="math notranslate nohighlight">\(N_{target} = \operatorname{round}(t_{requested}/\Delta t)\)</span> (accumulated
@@ -1004,6 +1075,7 @@ therefore gives identical results.</p>
 <ul class="simple">
 <li><p>The pump rate ramps linearly from its value at the last tick to the current ramped value.</p></li>
 <li><p>The bit and hole depths are the current ones.</p></li>
+<li><p>The mud motor differential is its average since the last tick, <span class="math notranslate nohighlight">\((P_m - P_m^{last})/\Delta t_{hyd}\)</span>.</p></li>
 </ul>
 </li>
 <li><p><strong>Every <code class="docutils literal notranslate"><span class="pre">thermal_update_period</span></code> ticks</strong> (default 2):</p>
@@ -1133,7 +1205,7 @@ pressure (gauge) is <span class="math notranslate nohighlight">\(p = c_m^2(m/V -
 <li><p><strong>Face updates</strong> with the face rule below:</p>
 <ul class="simple">
 <li><p>interior bore faces (slip factor 1 relative to <span class="math notranslate nohighlight">\(v_p\)</span>);</p></li>
-<li><p>the bit face, bore bottom cell to annulus cell <span class="math notranslate nohighlight">\(k_{ab}\)</span>: no slip, with the nozzle term <span class="math notranslate nohighlight">\(R_n|G|\)</span>, where <span class="math notranslate nohighlight">\(R_n = 1/(2C_d^2A_n^2\bar\rho)\)</span>;</p></li>
+<li><p>the bit face, bore bottom cell to annulus cell <span class="math notranslate nohighlight">\(k_{ab}\)</span>: no slip, with the nozzle term <span class="math notranslate nohighlight">\(R_n|G|\)</span>, where <span class="math notranslate nohighlight">\(R_n = 1/(2C_d^2A_n^2\bar\rho)\)</span>, and the mud motor differential <span class="math notranslate nohighlight">\(\Delta p_m\)</span> of the interval (section 7; 0 without a motor) subtracted from its drive;</p></li>
 <li><p>interior annulus faces (slip factor <span class="math notranslate nohighlight">\(K_c\)</span> if both cells contain pipe, else 0);</p></li>
 <li><p>the outlet face. Its drive is <span class="math notranslate nohighlight">\(p_{back} - p_{a0} + \rho_{a0} g z_{a0}\)</span>; there is no upstream half cell, and the slip factor is <span class="math notranslate nohighlight">\(K_c\)</span> if the cell contains pipe.</p></li>
 </ul>
@@ -1173,7 +1245,7 @@ This is the exact discrete steady state with the pipe at rest:</p>
 <li><p>each face <span class="math notranslate nohighlight">\(k\)</span>: <span class="math notranslate nohighlight">\(p_k = p_{k-1} + \bar\rho g(z_k - z_{k-1}) - \text{friction of the two half cells}\)</span>.</p></li>
 </ul>
 </li>
-<li><p><strong>Bit:</strong> <span class="math notranslate nohighlight">\(p_{d,last} = p_{a,k_{ab}} - \bar\rho g(z_{a,k_{ab}} - z_{d,last}) + \Delta p_{bit} + \text{friction}\)</span>.</p></li>
+<li><p><strong>Bit:</strong> <span class="math notranslate nohighlight">\(p_{d,last} = p_{a,k_{ab}} - \bar\rho g(z_{a,k_{ab}} - z_{d,last}) + \Delta p_{bit} + \text{friction} + \Delta p_m\)</span> (the last motor differential; 0 at initialisation).</p></li>
 <li><p><strong>Bore pressures:</strong> upward from the bit, <span class="math notranslate nohighlight">\(p_{k-1} = p_k - \bar\rho g(z_k - z_{k-1}) + \text{friction}\)</span>.</p></li>
 <li><p><strong>Masses:</strong> <span class="math notranslate nohighlight">\(m = (\rho_T + p/c_m^2)V\)</span>.</p></li>
 </ul>
@@ -1199,6 +1271,7 @@ This is the exact discrete steady state with the pipe at rest:</p>
 </ul>
 </li>
 <li><p><strong>Nozzle loss:</strong> <span class="math notranslate nohighlight">\(\Delta p_{bit}\)</span> at the mean of the bit-face densities.</p></li>
+<li><p><strong>Motor differential:</strong> <span class="math notranslate nohighlight">\(\Delta p_m\)</span> used over the last interval.</p></li>
 <li><p><strong>Pit gain:</strong> <span class="math notranslate nohighlight">\(-(\text{pumped} - \text{returned})/\rho_m\)</span>.</p></li>
 </ul>
 </section>
@@ -1508,7 +1581,9 @@ integrate from the bit up.</p>
 <li><p>bit: <span class="math notranslate nohighlight">\(\omega_b\)</span>, TOB, <span class="math notranslate nohighlight">\(v_b\)</span>, WOB;</p></li>
 <li><p>axial: <span class="math notranslate nohighlight">\(v_{blk}\)</span>, <span class="math notranslate nohighlight">\(H\)</span>;</p></li>
 <li><p>depths: <span class="math notranslate nohighlight">\(s_{bit}\)</span>, <span class="math notranslate nohighlight">\(s_{hole}\)</span>;</p></li>
-<li><p>circulation: the current pump rate, plus hydraulics SPP, <span class="math notranslate nohighlight">\(p_{bh}\)</span>, ECD, <span class="math notranslate nohighlight">\(q_{out}\)</span>.</p></li>
+<li><p>circulation: the current pump rate, plus hydraulics SPP, <span class="math notranslate nohighlight">\(p_{bh}\)</span>, ECD, <span class="math notranslate nohighlight">\(q_{out}\)</span>;</p></li>
+<li><p>mud motor (only when enabled): <span class="math notranslate nohighlight">\(\omega_r\)</span> (<code class="docutils literal notranslate"><span class="pre">omega_motor</span></code>), <span class="math notranslate nohighlight">\(\Delta p_m\)</span> (<code class="docutils literal notranslate"><span class="pre">dp_motor</span></code>), stall (<code class="docutils literal notranslate"><span class="pre">motor_stalled</span></code>), and
+the toolface <span class="math notranslate nohighlight">\((\text{TF}_0 + \phi_s) \bmod 2\pi\)</span> in <span class="math notranslate nohighlight">\([0, 2\pi)\)</span> (<code class="docutils literal notranslate"><span class="pre">toolface</span></code>).</p></li>
 </ul>
 </li>
 <li><p><strong>Recorded channels:</strong> section 5.8.</p></li>
@@ -1536,7 +1611,8 @@ the browser contract: the lite engine reproduces it field for field.</p>
 <span id="13-conformance"></span><h2>13. Conformance<a class="headerlink" href="#conformance" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">tests/test_lite_engine.py</span></code> runs the browser engine under Node.js against the
 Python model on the same case (Well A with the temperature model off) and the
-same input script, with and without the wellbore temperature model. It requires:</p>
+same input script, with and without the wellbore temperature model, and with a
+mud motor (a low stall differential, so the script stalls it, then a slide). It requires:</p>
 <ul class="simple">
 <li><p>agreement to rounding level for the first seconds, before stick-slip chaos amplifies round-off;</p></li>
 <li><p>agreement of the statistics over the whole run (mean torque and hookload, stick-slip amplitude, hydraulic pressures).</p></li>
@@ -1557,6 +1633,9 @@ same input script, with and without the wellbore temperature model. It requires:
 </tr>
 <tr class="row-odd"><td><p>2</p></td>
 <td><p>Section 10 (wellbore temperature) written at implementation level; the browser version implements it. No change to the Python physics.</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Mud motor (5.5.1; derivation sec. 6.4): speed from flow with slip and bypass, differential pressure from torque, stall, reactive torque and toolface; pump-rate ramp row in the kernel; motor differential in series with the nozzles (8.3); new scalar state, recorded channels and outputs. Off by default, so cases without a motor are unchanged.</p></td>
 </tr>
 </tbody>
 </table>

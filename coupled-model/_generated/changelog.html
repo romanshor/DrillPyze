@@ -95,6 +95,24 @@
 <h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading"></a></h1>
 <section id="unreleased">
 <h2>Unreleased<a class="headerlink" href="#unreleased" title="Link to this heading"></a></h2>
+<p><strong>Mud motor</strong> (physics spec revision 3; derivation §6.4; Python model and DrillPyze Lite).</p>
+<ul class="simple">
+<li><p>An optional positive-displacement motor between the string and the bit, after Nguyen et al. (2017, AADE-17-NTCE-026). Well A defaults to no motor; ticking <em>Mud motor in the BHA</em> adds a generic 6¾” 7/8-lobe motor (0.28 rev/gal) whose values can be edited.</p></li>
+<li><p><strong>Speed:</strong> motor constant (rev/gal) × flow, with optional slip at the rated differential and bypass flow.</p></li>
+<li><p><strong>Torque:</strong> T = K_T (Δp − Δp₀) with K_T = η / (2π k_n), so the differential reads the bit torque.</p></li>
+<li><p><strong>Stall:</strong> above the stall differential the bit stops, the motor passes its stall torque, and SPP jumps; picking up clears it.</p></li>
+<li><p><strong>Reactive torque and toolface:</strong> the bit torque acts back on the string, so while sliding the toolface turns left as WOB rises.</p></li>
+<li><p><strong>Hydraulics:</strong> the motor differential is in series with the bit nozzles, so it adds to SPP but not to BHP.</p></li>
+<li><p><strong>Driller’s display:</strong></p>
+<ul>
+<li><p>a <em>BHA: Mud motor / No motor</em> flag in the status strip and a <em>Motor</em> badge on the rotary dial;</p></li>
+<li><p>a toolface dial with motor rpm, differential pressure, a stall warning, and ⟲ / ⟳ buttons that orient the toolface 15° while sliding;</p></li>
+<li><p>an off-bottom pressure marker on the standpipe dial.</p></li>
+</ul>
+</li>
+<li><p><strong>Drilling log:</strong> motor Δp on the hydraulics track and toolface on the downhole track.</p></li>
+<li><p>New outputs: <code class="docutils literal notranslate"><span class="pre">omega_motor</span></code>, <code class="docutils literal notranslate"><span class="pre">dp_motor</span></code>, <code class="docutils literal notranslate"><span class="pre">motor_stalled</span></code> and <code class="docutils literal notranslate"><span class="pre">toolface</span></code> in <code class="docutils literal notranslate"><span class="pre">Simulation.latest()</span></code>; <code class="docutils literal notranslate"><span class="pre">omega_motor</span></code>, <code class="docutils literal notranslate"><span class="pre">dp_motor</span></code> and <code class="docutils literal notranslate"><span class="pre">stator_angle</span></code> in the recorded channels.</p></li>
+</ul>
 <p><strong>Documentation.</strong></p>
 <ul class="simple">
 <li><p>README references now include Wang et al. (2023) (drift-flux temperature and hydraulic transients), the <em>Introduction to Drilling Engineering</em> hydraulics chapter, Detournay &amp; Defourny (1992), Richard, Germay &amp; Detournay (2007) and Caicedo, Calhoun &amp; Ewy (2005).</p></li>

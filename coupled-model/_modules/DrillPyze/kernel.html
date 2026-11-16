@@ -122,7 +122,12 @@
 <span class="n">S_BITSTUCK</span> <span class="o">=</span> <span class="mi">19</span>   <span class="c1"># 1 if bit rotationally sticking</span>
 <span class="n">S_PHIB</span> <span class="o">=</span> <span class="mi">20</span>       <span class="c1"># bit rotation angle (rad), regenerative model</span>
 <span class="n">S_WINT</span> <span class="o">=</span> <span class="mi">21</span>       <span class="c1"># integral of |omega_bit| dt (rad), for averages over slow updates</span>
-<span class="n">N_SCALARS</span> <span class="o">=</span> <span class="mi">22</span>
+<span class="n">S_PHIS</span> <span class="o">=</span> <span class="mi">22</span>       <span class="c1"># string-bottom (motor stator) rotation angle (rad): toolface = offset + PHIS</span>
+<span class="n">S_DPM</span> <span class="o">=</span> <span class="mi">23</span>        <span class="c1"># mud motor differential pressure (Pa)</span>
+<span class="n">S_DPINT</span> <span class="o">=</span> <span class="mi">24</span>      <span class="c1"># integral of the motor differential dt (Pa s), for the hydraulics</span>
+<span class="n">S_WMOT</span> <span class="o">=</span> <span class="mi">25</span>       <span class="c1"># motor (rotor relative to stator) speed (rad/s)</span>
+<span class="n">S_STALL</span> <span class="o">=</span> <span class="mi">26</span>      <span class="c1"># 1 if the motor is stalled</span>
+<span class="n">N_SCALARS</span> <span class="o">=</span> <span class="mi">27</span>
 
 <span class="c1"># indices into the float parameter vector ``pf``</span>
 <span class="n">P_DT</span> <span class="o">=</span> <span class="mi">0</span>
@@ -156,11 +161,19 @@
 <span class="n">P_HP_T</span> <span class="o">=</span> <span class="mi">28</span>        <span class="c1"># high-pass filter coefficient for the torsional Stokes damping (per step)</span>
 <span class="n">P_HP_A</span> <span class="o">=</span> <span class="mi">29</span>        <span class="c1"># same, axial</span>
 <span class="n">P_KV</span> <span class="o">=</span> <span class="mi">30</span>          <span class="c1"># 1 if Kelvin-Voigt material damping is active</span>
-<span class="n">N_PF</span> <span class="o">=</span> <span class="mi">31</span>
+<span class="n">P_MOTOR</span> <span class="o">=</span> <span class="mi">31</span>       <span class="c1"># 1 if a mud motor sits between the string and the bit</span>
+<span class="n">P_MKN</span> <span class="o">=</span> <span class="mi">32</span>         <span class="c1"># motor speed per unit flow, 2 pi k_n (rad per m^3)</span>
+<span class="n">P_MKT</span> <span class="o">=</span> <span class="mi">33</span>         <span class="c1"># motor torque constant K_T = eta / (2 pi k_n) (N m / Pa)</span>
+<span class="n">P_MDP0</span> <span class="o">=</span> <span class="mi">34</span>        <span class="c1"># off-bottom (no-load) differential (Pa)</span>
+<span class="n">P_MDPMAX</span> <span class="o">=</span> <span class="mi">35</span>      <span class="c1"># rated differential, reference for the slip (Pa)</span>
+<span class="n">P_MDPSTALL</span> <span class="o">=</span> <span class="mi">36</span>    <span class="c1"># stall differential (Pa)</span>
+<span class="n">P_MSLIP</span> <span class="o">=</span> <span class="mi">37</span>       <span class="c1"># fractional speed drop at the rated differential</span>
+<span class="n">P_MQBY</span> <span class="o">=</span> <span class="mi">38</span>        <span class="c1"># flow bypassing the power section (m^3/s)</span>
+<span class="n">N_PF</span> <span class="o">=</span> <span class="mi">39</span>
 
 <span class="c1"># set-point ramp table: one row per input, columns (start value, start time, ramp time, target)</span>
-<span class="n">R_WSP</span><span class="p">,</span> <span class="n">R_VBLK</span><span class="p">,</span> <span class="n">R_TAUM</span><span class="p">,</span> <span class="n">R_WTD</span><span class="p">,</span> <span class="n">R_WOB</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span>
-<span class="n">N_RAMPS</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">R_WSP</span><span class="p">,</span> <span class="n">R_VBLK</span><span class="p">,</span> <span class="n">R_TAUM</span><span class="p">,</span> <span class="n">R_WTD</span><span class="p">,</span> <span class="n">R_WOB</span><span class="p">,</span> <span class="n">R_FLOW</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span>
+<span class="n">N_RAMPS</span> <span class="o">=</span> <span class="mi">6</span>                     <span class="c1"># R_FLOW: pump rate (m^3/s), drives the mud motor</span>
 
 <span class="c1"># indices into the integer parameter vector ``pi``</span>
 <span class="n">I_CTRL</span> <span class="o">=</span> <span class="mi">0</span>         <span class="c1"># 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed</span>
@@ -174,7 +187,7 @@
 <span class="c1"># recorded channels</span>
 <span class="n">REC_CHANNELS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'time'</span><span class="p">,</span> <span class="s1">'omega_td'</span><span class="p">,</span> <span class="s1">'motor_torque'</span><span class="p">,</span> <span class="s1">'pipe_torque'</span><span class="p">,</span> <span class="s1">'omega_bit'</span><span class="p">,</span>
                 <span class="s1">'tob'</span><span class="p">,</span> <span class="s1">'v_block'</span><span class="p">,</span> <span class="s1">'hookload'</span><span class="p">,</span> <span class="s1">'v_bit'</span><span class="p">,</span> <span class="s1">'wob'</span><span class="p">,</span> <span class="s1">'bit_depth'</span><span class="p">,</span>
-                <span class="s1">'hole_depth'</span><span class="p">,</span> <span class="s1">'omega_sp'</span><span class="p">)</span>
+                <span class="s1">'hole_depth'</span><span class="p">,</span> <span class="s1">'omega_sp'</span><span class="p">,</span> <span class="s1">'omega_motor'</span><span class="p">,</span> <span class="s1">'dp_motor'</span><span class="p">,</span> <span class="s1">'stator_angle'</span><span class="p">)</span>
 <span class="n">N_REC</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">REC_CHANNELS</span><span class="p">)</span>
 
 
@@ -335,6 +348,22 @@
 
 
 <span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_motor_drive</span><span class="p">(</span><span class="n">q_pump</span><span class="p">,</span> <span class="n">pf</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Mud motor drive at pump rate ``q_pump`` (docs/derivation sec. 6.4).  The rotor turns</span>
+<span class="sd">    at omega_r = w0 (c - g' T), T the torque it delivers, with w0 = 2 pi k_n (Q - Q_bypass)</span>
+<span class="sd">    the no-slip speed and c = 1 - s dp_0 / dp_max, g' = s / (K_T dp_max).</span>
+<span class="sd">    Returns (w0, rotor speed at zero torque, d(rotor speed)/dT).</span>
+<span class="sd">    """</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">q_pump</span> <span class="o">-</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MQBY</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">q</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+    <span class="n">w0</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MKN</span><span class="p">]</span> <span class="o">*</span> <span class="n">q</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MSLIP</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">w0</span><span class="p">,</span> <span class="n">w0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">s</span> <span class="o">*</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MDP0</span><span class="p">]</span> <span class="o">/</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MDPMAX</span><span class="p">]),</span> <span class="n">w0</span> <span class="o">*</span> <span class="n">s</span> <span class="o">/</span> <span class="p">(</span><span class="n">pf</span><span class="p">[</span><span class="n">P_MKT</span><span class="p">]</span> <span class="o">*</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MDPMAX</span><span class="p">])</span>
+
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_coulomb_2d</span><span class="p">(</span><span class="n">va</span><span class="p">,</span> <span class="n">vt</span><span class="p">,</span> <span class="n">m_a</span><span class="p">,</span> <span class="n">m_t</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Implicit (backward-Euler) 2-D Coulomb friction on one cell.</span>
@@ -473,6 +502,7 @@
     <span class="n">n_blades</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pf</span><span class="p">[</span><span class="n">P_BLADES</span><span class="p">])</span>
     <span class="n">axc</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_AXC</span><span class="p">]</span>
     <span class="n">weak_exp</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_WEAK</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
+    <span class="n">motor</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MOTOR</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
 
     <span class="c1"># filter coefficients (exact discretisation of first-order lags)</span>
     <span class="n">a_en</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dt</span> <span class="o">/</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TEN</span><span class="p">])</span> <span class="k">if</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_TEN</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
@@ -568,14 +598,53 @@
         <span class="c1"># ---------------------------------------------------------- bit face</span>
         <span class="n">alpha_t</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">tau</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
         <span class="n">alpha_a</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">qd</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># mud motor (sec. 6.4): bit speed = string-bottom speed + rotor speed, the</span>
+        <span class="c1"># massless rotor passes the bit torque to the string as reactive torque, so the</span>
+        <span class="c1"># bit sees the string's invariant shifted by the rotor speed and an impedance</span>
+        <span class="c1"># lowered by the slip</span>
+        <span class="n">Zb</span> <span class="o">=</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">alpha_b</span> <span class="o">=</span> <span class="n">alpha_t</span>
+        <span class="n">Zbit</span> <span class="o">=</span> <span class="n">Zb</span>
+        <span class="n">w0m</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="n">motor</span><span class="p">:</span>
+            <span class="n">w0m</span><span class="p">,</span> <span class="n">wr0</span><span class="p">,</span> <span class="n">dwr</span> <span class="o">=</span> <span class="n">_motor_drive</span><span class="p">(</span><span class="n">_ramp</span><span class="p">(</span><span class="n">ramps</span><span class="p">,</span> <span class="n">R_FLOW</span><span class="p">,</span> <span class="n">t_now</span><span class="p">),</span> <span class="n">pf</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">w0m</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">alpha_b</span> <span class="o">=</span> <span class="n">alpha_t</span> <span class="o">+</span> <span class="n">wr0</span>
+                <span class="n">Zbit</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">Zb</span> <span class="o">+</span> <span class="n">dwr</span><span class="p">)</span>
+        <span class="n">on_bottom</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1e-9</span>
         <span class="k">if</span> <span class="n">bit_model</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">wb_</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">vb_</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span> <span class="o">=</span> <span class="n">_bit_regen</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">],</span> <span class="n">dt</span><span class="p">,</span>
+            <span class="n">wb_</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">vb_</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span> <span class="o">=</span> <span class="n">_bit_regen</span><span class="p">(</span><span class="n">alpha_b</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zbit</span><span class="p">,</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">],</span> <span class="n">dt</span><span class="p">,</span>
                                                    <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITSTUCK</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">],</span> <span class="n">surf</span><span class="p">,</span> <span class="n">pf</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">on_bottom</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1e-9</span>
-            <span class="n">wb_</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">vb_</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span> <span class="o">=</span> <span class="n">_bit</span><span class="p">(</span><span class="n">alpha_t</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zt</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="n">wb_</span><span class="p">,</span> <span class="n">tob</span><span class="p">,</span> <span class="n">vb_</span><span class="p">,</span> <span class="n">wob</span><span class="p">,</span> <span class="n">stuck</span> <span class="o">=</span> <span class="n">_bit</span><span class="p">(</span><span class="n">alpha_b</span><span class="p">,</span> <span class="n">alpha_a</span><span class="p">,</span> <span class="n">Zbit</span><span class="p">,</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
                                              <span class="n">on_bottom</span><span class="p">,</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">],</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITSTUCK</span><span class="p">],</span> <span class="n">pf</span><span class="p">)</span>
-        <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span>
+        <span class="k">if</span> <span class="n">motor</span><span class="p">:</span>
+            <span class="n">dpm</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">stall</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">if</span> <span class="n">w0m</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">t_stall</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MKT</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">pf</span><span class="p">[</span><span class="n">P_MDPSTALL</span><span class="p">]</span> <span class="o">-</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MDP0</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">tob</span> <span class="o">&gt;</span> <span class="n">t_stall</span><span class="p">:</span>
+                    <span class="c1"># stall: the motor cannot deliver the torque the bit needs; the bit</span>
+                    <span class="c1"># stops and the motor passes its stall torque at the stall differential</span>
+                    <span class="n">wb_</span> <span class="o">=</span> <span class="mf">0.0</span>
+                    <span class="n">tob</span> <span class="o">=</span> <span class="n">t_stall</span>
+                    <span class="n">stuck</span> <span class="o">=</span> <span class="mf">1.0</span>
+                    <span class="n">stall</span> <span class="o">=</span> <span class="mf">1.0</span>
+                    <span class="k">if</span> <span class="n">bit_model</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">vb_</span> <span class="o">=</span> <span class="mf">0.0</span>
+                        <span class="n">wob</span> <span class="o">=</span> <span class="n">Za</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">alpha_a</span> <span class="k">if</span> <span class="p">(</span><span class="n">on_bottom</span> <span class="ow">and</span> <span class="n">alpha_a</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+                    <span class="n">dpm</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MDPSTALL</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">dpm</span> <span class="o">=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MDP0</span><span class="p">]</span> <span class="o">+</span> <span class="n">tob</span> <span class="o">/</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_MKT</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">dpm</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                        <span class="n">dpm</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">w_str</span> <span class="o">=</span> <span class="n">alpha_t</span> <span class="o">-</span> <span class="n">tob</span> <span class="o">/</span> <span class="n">Zb</span>          <span class="c1"># string bottom (stator) speed</span>
+            <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_str</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_WMOT</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span> <span class="o">-</span> <span class="n">w_str</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_DPM</span><span class="p">]</span> <span class="o">=</span> <span class="n">dpm</span>
+            <span class="n">sc</span><span class="p">[</span><span class="n">S_STALL</span><span class="p">]</span> <span class="o">=</span> <span class="n">stall</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span>
         <span class="n">tf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">tob</span>
         <span class="n">vf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">vb_</span>
         <span class="n">qf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wob</span>
@@ -689,6 +758,8 @@
         <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBIT</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="n">sc</span><span class="p">[</span><span class="n">S_BLKPOS</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_VBLK</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="n">sc</span><span class="p">[</span><span class="n">S_WINT</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">])</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIS</span><span class="p">]</span> <span class="o">+=</span> <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">sc</span><span class="p">[</span><span class="n">S_DPINT</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_DPM</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="k">if</span> <span class="n">bit_model</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">phi_new</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">]</span> <span class="o">+</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
             <span class="n">_sweep</span><span class="p">(</span><span class="n">sc</span><span class="p">[</span><span class="n">S_PHIB</span><span class="p">],</span> <span class="n">phi_new</span><span class="p">,</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">],</span> <span class="n">surf</span><span class="p">,</span> <span class="n">n_blades</span><span class="p">)</span>
@@ -716,6 +787,9 @@
                 <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_BITD</span><span class="p">]</span>
                 <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">11</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_HOLED</span><span class="p">]</span>
                 <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">12</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WSP</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">13</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_WMOT</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">14</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_DPM</span><span class="p">]</span>
+                <span class="n">rec</span><span class="p">[</span><span class="n">rec_idx</span><span class="p">,</span> <span class="mi">15</span><span class="p">]</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_PHIS</span><span class="p">]</span>
                 <span class="n">rec_idx</span> <span class="o">+=</span> <span class="mi">1</span>
     <span class="k">return</span> <span class="n">rec_idx</span><span class="p">,</span> <span class="n">rec_phase</span></div>
 

@@ -86,6 +86,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#top-drive-torsion">6.1 Top drive (torsion)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#drawworks-axial">6.2 Drawworks (axial)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#drill-bit-coupling-at-the-bit">6.3 Drill bit: coupling at the bit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mud-motor-between-the-string-and-the-bit">6.4 Mud motor between the string and the bit</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#top-drive-controllers-aarsnes-di-meglio-shor-2018">7. Top-drive controllers (Aarsnes, di Meglio &amp; Shor 2018)</a></li>
@@ -881,6 +882,99 @@ blade passage. That delay can destabilise steady drilling, producing bit
 bounce and stick-slip.</p></li>
 </ul>
 </section>
+<section id="mud-motor-between-the-string-and-the-bit">
+<span id="64-mud-motor-between-the-string-and-the-bit"></span><h3>6.4 Mud motor between the string and the bit<a class="headerlink" href="#mud-motor-between-the-string-and-the-bit" title="Link to this heading"></a></h3>
+<p>A positive-displacement motor (PDM) turns the bit relative to the string, driven
+by the mud flowing through its power section. Nguyen, Bui, Al-Safran &amp; Saasen
+(2017) derive the motor’s flow and torque from the power-section geometry. Here
+only their two global relations are used, with the geometry folded into one
+user-supplied <strong>motor constant</strong> <span class="math notranslate nohighlight">\(k_n\)</span>, the revolutions per unit volume of flow
+(rev/gal on a spec sheet, rev/m³ internally). The motor is optional
+(<code class="docutils literal notranslate"><span class="pre">MotorParameters.enabled</span></code>); without it the bit sits directly on the string as
+in §6.3.</p>
+<p><strong>Speed from flow.</strong> Each revolution of the rotor displaces the volume
+<span class="math notranslate nohighlight">\(V_\text{rev} = 1/k_n\)</span> (Nguyen et al., <span class="math notranslate nohighlight">\(Q = A_F P_r K N\)</span>). The rotor speed
+relative to the stator is</p>
+<div class="math notranslate nohighlight">
+\[\omega_r = 2\pi k_n\,(Q - Q_\text{by})\left(1 - s\,\frac{\Delta p_m}{\Delta p_\text{max}}\right), \tag{6.4}\]</div>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(Q\)</span> is the pump rate.</p></li>
+<li><p><span class="math notranslate nohighlight">\(Q_\text{by}\)</span> is any flow bypassing the power section (default 0).</p></li>
+<li><p><span class="math notranslate nohighlight">\(s\)</span> is the fractional speed drop at the rated differential
+<span class="math notranslate nohighlight">\(\Delta p_\text{max}\)</span>. It represents internal leakage across the seals,
+which Nguyen et al. note is negligible at low pressure (default 0).</p></li>
+</ul>
+<p><strong>Torque from differential pressure.</strong> The energy balance gives the efficiency
+as mechanical over hydraulic power,
+<span class="math notranslate nohighlight">\(\eta = T\omega_r / (Q\,\Delta p)\)</span> (Nguyen et al. eq. 23). With no slip,
+<span class="math notranslate nohighlight">\(\omega_r = 2\pi k_n Q\)</span>, so the torque is proportional to the differential
+pressure that does the work:</p>
+<div class="math notranslate nohighlight">
+\[T_m = K_T\,(\Delta p_m - \Delta p_0), \qquad K_T = \frac{\eta}{2\pi k_n}. \tag{6.5}\]</div>
+<ul class="simple">
+<li><p>The torque constant <span class="math notranslate nohighlight">\(K_T\)</span> follows from the same motor constant and an
+efficiency <span class="math notranslate nohighlight">\(\eta\)</span> (default 0.75, the value used by Nguyen et al.). No
+separate torque input is needed.</p></li>
+<li><p><span class="math notranslate nohighlight">\(\Delta p_0\)</span> is the off-bottom (no-load) differential: the pressure needed
+to turn the rotor against its own friction and the seal interference.</p></li>
+<li><p>Read backwards, (6.5) is the driller’s rule:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\Delta p_m = \Delta p_0 + \frac{\text{TOB}}{K_T}.\]</div>
+<p><strong>Stall.</strong> The motor delivers at most
+<span class="math notranslate nohighlight">\(T_\text{stall} = K_T(\Delta p_\text{stall} - \Delta p_0)\)</span>. If the bit needs
+more torque than that, the rotor stops: the bit stalls (<span class="math notranslate nohighlight">\(\omega_b = 0\)</span>), the
+motor passes <span class="math notranslate nohighlight">\(T_\text{stall}\)</span>, and the differential sits at
+<span class="math notranslate nohighlight">\(\Delta p_\text{stall}\)</span>. The stall shows at surface as a jump in standpipe
+pressure. It clears when the bit torque falls back below <span class="math notranslate nohighlight">\(T_\text{stall}\)</span>,
+typically after picking up off bottom.</p>
+<p><strong>Coupling to the string.</strong> The rotor and bit are treated as massless, like
+the bit alone in §6.3. Then:</p>
+<ul class="simple">
+<li><p>The bit turns at the string-bottom (stator) speed plus the rotor speed,
+<span class="math notranslate nohighlight">\(\omega_b = \omega_s + \omega_r\)</span>.</p></li>
+<li><p>The motor passes the bit torque straight through, <span class="math notranslate nohighlight">\(T_m = \text{TOB}\)</span>.</p></li>
+<li><p>The stator feels the same torque, the <strong>reactive torque</strong>. The string’s
+bottom boundary therefore carries <span class="math notranslate nohighlight">\(\text{TOB}\)</span> exactly as without a motor,
+but at the stator speed <span class="math notranslate nohighlight">\(\omega_s = \alpha_t - \text{TOB}/Z_t\)</span>.</p></li>
+</ul>
+<p>Substituting (6.4)–(6.5), the rotor speed is linear in the torque,
+<span class="math notranslate nohighlight">\(\omega_r = \omega_{r0} - g\,\text{TOB}\)</span> with
+<span class="math notranslate nohighlight">\(\omega_0 = 2\pi k_n(Q - Q_\text{by})\)</span>,
+<span class="math notranslate nohighlight">\(\omega_{r0} = \omega_0(1 - s\Delta p_0/\Delta p_\text{max})\)</span> and
+<span class="math notranslate nohighlight">\(g = \omega_0 s/(K_T\Delta p_\text{max})\)</span>. The bit therefore sees</p>
+<div class="math notranslate nohighlight">
+\[\omega_b = \underbrace{\alpha_t + \omega_{r0}}_{\alpha_b} - \text{TOB}\left(\frac{1}{Z_t} + g\right)
+= \alpha_b - \frac{\text{TOB}}{Z_b}, \qquad \frac{1}{Z_b} = \frac{1}{Z_t} + g . \tag{6.6}\]</div>
+<p>This has the form of (6.3), so the bit–rock laws of §6.3 apply unchanged with
+<span class="math notranslate nohighlight">\((\alpha_t, Z_t)\)</span> replaced by <span class="math notranslate nohighlight">\((\alpha_b, Z_b)\)</span>. The motor shifts the
+incoming torsional invariant by its speed, and the slip softens the bit’s
+torsional impedance. If the solution needs <span class="math notranslate nohighlight">\(\text{TOB} &gt; T_\text{stall}\)</span>, the
+stall branch above replaces it. With no flow through the motor
+(<span class="math notranslate nohighlight">\(Q \le Q_\text{by}\)</span>), the rotor is hydraulically locked: <span class="math notranslate nohighlight">\(\omega_r = 0\)</span> and
+<span class="math notranslate nohighlight">\(\Delta p_m = 0\)</span>.</p>
+<p><strong>Hydraulics.</strong> The motor differential is a pressure loss in series with the
+bit nozzles. It raises the standpipe pressure but not the annulus or bottomhole
+pressure. In the transient model (§8 of the spec) it is subtracted from the
+drive across the bit face, using its average over each ~1 s hydraulics
+interval.</p>
+<p><strong>Sliding and toolface.</strong> In slide drilling the string is not rotated from
+surface (top-drive set point 0, which the PI controller holds as an angle), and
+the motor alone turns the bit.</p>
+<ul class="simple">
+<li><p>The toolface is the angle of the motor’s bend: the stator angle plus a
+reference offset,
+<span class="math notranslate nohighlight">\(\text{TF} = \text{TF}_0 + \int \omega_s\,dt\)</span> (mod 360°), clockwise looking
+downhole.</p></li>
+<li><p>As WOB and TOB rise, the reactive torque winds the bottom of the string
+counter-clockwise and the toolface turns left. When WOB falls it unwinds back
+to the right.</p></li>
+<li><p>The driller orients the toolface by turning the string a few degrees at
+surface. The coupled friction of §5.2 sets how much of that turn, and of the
+WOB, reaches the bottom: the string hangs up while sliding.</p></li>
+<li><p>The bend’s effect on the well path (build and turn rates) is not modelled.</p></li>
+</ul>
+</section>
 </section>
 <hr class="docutils" />
 <section id="top-drive-controllers-aarsnes-di-meglio-shor-2018">
@@ -1141,6 +1235,18 @@ stable.</p></li>
 <tr class="row-even"><td><p>Kelvin–Voigt solve conserves momentum, dissipates energy</p></td>
 <td><p>to <span class="math notranslate nohighlight">\(10^{-12}\)</span></p></td>
 </tr>
+<tr class="row-odd"><td><p>mud motor: rotor speed <span class="math notranslate nohighlight">\(2\pi k_n Q\)</span> (with slip and bypass), <span class="math notranslate nohighlight">\(\Delta p_m = \Delta p_0 + \text{TOB}/K_T\)</span> every row</p></td>
+<td><p>to <span class="math notranslate nohighlight">\(10^{-12}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>mud motor stall: TOB capped at <span class="math notranslate nohighlight">\(T_\text{stall}\)</span>, bit stopped, cleared by picking up</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>mud motor: SPP rises by <span class="math notranslate nohighlight">\(\Delta p_m\)</span>, BHP unchanged (steady circulation)</p></td>
+<td><p>within 2% / <span class="math notranslate nohighlight">\(10^{-6}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>sliding: reactive torque turns the toolface left as WOB rises</p></td>
+<td><p>yes</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1273,6 +1379,7 @@ stable.</p></li>
 <li><p>Jansen, J.D. and van den Steen, L., 1995. Active damping of self-excited torsional vibrations in oil well drillstrings. <em>J. Sound and Vibration</em>, 179(4), 647–668.</p></li>
 <li><p>Lyons, W.C. and Plisga, G.J., 2005. <em>Standard Handbook of Petroleum and Natural Gas Engineering</em>, 2nd ed. Gulf Professional Publishing.</p></li>
 <li><p>Moharrami, M.J., Shiri, H. and Martins, C.A., 2024. Vibration (MDPI), 7(4), 56. https://www.mdpi.com/2571-631X/7/4/56</p></li>
+<li><p>Nguyen, T.C., Bui, K.D., Al-Safran, E. and Saasen, A., 2017. Theoretical modeling of positive displacement motor performance. AADE-17-NTCE-026, AADE National Technical Conference and Exhibition, Houston, Texas. https://www.aade.org/application/files/8615/7132/1739/AADE-17-NTCE-026_-_Nguyen.pdf</p></li>
 <li><p>Orban, F., 2011. Damping of materials and members in structures. <em>J. Physics: Conference Series</em>, 268, 012022.</p></li>
 <li><p>Stokes, G.G., 1851. On the effect of the internal friction of fluids on the motion of pendulums. <em>Trans. Cambridge Phil. Soc.</em>, 9, 8–106.</p></li>
 <li><p>Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. <em>JPT</em>, 36, 987–992.</p></li>

@@ -93,6 +93,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">replace</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.thermal</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThermalParameters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">GAL</span><span class="p">,</span> <span class="n">PSI</span>
 
 
 <div class="viewcode-block" id="FrictionParameters">
@@ -210,6 +211,46 @@
 
 
 
+<div class="viewcode-block" id="MotorParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.MotorParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MotorParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Positive-displacement mud motor between the string and the bit</span>
+<span class="sd">    (docs/derivation/README.md, sec. 6.4; Nguyen et al. 2017).  Defaults: a generic</span>
+<span class="sd">    6-3/4" 7/8-lobe motor.  ``enabled=False`` means no motor in the BHA.</span>
+
+<span class="sd">    Speed:  N_r = k_n (Q - Q_bypass) (1 - s dp/dp_max)        (rev/s; k_n in rev/m^3)</span>
+<span class="sd">    Torque: T = K_T (dp - dp_0),  K_T = eta / (2 pi k_n)       (N m)</span>
+<span class="sd">    Stall:  T &lt;= K_T (dp_stall - dp_0); beyond it the rotor stops and dp = dp_stall.</span>
+<span class="sd">    """</span>
+    <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">speed_constant</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.28</span> <span class="o">/</span> <span class="n">GAL</span>   <span class="c1"># k_n, rev per m^3 of flow (0.28 rev/gal)</span>
+    <span class="n">efficiency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span>             <span class="c1"># eta, mechanical efficiency</span>
+    <span class="n">dp_no_load</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">PSI</span>        <span class="c1"># dp_0, off-bottom differential pressure (Pa)</span>
+    <span class="n">dp_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">750</span> <span class="o">*</span> <span class="n">PSI</span>            <span class="c1"># rated (maximum recommended) differential (Pa)</span>
+    <span class="n">dp_stall</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1125</span> <span class="o">*</span> <span class="n">PSI</span>         <span class="c1"># stall differential (Pa)</span>
+    <span class="n">slip</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>                    <span class="c1"># s, fractional speed drop at dp_max (leakage)</span>
+    <span class="n">bypass_flow</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>             <span class="c1"># flow not passing through the power section (m^3/s)</span>
+    <span class="n">toolface_offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>         <span class="c1"># toolface (rad) when the string-bottom angle is zero</span>
+
+<div class="viewcode-block" id="MotorParameters.torque_constant">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.MotorParameters.torque_constant">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">torque_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""K_T = eta / (2 pi k_n), N m per Pa of differential pressure."""</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">efficiency</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">speed_constant</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MotorParameters.stall_torque">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.MotorParameters.stall_torque">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stall_torque</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Largest torque the motor delivers, K_T (dp_stall - dp_0) (N m)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_constant</span><span class="p">()</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dp_stall</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">dp_no_load</span><span class="p">)</span></div>
+</div>
+
+
+
 <div class="viewcode-block" id="TopDriveParameters">
 <a class="viewcode-back" href="../../api.html#DrillPyze.parameters.TopDriveParameters">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -317,12 +358,13 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelParameters</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    All model parameters: friction, damping, bit, top drive, controller,</span>
+<span class="sd">    All model parameters: friction, damping, bit, mud motor, top drive, controller,</span>
 <span class="sd">    autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</span>
 <span class="sd">    """</span>
     <span class="n">friction</span><span class="p">:</span> <span class="n">FrictionParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">FrictionParameters</span><span class="p">)</span>
     <span class="n">damping</span><span class="p">:</span> <span class="n">DampingParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DampingParameters</span><span class="p">)</span>
     <span class="n">bit</span><span class="p">:</span> <span class="n">BitParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">BitParameters</span><span class="p">)</span>
+    <span class="n">motor</span><span class="p">:</span> <span class="n">MotorParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MotorParameters</span><span class="p">)</span>
     <span class="n">top_drive</span><span class="p">:</span> <span class="n">TopDriveParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TopDriveParameters</span><span class="p">)</span>
     <span class="n">controller</span><span class="p">:</span> <span class="n">ControllerParameters</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">autodriller</span><span class="p">:</span> <span class="n">AutodrillerParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">AutodrillerParameters</span><span class="p">)</span>
