@@ -13,6 +13,9 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.24289880
     description: Zenodo archive of DrillPyze 1.0.0
+  - type: doi
+    value: 10.5281/zenodo.24289879
+    description: Zenodo concept DOI, all versions of DrillPyze
 license: MIT
 repository-code: "https://github.com/romanshor/DrillPyze"
 url: "https://romanshor.github.io/DrillPyze/"
