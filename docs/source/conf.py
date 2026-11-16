@@ -63,7 +63,15 @@ PAGES += [(f'spec-{p.stem.lower()}', p, None) for p in sorted((ROOT / 'docs' / '
 
 def _github_to_myst(text, src, dst):
     """GitHub maths -> MyST maths; relative image/file links rebased from src to dst."""
-    text = re.sub(r'^(\s*)```math\s*$', r'\1```{math}', text, flags=re.M)
+    # Sphinx wraps a display equation that contains line breaks (\\) in a split
+    # environment, where \tag is not allowed (a cases block with a tag, say); such
+    # equations go out unwrapped, inside an equation environment of their own.
+    def fence(m):
+        indent, body = m.group(1), m.group(2)
+        if '\\tag' in body and '\\\\' in body:
+            return f'{indent}```{{math}}\n{indent}:nowrap:\n\n{indent}\\begin{{equation}}\n{body}{indent}\\end{{equation}}\n{indent}```'
+        return f'{indent}```{{math}}\n{body}{indent}```'
+    text = re.sub(r'^([ \t]*)```math[ \t]*\n(.*?)^[ \t]*```', fence, text, flags=re.M | re.S)
     text = re.sub(r'\$`([^`]+)`\$', r'$\1$', text)
 
     def rebase(m):

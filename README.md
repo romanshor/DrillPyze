@@ -106,7 +106,7 @@ growing-wellbore drift-flux model of **Wang, Khaled, Luu, Ashok & van Oort
 Utah FORGE case: downhole temperature falls from about 310 °F to 210 °F in
 30 min at 550 gpm, and drilling adds 1.3–2.2 °F, linear in ROP. See
 [`docs/derivation/rock-strength-and-temperature.md`](docs/derivation/rock-strength-and-temperature.md).
-The regenerative model adds the delay of one blade passage, which can
+The regenerative model (Richard, Germay & Detournay 2007) adds the delay of one blade passage, which can
 self-excite bit bounce and stick-slip.
 
 Static friction is anisotropic. The torsional static/kinetic contrast of
@@ -131,7 +131,8 @@ Other model components:
   standpipe pressure, bottomhole pressure and ECD.
   * **Steady losses:** Newtonian or Bingham pipe and annular losses, bit
     nozzle loss and the SPP sum, from the borehole-hydraulics chapter of
-    *Introduction to Drilling Engineering* (ch. 7).
+    [*Introduction to Drilling Engineering*](https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html)
+    (Shor, ch. 7).
   * **Transients:** pump start and stop, water hammer, surge and swab, from
     the single-phase drift-flux model of Wang et al. (2023). It uses fixed
     cells with volume-averaged sections, ρ(T, p), a pump inlet, a pressure
@@ -476,4 +477,9 @@ is released under the [MIT License](LICENSE).
 * Aarsnes, U.J.F., Auriol, J., Di Meglio, F. and Shor, R.J., 2019. Estimating friction factors while drilling. *J. Petroleum Science and Engineering*, 179, 80–91.
 * Auriol, J., Aarsnes, U.J.F. and Shor, R.J., 2020. Self-tuning torsional drilling model for real-time applications. *ACC 2020*, 3091–3096.
 * Auriol, J., Boussaada, I., Shor, R.J., Mounier, H. and Niculescu, S.-I., 2022. Comparing advanced control strategies to eliminate stick-slip oscillations in drillstrings. *IEEE Access*, 10, 10949–10969.
+* Caicedo, H.U., Calhoun, W.M. and Ewy, R.T., 2005. Unique ROP predictor using bit-specific coefficient of sliding friction and mechanical efficiency as a function of confined compressive strength impacts drilling performance. SPE/IADC-92576-MS.
+* Detournay, E. and Defourny, P., 1992. A phenomenological model for the drilling action of drag bits. *Int. J. Rock Mech. Min. Sci.*, 29(1), 13–23.
 * Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. *JPT*, 36, 987–992.
+* Richard, T., Germay, C. and Detournay, E., 2007. A simplified model to explore the root cause of stick–slip vibrations in drilling systems with drag bits. *J. Sound Vib.*, 305(3), 432–456.
+* Shor, R.J. *Introduction to Drilling Engineering*, ch. 7, Borehole Hydraulics (online book). https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html
+* Wang, N., Khaled, M.S., Luu, A., Ashok, P. and van Oort, E., 2023. Downhole temperature estimation of a growing high-temperature wellbore using a modified drift flux modeling approach. *SPE Annual Technical Conference and Exhibition*, San Antonio, Texas. SPE-214836-MS. https://doi.org/10.2118/214836-MS
