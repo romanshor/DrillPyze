@@ -84,12 +84,15 @@ export class Session {
       hookload_kn: R(col('hookload').map(x => x / 1e3), 2), wob_kn: R(col('wob').map(x => x / 1e3), 2),
       rop_mh: R(vbit.map((v, i) => (bitd[i] >= hole[i] - 1e-6 ? Math.max(v, 0) : 0) * 3600), 2),
       block_mh: R(col('v_block').map(x => x * 3600), 2), bit_depth: R(bitd, 3), hole_depth: R(hole, 3), block_pos: R(bp, 3),
+      rpm_motor: R(col('omega_motor').map(rpm), 2), dp_motor: R(col('dp_motor'), 0),
+      toolface_deg: R(col('stator_angle').map(a => { const tp = 2 * Math.PI, x = this.sim.params.motor.toolface_offset + a;
+                                                        return ((x % tp) + tp) % tp * 180 / Math.PI; }), 2),
     };
     const prof = sim.profiles(), sv = sim.wellbore.survey;
     const [nn, ee, zz] = sv.positions(prof.md.map(m => Math.max(m, 0)));
     const slowRows = sim.slowRecords.slice(this.sentSlow); this.sentSlow = sim.slowRecords.length;
     const hydRows = sim.hydRecords.slice(this.sentHyd); this.sentHyd = sim.hydRecords.length;
-    const hyd = Object.fromEntries(['time', 'spp', 'p_bh', 'ecd', 'q_in', 'q_out'].map(k => [k, hydRows.map(r => rnd(r[k], 6))]));
+    const hyd = Object.fromEntries(['time', 'spp', 'p_bh', 'ecd', 'q_in', 'q_out', 'dp_motor'].map(k => [k, hydRows.map(r => rnd(r[k], 6))]));
     const slow = Object.fromEntries(['time', 't_bit', 't_out', 't_in', 't_rock', 'ccs_eff', 'ccs', 'S', 'ecd', 'p_bh']
       .map(k => [k, slowRows.map(r => (r[k] === undefined || r[k] === null ? null : rnd(r[k], 4)))]));
     let thermal = null;
@@ -114,6 +117,7 @@ export class Session {
         hk_ref_kn: sim.hookloadReference / 1e3, wob_surf_kn: (sim.hookloadReference - L.hookload) / 1e3,
         block_mh: L.v_block * 3600, wob_sp_kn: sim.axial === 1 ? sim.inputs.wob_sp / 1e3 : null,
         p_bh_hyd: hs.p_bh ?? null, tvd_bottom: sim.hydraulics ? sim.hydraulics.tvdBottom : null, mud_density: sim.fluid.density,
+        ...this.motorLatest(L),
       },
       hyd, thermal, slow,
       profile: {
@@ -125,6 +129,15 @@ export class Session {
       trace,
       perf: { wall, sim: duration, realtime: wall > 0 ? duration / wall : null },
     };
+  }
+
+  // driller's-display motor values (null without a motor)
+  motorLatest(L) {
+    const m = this.sim.params.motor;
+    if (!m.enabled) return { motor: false, rpm_motor: null, dp_motor: null, motor_stalled: null, toolface_deg: null,
+                             dp_no_load: null, dp_max: null, dp_stall: null };
+    return { motor: true, rpm_motor: rpm(L.omega_motor), dp_motor: L.dp_motor, motor_stalled: L.motor_stalled,
+             toolface_deg: L.toolface * 180 / Math.PI, dp_no_load: m.dp_no_load, dp_max: m.dp_max, dp_stall: m.dp_stall };
   }
 
   info() {
