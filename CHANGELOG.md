@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Documentation.**
+- README references now include Wang et al. (2023) (drift-flux temperature and hydraulic transients), the *Introduction to Drilling Engineering* hydraulics chapter, Detournay & Defourny (1992), Richard, Germay & Detournay (2007) and Caicedo, Calhoun & Ewy (2005).
+- Fixed the typesetting of equation (5.2) in the model derivation ("\tag not allowed in split environment").
+
 **Simulator UI on phones** (shared by the Python UI and DrillPyze Lite).
 - The inputs fold away behind an *Inputs* button under a compact header, and *Apply* returns to the simulator.
 - Transport, rig status and the driller's display are laid out for a narrow screen; the page scrolls over the dials, and set points still drag.
