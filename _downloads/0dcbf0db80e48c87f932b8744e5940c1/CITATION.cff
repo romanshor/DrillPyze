@@ -8,6 +8,11 @@ authors:
     affiliation: Texas A&M University
 version: 1.0.0
 date-released: 2026-11-16
+doi: 10.5281/zenodo.24289880
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24289880
+    description: Zenodo archive of DrillPyze 1.0.0
 license: MIT
 repository-code: "https://github.com/romanshor/DrillPyze"
 url: "https://romanshor.github.io/DrillPyze/"

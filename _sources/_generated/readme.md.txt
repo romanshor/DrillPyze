@@ -3,6 +3,7 @@
 [![Tests](https://github.com/romanshor/DrillPyze/actions/workflows/tests.yml/badge.svg)](https://github.com/romanshor/DrillPyze/actions/workflows/tests.yml)
 [![Documentation](https://github.com/romanshor/DrillPyze/actions/workflows/main.yml/badge.svg)](https://romanshor.github.io/DrillPyze/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24289880.svg)](https://doi.org/10.5281/zenodo.24289880)
 
 **Version 1.0.0 (released 2026-11-16).**
 [Documentation](https://romanshor.github.io/DrillPyze/) ·
@@ -474,9 +475,27 @@ in pull requests into them, Lite must match the Python model. See
 
 ## Citing DrillPyze
 
-If you use DrillPyze in your work, please cite it. The citation details are
-in [`CITATION.cff`](../../../CITATION.cff); GitHub shows them under *Cite this
-repository*.
+If you use DrillPyze in your work, please cite it. Version 1.0.0 is archived
+on Zenodo with the DOI [10.5281/zenodo.24289880](https://doi.org/10.5281/zenodo.24289880):
+
+> Shor, R.J. (2026). *DrillPyze: coupled axial-torsional drillstring dynamics
+> simulator* (Version 1.0.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.24289880
+
+```bibtex
+@software{shor_drillpyze_2026,
+  author    = {Shor, Roman J.},
+  title     = {{DrillPyze}: coupled axial-torsional drillstring dynamics simulator},
+  version   = {1.0.0},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.24289880},
+  url       = {https://doi.org/10.5281/zenodo.24289880}
+}
+```
+
+The citation details are also in [`CITATION.cff`](../../../CITATION.cff); GitHub shows
+them under *Cite this repository*.
 
 ## Contributing and licence
 
