@@ -4,7 +4,7 @@
 [![Documentation](https://github.com/romanshor/DrillPyze/actions/workflows/main.yml/badge.svg)](https://romanshor.github.io/DrillPyze/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Version 1.0 alpha (1.0.0a1, released 2026-11-13).**
+**Version 1.0.0 (released 2026-11-16).**
 [Documentation](https://romanshor.github.io/DrillPyze/) ·
 [Try it in your browser (DrillPyze Lite)](https://romanshor.github.io/DrillPyze/lite/) ·
 [Demo mode](https://romanshor.github.io/DrillPyze/lite/#demo) ·
@@ -462,7 +462,7 @@ documentation.
 
 | Branch | Purpose | Published at |
 |---|---|---|
-| `main` | releases (currently 1.0.0a1) | documentation at the site root, DrillPyze Lite at `/lite/` |
+| `main` | releases (currently 1.0.0) | documentation at the site root, DrillPyze Lite at `/lite/` |
 | `coupled-model` | development of the Python model, UI and docs | development docs at `/coupled-model/` |
 | `browser-lite` | brings DrillPyze Lite up to date with the physics | — |
 

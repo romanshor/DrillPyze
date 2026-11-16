@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Changelog &mdash; DrillPyze 1.0.0a1</title>
+  <title>Changelog &mdash; DrillPyze 1.0.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a480e030"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
@@ -46,7 +46,7 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Changelog</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#unreleased">Unreleased</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">1.0.0 (2026-11-16)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#a1-1-0-alpha-2026-11-13">1.0.0a1 — 1.0 alpha (2026-11-13)</a></li>
 </ul>
 </li>
@@ -93,8 +93,9 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="changelog">
 <h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading"></a></h1>
-<section id="unreleased">
-<h2>Unreleased<a class="headerlink" href="#unreleased" title="Link to this heading"></a></h2>
+<section id="id1">
+<span id="100-2026-11-16"></span><h2>1.0.0 (2026-11-16)<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>First stable release. Since 1.0.0a1 it adds a mud motor (physics spec revision 3), a phone layout and a full-screen demo mode for the simulator, anonymous visit counts on the hosted DrillPyze Lite, and documentation fixes. Cases without a motor give the same results as in 1.0.0a1.</p>
 <p><strong>Mud motor</strong> (physics spec revision 3; derivation §6.4; Python model and DrillPyze Lite).</p>
 <ul class="simple">
 <li><p>An optional positive-displacement motor between the string and the bit, after Nguyen et al. (2017, AADE-17-NTCE-026). Well A defaults to no motor; ticking <em>Mud motor in the BHA</em> adds a generic 6¾” 7/8-lobe motor (0.28 rev/gal) whose values can be edited.</p></li>
