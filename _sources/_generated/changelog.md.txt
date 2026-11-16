@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-11-16)
+
+First stable release. Since 1.0.0a1 it adds a mud motor (physics spec revision 3), a phone layout and a full-screen demo mode for the simulator, anonymous visit counts on the hosted DrillPyze Lite, and documentation fixes. Cases without a motor give the same results as in 1.0.0a1.
 
 **Mud motor** (physics spec revision 3; derivation §6.4; Python model and DrillPyze Lite).
 - An optional positive-displacement motor between the string and the bit, after Nguyen et al. (2017, AADE-17-NTCE-026). Well A defaults to no motor; ticking *Mud motor in the BHA* adds a generic 6¾" 7/8-lobe motor (0.28 rev/gal) whose values can be edited.
