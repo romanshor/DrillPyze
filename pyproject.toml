@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "DrillPyze"
-version = "1.0.0a1"
+version = "1.0.0"
 description = "Coupled axial-torsional drillstring dynamics, torque & drag and controller test bench"
 readme = "README.md"
 license = { text = "MIT" }
@@ -14,7 +14,7 @@ dependencies = ["numpy", "pandas", "numba>=0.57", "matplotlib", "openpyxl"]
 keywords = ["drilling", "drillstring dynamics", "stick-slip", "torque and drag", "drilling automation",
             "hydraulics", "geothermal", "simulation"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
     "License :: OSI Approved :: MIT License",
