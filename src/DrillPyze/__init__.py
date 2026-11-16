@@ -9,7 +9,7 @@ from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
 from .parameters import (ModelParameters, FrictionParameters, DampingParameters,
-                         BitParameters, TopDriveParameters, ControllerParameters,
+                         BitParameters, MotorParameters, TopDriveParameters, ControllerParameters,
                          AutodrillerParameters, RampParameters, HydraulicsParameters)
 from .simulation import Simulation
 from .statics import torque_drag

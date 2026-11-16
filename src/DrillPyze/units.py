@@ -31,6 +31,7 @@ SG = 1000.0                 # kg/m^3 per specific gravity
 
 # flow
 GPM = 6.30901964e-5         # m^3/s per US gal/min
+GAL = 3.785411784e-3        # m^3 per US gal
 
 # linear weight
 LB_FT = LBM / FT            # kg/m per lb/ft

@@ -1,7 +1,9 @@
 /* DrillPyze driller's display ("deck").
  *
  * Arc gauges for WOB, rotary speed, torque, ROP, standpipe and bottomhole
- * pressure, and bars for pump rate and mud weight / ECD.  Each gauge keeps the
+ * pressure, and bars for pump rate and mud weight / ECD.  With a mud motor in the
+ * BHA a toolface dial is added (with orient buttons for sliding), the standpipe
+ * dial marks the off-bottom pressure, and the rotary dial is flagged "Motor".  Each gauge keeps the
  * surface measurement as its needle; the model's downhole estimate is an
  * orange arrow outside the dial with its range over the last 10 s as a band.
  * Set points are cyan diamonds dragged on the dials themselves (or focused and
@@ -13,7 +15,9 @@
 'use strict';
 
 // live control state, SI (rpm in rpm); app.js sends it with every step
-const ctl = { tdMode: 'setpoint', rpm: 60, dwMode: 'velocity', wob: 0, vblk: 0, flow: null, tin: null, tare: false };
+const ctl = { tdMode: 'setpoint', rpm: 60, dwMode: 'velocity', wob: 0, vblk: 0, flow: null, tin: null, tare: false,
+              orient: 0 };     // toolface turn still to apply at surface (deg, + clockwise)
+const ORIENT_STEP = 15, ORIENT_RATE = 30;     // deg per click; surface turning rate while orienting (deg/s = 5 rpm)
 
 const DISPLAY_DEFAULTS = { rpm_limit: 220, wob_limit: 150e3, torque_limit: 25e3, rop_limit: 90 / 3600,
                            spp_limit: 4000 * 6894.757293168, pore_density: 1100, frac_density: 1500 };
@@ -64,6 +68,7 @@ const bV = (b, y) => b.min + (b.max - b.min) * Math.max(0, Math.min(1, (BB - y) 
 // ----------------------------------------------------------- definitions
 // Values are read from a frame's `latest` (server units) and returned in display units.
 function deckDefs(L) {
+  const motor = !!(L && L.motor);
   const tvd = L && L.tvd_bottom, rho = (L && L.mud_density) || get(state.cfg, 'fluid.density') || 1200;
   const pd = (dens) => (tvd ? toDisp('pressure', dens * G_ACC * tvd) : null);
   const lim = { rpm: displayLimit('rpm_limit'), wob: toDisp('force', displayLimit('wob_limit')),
@@ -82,6 +87,7 @@ function deckDefs(L) {
       sp: () => toDisp('force', ctl.wob), spActive: () => ctl.dwMode === 'wob', spSet: (v) => { ctl.wob = Math.max(0, fromDisp('force', v)); },
       spMsg: () => `Autodriller WOB set point → ${fx(toDisp('force', ctl.wob), 1)} ${unitOf('force')}` }),
     Object.assign(sc(0, lim.rpm * 1.12, 5), { id: 'rpm', title: 'Rotary', kind: 'rpm', lim: lim.rpm,
+      badge: motor ? 'Motor' : null, badgeTitle: 'Mud motor in the BHA: bit speed = surface + motor speed',
       surf: (l) => l.rpm_td, dh: (l) => l.rpm_bit, trace: 'rpm_bit', traceKind: 'rpm',
       chip: () => (ctl.tdMode === 'setpoint' ? 'Controller' : 'Prescribed'), chipOn: () => true,
       chipTitle: 'Top drive: speed controller set point, or prescribed top-drive speed (click to switch)',
@@ -97,11 +103,17 @@ function deckDefs(L) {
       sp: () => toDisp('rop', ctl.vblk), spActive: () => ctl.dwMode === 'velocity', spSet: (v) => { ctl.vblk = fromDisp('rop', v); },
       spMsg: () => `Block speed → ${fx(toDisp('rop', ctl.vblk), 0)} ${unitOf('rop')}${ctl.vblk < 0 ? ' (hoisting)' : ''}` }),
     Object.assign(sc(0, lim.spp * 1.25, 5), { id: 'spp', title: 'Standpipe', kind: 'pressure', lim: lim.spp,
-      surf: (l) => toDisp('pressure', l.spp), surfLabel: 'SPP' }),
+      surf: (l) => toDisp('pressure', l.spp), surfLabel: 'SPP',
+      // with a motor: the off-bottom pressure, SPP less the motor's on-bottom differential
+      ...(motor ? { ref: () => (L.spp == null ? null : toDisp('pressure', L.spp - L.dp_motor + L.dp_no_load)), refLabel: 'Off btm' } : {}) }),
   ];
   const bhpLo = pore != null ? pore * 0.85 : 0, bhpHi = frac != null ? frac * 1.08 : lim.spp;
   dials.push(Object.assign(sc(bhpLo, bhpHi, 4), { id: 'bhp', title: 'Bottomhole', kind: 'pressure', lim: frac, limLo: pore,
     needleDh: (l) => toDisp('pressure', l.p_bh_hyd), ref: () => pd(rho), refLabel: 'Static', dhLabel: 'BHP' }));
+  if (motor) dials.push({ id: 'tf', tf: true, title: 'Toolface', kind: 'deg', min: 0, max: 360, step: 30, dec: 0,
+    chip: () => `⟲ ${ORIENT_STEP}°`, chipOn: () => canOrient(), chipTitle: `Orient ${ORIENT_STEP}° left: turn the string at surface (while sliding)`,
+    chipClick: () => orient(-ORIENT_STEP),
+    chip2: `${ORIENT_STEP}° ⟳`, chip2Title: `Orient ${ORIENT_STEP}° right: turn the string at surface (while sliding)`, chip2Click: () => orient(ORIENT_STEP) });
   const mwLo = Math.min(displayLimit('pore_density'), rho), mwHi = Math.max(displayLimit('frac_density'), rho);
   const bars = [
     Object.assign(sc(0, toDisp('flow', flow0 * 2), 5), { id: 'q', title: 'Pump', kind: 'flow',
@@ -111,7 +123,7 @@ function deckDefs(L) {
       pore: toDisp('ecd', displayLimit('pore_density')), frac: toDisp('ecd', displayLimit('frac_density')), mw: toDisp('ecd', rho) }),
   ];
   // decimals from the scale size: 0 for hundreds and up, 1 below 50, 2 below 5
-  for (const d of dials.concat(bars)) d.dec = Math.max(Math.abs(d.min), Math.abs(d.max)) > 50 ? 0 : Math.max(Math.abs(d.min), Math.abs(d.max)) > 5 ? 1 : 2;
+  for (const d of dials.concat(bars)) if (!d.tf) d.dec = Math.max(Math.abs(d.min), Math.abs(d.max)) > 50 ? 0 : Math.max(Math.abs(d.min), Math.abs(d.max)) > 5 ? 1 : 2;
   return { dials, bars };
 }
 
@@ -168,6 +180,30 @@ function dialDynamic(d, L, t) {
   return g;
 }
 
+// --------------------------------------------------------- toolface dial
+// A full circle, high side at the top, clockwise; the needle is the motor's toolface.
+const TF_LABELS = { 0: 'HS', 90: '90R', 180: '180', 270: '90L' };
+function tfFace() {
+  let g = `<circle cx="${CX}" cy="${CY}" r="${R}" stroke="${DK.track}" stroke-width="11" fill="none"/>`;
+  for (let a = 0; a < 360; a += 15) {
+    const major = a % 90 === 0;
+    g += radial(a, R - 7, R - (major ? 17 : a % 30 === 0 ? 13 : 10), DK.tick, major ? 1.8 : 1);
+    if (major) { const t = dPt(a, R - 29); g += `<text x="${t[0].toFixed(1)}" y="${(t[1] + 4).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="${a ? 400 : 700}" fill="${DK.dim}">${TF_LABELS[a]}</text>`; }
+  }
+  return g;
+}
+function tfDynamic(L) {
+  const tf = L.toolface_deg;
+  if (tf == null || !isFinite(tf)) return '';
+  const tip = dPt(tf, R - 10), tail = dPt(tf + 180, 12);
+  let g = `<line x1="${tail[0].toFixed(1)}" y1="${tail[1].toFixed(1)}" x2="${tip[0].toFixed(1)}" y2="${tip[1].toFixed(1)}" stroke="${DK.dh}" stroke-width="3.5" stroke-linecap="round"/>`;
+  g += `<path d="M${xy(dPt(tf, R + 8))} L${xy(dPt(tf - 5.5, R + 23))} L${xy(dPt(tf + 5.5, R + 23))} Z" fill="${DK.dh}" stroke="${DK.bg}" stroke-width="1.2"/>`;
+  g += `<circle cx="${CX}" cy="${CY}" r="7" fill="${DK.bg}" stroke="${DK.dh}" stroke-width="2.5"/>`;
+  // the value itself is in the readout below; the dial carries the stall warning
+  if (L.motor_stalled) g += `<text x="${CX}" y="${CY + 34}" text-anchor="middle" font-size="17" font-weight="700" fill="${DK.limMark}">STALL</text>`;
+  return g;
+}
+
 // ------------------------------------------------------------- bar drawing
 function barFace(b) {
   let g = `<rect x="${BX}" y="${BT}" width="22" height="${BB - BT}" rx="3" fill="${DK.track}"/>`;
@@ -213,16 +249,19 @@ function deckBuild(defs) {
   const host = $('deck'), legend = host.querySelector('.deck-legend');
   for (const el of host.querySelectorAll('.gauge')) el.remove();
   deck.nodes = []; deck.bars = []; deck.drag = null;
+  host.classList.toggle('motor', defs.dials.some(d => d.tf));      // one more dial in the wide layout
   for (const d of defs.dials) {
     const el = document.createElement('div'); el.className = 'gauge';
     const cells = [];
-    if (d.surf) cells.push(`<div class="s"><span>${d.surfLabel || 'Surf'}</span><b data-k="s">–</b></div>`);
+    if (d.tf) cells.push('<div class="d"><span>TF</span><b data-k="tf">–</b></div>', '<div class="s"><span>Motor</span><b data-k="mrpm">–</b></div>',
+                         `<div class="h"><span>Diff ${unitOf('pressure')}</span><b data-k="mdp">–</b></div>`);
+    else if (d.surf) cells.push(`<div class="s"><span>${d.surfLabel || 'Surf'}</span><b data-k="s">–</b></div>`);
     if (d.dh || d.needleDh) cells.push(`<div class="d"><span>${d.dhLabel || 'DH'}</span><b data-k="d">–</b></div>`);
     if (d.ref) cells.push(`<div class="h"><span>${d.refLabel}</span><b data-k="r">–</b></div>`);
     if (d.sp) cells.push(`<div class="p"><span>Set</span><b data-k="p">–</b></div>`);
-    else cells.push(`<div class="l"><span>Limit</span><b data-k="l">${fx(d.lim, d.dec)}</b></div>`);
-    el.innerHTML = `<div class="g-head"><h2>${d.title}</h2>${d.chip ? `<button class="chip" type="button" title="${d.chipTitle || ''}"></button>` : ''}${d.chip2 ? `<button class="chip chip2" type="button" title="${d.chip2Title}">${d.chip2}</button>` : ''}</div>
-      <svg viewBox="0 0 ${DW} ${DH}" role="img" aria-label="${d.title} gauge"><g>${dialFace(d)}</g><g class="dyn"></g><g class="spg"></g></svg>
+    else if (!d.tf) cells.push(`<div class="l"><span>Limit</span><b data-k="l">${fx(d.lim, d.dec)}</b></div>`);
+    el.innerHTML = `<div class="g-head"><h2>${d.title}</h2>${d.badge ? `<span class="badge" title="${d.badgeTitle}">${d.badge}</span>` : ''}${d.chip ? `<button class="chip" type="button" title="${d.chipTitle || ''}"></button>` : ''}${d.chip2 ? `<button class="chip chip2" type="button" title="${d.chip2Title}">${d.chip2}</button>` : ''}</div>
+      <svg viewBox="0 0 ${DW} ${DH}" role="img" aria-label="${d.title} gauge"><g>${d.tf ? tfFace() : dialFace(d)}</g><g class="dyn"></g><g class="spg"></g></svg>
       <div class="reads">${cells.join('')}</div>`;
     host.insertBefore(el, legend);
     const n = { d, el, svg: el.querySelector('svg'), dyn: el.querySelector('.dyn'), spg: el.querySelector('.spg'), chip: el.querySelector('.chip:not(.chip2)') };
@@ -260,7 +299,7 @@ function deckUpdate(L, t) {
   if (!L) return;
   deck.last = { L, t };
   const defs = deckDefs(L);
-  const key = JSON.stringify([SYSTEM, defs.dials.map(d => [d.min, d.max, d.step, d.lim, d.limLo]), defs.bars.map(b => [b.min, b.max, b.step, b.pore, b.frac, b.mw])]);
+  const key = JSON.stringify([SYSTEM, defs.dials.map(d => [d.id, d.badge, d.min, d.max, d.step, d.lim, d.limLo]), defs.bars.map(b => [b.min, b.max, b.step, b.pore, b.frac, b.mw])]);
   if (deck.drag) {
     // hold the scales still while a set point is being dragged; changes apply on release
   } else if (key !== deck.key) {
@@ -271,7 +310,7 @@ function deckUpdate(L, t) {
     deck.nodes.forEach((n, i) => { Object.assign(n.d, defs.dials[i]); });
     deck.bars.forEach((n, i) => { Object.assign(n.b, defs.bars[i]); });
   }
-  for (const n of deck.nodes) { n.dyn.innerHTML = dialDynamic(n.d, L, t); if (deck.drag !== n) drawDialSp(n); }
+  for (const n of deck.nodes) { n.dyn.innerHTML = n.d.tf ? tfDynamic(L) : dialDynamic(n.d, L, t); if (deck.drag !== n) drawDialSp(n); }
   for (const n of deck.bars) { n.dyn.innerHTML = barDynamic(n.b, L); if (deck.drag !== n) drawBarSp(n); }
   deckReadouts(L);
 }
@@ -280,6 +319,12 @@ function deckRedraw() { if (deck.last) deckUpdate(deck.last.L, deck.last.t); }
 function deckReadouts(L) {
   for (const n of deck.nodes) {
     const d = n.d, q = (k) => n.el.querySelector(`[data-k="${k}"]`);
+    if (d.tf) {
+      q('tf').textContent = L.toolface_deg == null ? '–' : `${fx(L.toolface_deg, 0)}°`;
+      q('mrpm').textContent = fx(L.rpm_motor, 0);
+      q('mdp').textContent = fx(toDisp('pressure', L.dp_motor), SYSTEM === 'field' ? 0 : 2);
+      n.el.classList.toggle('stalled', !!L.motor_stalled);
+    }
     if (q('s')) q('s').textContent = fx(d.surf(L), d.dec);
     if (q('d')) q('d').textContent = fx(d.dh ? d.dh(L) : d.needleDh(L), d.dec);
     if (q('r')) q('r').textContent = fx(d.ref(), d.dec);
@@ -296,6 +341,9 @@ function deckReadouts(L) {
   // status strip and stick-slip alarm (bit speed range over 10 s, mean above 5 rpm)
   const r = traceRange('rpm_bit', 'rpm', deck.last && deck.last.t);
   $('alarm').hidden = !(r && r[2] > 5 && (r[1] - r[0]) / (2 * r[2]) > 0.5);
+  $('st-motor').textContent = L.motor ? 'Mud motor' : 'No motor';
+  $('st-motor').classList.toggle('on', !!L.motor);
+  $('stall-alarm').hidden = !L.motor_stalled;
   $('st-mode').textContent = ctl.dwMode === 'wob' ? 'Autodriller' : (ctl.vblk === 0 ? 'Block stopped' : ctl.vblk > 0 ? 'Lowering' : 'Hoisting');
 }
 
@@ -375,9 +423,24 @@ function deckToast(m) {
   const t = $('deck-toast'); t.textContent = m; t.classList.add('show');
   clearTimeout(deck.toastT); deck.toastT = setTimeout(() => t.classList.remove('show'), 2000);
 }
-// SI inputs for the server; the zeroing request is sent once
-function deckInputs() {
-  const out = { td_mode: ctl.tdMode, rpm: ctl.rpm, flow_m3s: ctl.flow, inlet_c: ctl.tin, dw_mode: ctl.dwMode,
+// Orienting while sliding: turn the string at surface by a few degrees.  The turn is
+// sent as a short top-drive speed set point (ORIENT_RATE) until it has been applied.
+function canOrient() { return !!(deck.last && deck.last.L.motor) && ctl.tdMode === 'setpoint' && ctl.rpm === 0; }
+function orient(deg) {
+  if (!canOrient()) { deckToast('Set the rotary set point to 0 (sliding) to orient the toolface'); return; }
+  ctl.orient += deg;
+  deckToast(`Orienting ${Math.abs(ctl.orient)}° ${ctl.orient < 0 ? 'left' : 'right'} at surface`);
+}
+// SI inputs for the server for a step of `duration` s; the zeroing request is sent once
+function deckInputs(duration = 0) {
+  let rpm = ctl.rpm;
+  if (ctl.orient && duration > 0 && canOrient()) {
+    const turn = Math.sign(ctl.orient) * Math.min(Math.abs(ctl.orient), ORIENT_RATE * duration);
+    ctl.orient -= turn;
+    if (Math.abs(ctl.orient) < 1e-9) ctl.orient = 0;
+    rpm = turn / duration / 6;               // deg/s -> rpm
+  } else if (!canOrient()) ctl.orient = 0;
+  const out = { td_mode: ctl.tdMode, rpm, flow_m3s: ctl.flow, inlet_c: ctl.tin, dw_mode: ctl.dwMode,
                 v_block_mh: ctl.dwMode === 'velocity' ? ctl.vblk * 3600 : 0, wob_kn: ctl.dwMode === 'wob' ? ctl.wob / 1e3 : 0,
                 tare: ctl.tare };
   ctl.tare = false;

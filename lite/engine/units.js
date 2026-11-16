@@ -6,3 +6,4 @@ export const STEEL_G = 79.3e9;
 export const RPM = 2 * Math.PI / 60;
 export const PSI = 6894.757293168;
 export const IN = 0.0254;
+export const GAL = 3.785411784e-3;

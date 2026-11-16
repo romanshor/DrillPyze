@@ -132,7 +132,10 @@ table.grid .del { border: 0; background: none; color: var(--steel); cursor: poin
   grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
 /* one row of six dials and two bars when there is room, otherwise two rows of four */
 .deck-wrap { container-type: inline-size; }
-@container (min-width: 1180px) { .deck { grid-template-columns: repeat(6, minmax(0, 1fr)) 132px 132px; } }
+@container (min-width: 1180px) { .deck { grid-template-columns: repeat(6, minmax(0, 1fr)) 132px 132px; }
+  .deck.motor { grid-template-columns: repeat(7, minmax(0, 1fr)) 120px 120px; } }
+/* with a mud motor (one more dial): five across in the middle widths */
+@container (min-width: 561px) and (max-width: 1179px) { .deck.motor { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @container (max-width: 560px) { .deck { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .deck .gauge { background: var(--dk-cell); border: 1px solid var(--dk-line); border-radius: 7px; padding: 6px 6px 8px; display: flex; flex-direction: column; min-width: 0; align-self: stretch; }
 .g-head { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 24px; }
@@ -153,6 +156,12 @@ table.grid .del { border: 0; background: none; color: var(--steel); cursor: poin
 .deck .gauge.bar .reads { margin-top: 2px; }
 .deck .reads .s b { color: var(--ink); } .deck .reads .d b { color: #b86e06; } .deck .reads .p b { color: #0b7a9a; }
 .deck .reads .l b { color: #c62828; } .deck .reads .h b { color: #5b6b7c; }
+/* "Motor" flag on the rotary dial: under the title, top right (like the Zero chip on the left) */
+.deck .g-head .badge { position: absolute; top: 32px; right: 6px; font: 600 10px/1 var(--font); text-transform: uppercase; letter-spacing: .05em;
+  padding: 3px 6px; border-radius: 9px; background: #e3f3f8; color: #0b7a9a; border: 1px solid #b9e0ec; }
+.deck .gauge.stalled { border-color: #f0b4ae; background: #fff6f5; }
+.status .flag { color: var(--steel); }
+.status .flag.on { color: #0b7a9a; }
 .sp-handle { cursor: grab; touch-action: none; } .sp-handle:active { cursor: grabbing; } .sp-handle.inactive { cursor: default; }
 .sp-handle:focus { outline: none; } .sp-handle:focus-visible path.vis { stroke: #1c2733; stroke-width: 2.5; }
 .tin { display: flex; align-items: center; gap: 4px; justify-content: center; margin-top: 4px; font-size: 11px; color: var(--dk-dim); }

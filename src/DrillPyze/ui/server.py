@@ -170,6 +170,10 @@ class Session:
             'bit_depth': _r(col['bit_depth'], 3),
             'hole_depth': _r(col['hole_depth'], 3),
             'block_pos': _r(col['block_pos'], 3),
+            # mud motor (zeros without one): rotor rpm, differential (Pa), toolface (deg)
+            'rpm_motor': _r(units.rads_to_rpm(col['omega_motor']), 2),
+            'dp_motor': _r(col['dp_motor'], 0),
+            'toolface_deg': _r(np.degrees(np.mod(sim.params.motor.toolface_offset + col['stator_angle'], 2 * np.pi)), 2),
         }
         prof = sim.profiles()
         sv = sim.wellbore.survey
@@ -181,7 +185,7 @@ class Session:
         # hydraulics channels (SI: Pa, kg/m^3, m^3/s) since the last frame
         hyd_rows = sim._hyd_records[self.sent_hyd:]
         self.sent_hyd = len(sim._hyd_records)
-        hyd = {k: [round(float(r[k]), 6) for r in hyd_rows] for k in ('time', 'spp', 'p_bh', 'ecd', 'q_in', 'q_out')}
+        hyd = {k: [round(float(r[k]), 6) for r in hyd_rows] for k in ('time', 'spp', 'p_bh', 'ecd', 'q_in', 'q_out', 'dp_motor')}
         hs = sim.hydraulics.state() if sim.hydraulics is not None else {}
         slow = {k: [round(float(r.get(k, np.nan)), 4) if r.get(k) is not None else None for r in slow_rows]
                 for k in ('time', 't_bit', 't_out', 't_in', 't_rock', 'ccs_eff', 'ccs', 'S', 'ecd', 'p_bh')}
@@ -218,6 +222,8 @@ class Session:
                 'p_bh_hyd': hs.get('p_bh'),
                 'tvd_bottom': float(sim.hydraulics.tvd_bottom) if sim.hydraulics is not None else None,
                 'mud_density': float(sim.fluid.density),
+                # mud motor (None without one): rotor speed, differential (Pa), stall, toolface
+                **self._motor_latest(L),
             },
             'hyd': hyd,
             'thermal': thermal,
@@ -236,6 +242,16 @@ class Session:
             'perf': {'wall': wall, 'sim': duration,
                      'realtime': (duration / wall) if wall > 0 else None},
         }
+
+    def _motor_latest(self, L):
+        """Driller's-display motor values: presence flag, rpm, differential (Pa), stall and toolface."""
+        m = self.sim.params.motor
+        if not m.enabled:
+            return {'motor': False, 'rpm_motor': None, 'dp_motor': None, 'motor_stalled': None, 'toolface_deg': None,
+                    'dp_no_load': None, 'dp_max': None, 'dp_stall': None}
+        return {'motor': True, 'rpm_motor': units.rads_to_rpm(L['omega_motor']), 'dp_motor': L['dp_motor'],
+                'motor_stalled': bool(L['motor_stalled']), 'toolface_deg': float(np.degrees(L['toolface'])),
+                'dp_no_load': m.dp_no_load, 'dp_max': m.dp_max, 'dp_stall': m.dp_stall}
 
     def info(self):
         """Simulation info plus the first torsional mode and controller gains."""

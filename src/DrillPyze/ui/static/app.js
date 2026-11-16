@@ -25,7 +25,7 @@ const UNITS = {
     slow_speed: ['mm/s', 1e-3], inertia: ['kg·m²', 1], k_rop: ['(m/h)/(kN·rpm)', (1 / 3600) / (1e3 * RPM)], stress: ['MPa', 1e6],
     modulus: ['GPa', 1e9], pgrad: ['kPa/m', 1e3], flow: ['L/min', 1 / 60000], tgrad: ['°C/km', 1e-3], per_temp: ['1/°C', 1],
     temp: ['°C', 1], dtemp: ['°C', 1], yp: ['Pa', 1], area: ['mm²', 1e-6], pressure: ['MPa', 1e6], ecd: ['kg/m³', 1],
-    kp: ['N·m·s', 1], ki: ['N·m', 1],
+    kp: ['N·m·s', 1], ki: ['N·m', 1], rev_vol: ['rev/L', 1000],
   },
   field: {
     length: ['ft', 0.3048], depth: ['ft', 0.3048], diameter: ['in', 0.0254], density: ['ppg', 119.826427],
@@ -33,11 +33,12 @@ const UNITS = {
     rop: ['ft/h', 0.3048 / 3600], slow_speed: ['in/s', 0.0254], inertia: ['lbm·ft²', 0.0421401],
     k_rop: ['(ft/h)/(klbf·rpm)', (0.3048 / 3600) / (4448.2216 * RPM)], stress: ['psi', 6894.7573], modulus: ['Mpsi', 6894757.3], pgrad: ['psi/ft', 6894.7573 / 0.3048],
     flow: ['gpm', 6.30901964e-5], tgrad: ['°F/100 ft', (5 / 9) / 30.48], per_temp: ['1/°F', 1.8], temp: ['°F', 5 / 9], dtemp: ['°F', 5 / 9], yp: ['lbf/100 ft²', 0.4788026], area: ['in²', 6.4516e-4], pressure: ['psi', 6894.7573], ecd: ['ppg', 119.826427], kp: ['ft·lbf·s', 1.3558179], ki: ['ft·lbf', 1.3558179],
+    rev_vol: ['rev/gal', 1 / 3.785411784e-3],
   },
 };
 // kinds whose unit does not change between systems: [label, SI per display unit]
 const FIXED = { accel: ['m/s²', 1], cond: ['W/(m·K)', 1], cp: ['J/(kg·K)', 1], visc: ['mPa·s', 1e-3], none: ['–', 1], deg: ['°', 1], rpm: ['rpm', RPM], rpm_s: ['rpm/s', RPM], per_s: ['1/s', 1],
-                hz: ['Hz', 1], s: ['s', 1] };
+                hz: ['Hz', 1], s: ['s', 1], rad_deg: ['°', Math.PI / 180] };
 const SERVER = { force: 1e3, torque: 1e3, length: 1, depth: 1, rop: 1 / 3600, temp: 1, stress: 1 };   // SI per unit the server sends
 
 let SYSTEM = 'si';
@@ -129,6 +130,23 @@ const SECTIONS = [
       ['parameters.bit.blades', 'Blades', 'none', { models: ['regenerative'], orSource: 'formation' }],
       ['parameters.bit.nozzle_area', 'Nozzle flow area (TFA)', 'area', { hint: 'Sum of nozzle areas; one n/32 in nozzle is π(n/64)² in²' }],
       ['parameters.bit.discharge_coefficient', 'Nozzle discharge coefficient', 'none', { hint: '0.95 for jets' }],
+    ] },
+  { title: 'Mud motor',
+    note: () => (get(state.cfg, 'parameters.motor.enabled')
+      ? 'Positive-displacement motor between the string and the bit (Nguyen et al. 2017). Bit speed = string speed + motor constant × flow. '
+        + 'Differential pressure = off-bottom + TOB / K_T, with K_T = η / (2π·k_n); the bit stalls above the stall differential. '
+        + 'Slide by setting the rotary set point to 0, and orient the toolface from its dial.'
+      : 'No motor in the BHA. Tick the box to add a generic 6¾" 7/8-lobe motor (0.28 rev/gal), then edit its values.'),
+    fields: [
+      ['parameters.motor.enabled', 'Mud motor in the BHA', 'bool', { rebuild: true }],
+      ['parameters.motor.speed_constant', 'Motor constant', 'rev_vol', { motor: true, hint: 'Rotor revolutions per unit volume of flow, from the motor spec sheet' }],
+      ['parameters.motor.efficiency', 'Efficiency η', 'none', { motor: true, hint: 'Mechanical over hydraulic power; sets K_T = η / (2π·k_n)' }],
+      ['parameters.motor.dp_no_load', 'Off-bottom differential', 'pressure', { motor: true, hint: 'Differential with the bit off bottom (no load)' }],
+      ['parameters.motor.dp_max', 'Rated differential', 'pressure', { motor: true, hint: 'Maximum recommended differential; reference for the slip' }],
+      ['parameters.motor.dp_stall', 'Stall differential', 'pressure', { motor: true, hint: 'The bit stalls when the torque would need more than this' }],
+      ['parameters.motor.slip', 'Speed drop at rated differential', 'none', { motor: true, hint: 'Fraction of the no-load speed lost to leakage at the rated differential; 0 = none' }],
+      ['parameters.motor.bypass_flow', 'Bypass flow', 'flow', { motor: true, hint: 'Flow that does not pass through the power section' }],
+      ['parameters.motor.toolface_offset', 'Initial toolface', 'rad_deg', { motor: true, hint: 'Toolface at the start, clockwise from high side' }],
     ] },
   { title: 'Hydraulics',
     note: () => 'Steady losses per Introduction to Drilling Engineering ch. 7 (Newtonian, or Bingham when a yield point is given). Transients (pump start, surge and swab) from the single-phase drift-flux model of Wang et al. (2023).',
@@ -269,7 +287,7 @@ function fieldRow(spec) {
     row.innerHTML = `<input type="checkbox" id="${id}"><label for="${id}">${label}</label>`;
     const el = row.querySelector('input');
     el.checked = !!get(state.cfg, path);
-    el.addEventListener('change', () => { set(state.cfg, path, el.checked); markDirty(); });
+    el.addEventListener('change', () => { set(state.cfg, path, el.checked); markDirty(); if (opt.rebuild) buildForm(); });
     return row;
   }
   row.className = 'field';
@@ -400,6 +418,7 @@ function buildForm() {
       const byModel = !opt.models || opt.models.includes(bitModel);
       const bySource = opt.orSource ? (byModel || opt.orSource === source) : byModel && (!opt.source || opt.source === source);
       if (!bySource) continue;
+      if (opt.motor && !get(state.cfg, 'parameters.motor.enabled')) continue;
       body.appendChild(fieldRow(f));
     }
     if (sec.table) body.appendChild(tableEditor(sec.table));
@@ -527,7 +546,7 @@ function drawStringViews(fr) {
 function emptyTraces() {
   return { time: [], rpm_td: [], rpm_bit: [], rpm_sp: [], motor_torque_knm: [], pipe_torque_knm: [], tob_knm: [],
            hookload_kn: [], wob_kn: [], rop_mh: [], block_mh: [], bit_depth: [], hole_depth: [], block_pos: [],
-           ssi: [], bit_acc: [] };
+           rpm_motor: [], dp_motor: [], toolface_deg: [], ssi: [], bit_acc: [] };
 }
 const SSI_WINDOW = 10;   // s, rolling window of the stick-slip index
 function appendTrace(t) {
@@ -545,7 +564,7 @@ function appendTrace(t) {
     T.bit_acc.push(dt > 0 ? (T.rpm_bit[i] - T.rpm_bit[i - 1]) * (2 * Math.PI / 60) / dt : null);
   }
 }
-function emptyHyd() { return { time: [], spp: [], p_bh: [], ecd: [], q_in: [], q_out: [] }; }
+function emptyHyd() { return { time: [], spp: [], p_bh: [], ecd: [], q_in: [], q_out: [], dp_motor: [] }; }
 function appendHyd(h) { if (!h) return; for (const k in state.hyd) { const a = h[k]; if (a) for (let i = 0; i < a.length; i++) state.hyd[k].push(a[i]); } }
 function emptySlow() { return { time: [], t_bit: [], t_out: [], t_in: [], t_rock: [], ccs_eff: [], ccs: [], S: [], ecd: [], p_bh: [] }; }
 function appendSlow(sl) { if (!sl) return; for (const k in state.slow) { const a = sl[k]; if (a) for (let i = 0; i < a.length; i++) state.slow[k].push(a[i]); } }
@@ -585,7 +604,8 @@ function logTracks() {
       f(T.rpm_bit, 'Bit', COLORS.rot, 'rpm', { id: 'rpm_bit' })] },
     { title: 'Downhole', curves: [
       f(T.ssi, `SSI (${SSI_WINDOW} s)`, COLORS.bit, '', { id: 'ssi', zero: true }),
-      f(T.bit_acc, 'Bit ang. accel.', COLORS.rot, 'rad/s²', { id: 'bit_acc' })] },
+      f(T.bit_acc, 'Bit ang. accel.', COLORS.rot, 'rad/s²', { id: 'bit_acc' }),
+      ...(state.motorOn ? [f(T.toolface_deg, 'Toolface', COLORS.ax, '°', { id: 'toolface' })] : [])] },
     { title: 'Torque', curves: [
       f(srv('torque', T.motor_torque_knm), 'Motor', COLORS.ink, uT, { id: 'tq_motor', group: 'tq_surface' }),
       f(srv('torque', T.pipe_torque_knm), 'Surface pipe', COLORS.trq, uT, { id: 'tq_pipe', group: 'tq_surface' }),
@@ -595,6 +615,7 @@ function logTracks() {
       f(srv('force', T.wob_kn), 'WOB', COLORS.ink, uF, { id: 'wob', zero: true })] },
     { title: 'Hydraulics', curves: [
       h(dsp('pressure', H.spp), 'SPP', COLORS.ink, uP, { id: 'spp' }),
+      ...(state.motorOn ? [h(dsp('pressure', H.dp_motor), 'Motor Δp', COLORS.bit, uP, { id: 'dp_motor', zero: true })] : []),
       h(dsp('ecd', H.ecd), 'ECD', COLORS.ax, uE, { id: 'ecd' }),
       h(dsp('flow', H.q_in), 'Flow in', COLORS.rot, uQ, { id: 'q_in', group: 'flow', zero: true }),
       h(dsp('flow', H.q_out), 'Flow out', COLORS.trq, uQ, { id: 'q_out', group: 'flow', dash: 'dash', zero: true })] },
@@ -798,7 +819,7 @@ function render(fr, live = true) {
 }
 
 // -------------------------------------------------------------- simulation
-function inputs() { return deckInputs(); }
+function inputs(duration = 0) { return deckInputs(duration); }
 
 async function initialise() {
   pause();
@@ -806,7 +827,8 @@ async function initialise() {
   $('apply').disabled = true; $('apply').textContent = 'Starting…';
   try {
     const r = await api('/api/init', { config: state.cfg, previous: state.session });
-    Object.assign(state, { session: r.session, info: r.info, reference: r.reference, path: r.path,
+    ctl.orient = 0;
+    Object.assign(state, { session: r.session, info: r.info, reference: r.reference, path: r.path, motorOn: !!r.frame.latest.motor,
                            frames: [], traces: emptyTraces(), slow: emptySlow(), hyd: emptyHyd(), scrub: null, rpmMax: Math.max(60, ctl.rpm * 1.5),
                            tqMax: 1, tqMin: 0, dirty: false });
     $('dirty-hint').hidden = true;
@@ -838,7 +860,7 @@ async function advance(duration) {
   if (!state.session) return;
   state.busy = true;
   try {
-    const fr = await api('/api/step', { session: state.session, duration, inputs: inputs() });
+    const fr = await api('/api/step', { session: state.session, duration, inputs: inputs(duration) });
     pushFrame(fr);
     if (state.scrub == null) render(fr);
     const rt = fr.perf.realtime;

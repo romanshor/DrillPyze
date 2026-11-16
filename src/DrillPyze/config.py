@@ -22,7 +22,7 @@ from . import units, controllers
 from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
-from .parameters import (ModelParameters, FrictionParameters, DampingParameters, BitParameters,
+from .parameters import (ModelParameters, FrictionParameters, DampingParameters, BitParameters, MotorParameters,
                          TopDriveParameters, AutodrillerParameters, DrawworksParameters,
                          RampParameters, HydraulicsParameters)
 from .simulation import Simulation
@@ -65,6 +65,8 @@ def well_a():
                                                   mu_static_open=0.45, mu_kinetic_open=0.25)),
             'damping': asdict(DampingParameters()),
             'bit': asdict(BitParameters(model='cutting', strength_source='formation')),
+            # no motor in the BHA by default; enabling it uses a generic 6-3/4" 7/8-lobe motor
+            'motor': asdict(MotorParameters()),
             'top_drive': asdict(TopDriveParameters()),
             'controller': {'type': 'stiff', 'f_c': None, 't_hp': 10.0, 't_lp': 0.001,
                            't_en': 0.001, 'kp': None, 'ki': None, 'impedance': None},
@@ -137,6 +139,15 @@ def bit_parameters(b, hole_diameter=None):
     return BitParameters(**b)
 
 
+def motor_parameters(m):
+    """MotorParameters from a config entry (None or missing: no motor)."""
+    if not m:
+        return MotorParameters(enabled=False)
+    known = MotorParameters.__dataclass_fields__
+    return MotorParameters(**{k: (bool(v) if k == 'enabled' else float(v))
+                              for k, v in m.items() if k in known and v not in (None, '')})
+
+
 def build_parameters(cfg, zeta_p=None, first_mode=None):
     """
     ModelParameters from the case `parameters` section.
@@ -150,6 +161,7 @@ def build_parameters(cfg, zeta_p=None, first_mode=None):
         friction=FrictionParameters(**p['friction']),
         damping=DampingParameters(**p['damping']),
         bit=bit_parameters(p['bit'], _num(cfg['well'].get('hole_diameter'))),
+        motor=motor_parameters(p.get('motor')),
         top_drive=TopDriveParameters(**{k: v for k, v in p['top_drive'].items()
                                         if k in TopDriveParameters.__dataclass_fields__}),   # drops legacy setpoint_ramp
         autodriller=AutodrillerParameters(**p.get('autodriller', {})),
@@ -279,6 +291,23 @@ def validate(cfg):
             errs.append('Bit ζ must be positive.')
         if b.get('model') == 'regenerative' and int(b.get('blades', 1) or 0) < 1:
             errs.append('The regenerative bit needs at least one blade.')
+        m = cfg['parameters'].get('motor') or {}
+        if m.get('enabled'):
+            mp = motor_parameters(m)
+            if mp.speed_constant <= 0:
+                errs.append('Motor speed constant (rev per volume) must be positive.')
+            if not 0 < mp.efficiency <= 1:
+                errs.append('Motor efficiency must be between 0 and 1.')
+            if mp.dp_no_load < 0:
+                errs.append('Motor off-bottom differential must not be negative.')
+            if mp.dp_max <= mp.dp_no_load:
+                errs.append('Motor rated differential must exceed the off-bottom differential.')
+            if mp.dp_stall <= mp.dp_no_load:
+                errs.append('Motor stall differential must exceed the off-bottom differential.')
+            if mp.slip < 0 or mp.slip * mp.dp_stall / mp.dp_max >= 1:
+                errs.append('Motor slip must be at least 0 and leave the rotor turning at stall (s dp_stall / dp_max < 1).')
+            if mp.bypass_flow < 0:
+                errs.append('Motor bypass flow must not be negative.')
         h = cfg['parameters'].get('hydraulics', {})
         if h.get('enabled', True):
             if float(b.get('nozzle_area', 1) or 0) <= 0:

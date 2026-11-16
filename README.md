@@ -125,6 +125,19 @@ Other model components:
   controller, by an external torque, or by a prescribed speed.
 * **Drawworks:** a prescribed block velocity, or an autodriller. The hook can
   only hold the string up, so hookload is never negative.
+* **Mud motor** (optional; derivation §6.4): a positive-displacement motor
+  between the string and the bit, after Nguyen et al. (2017).
+  * **Speed:** set by the motor constant (rev/gal) times the flow, with
+    optional slip and bypass.
+  * **Torque:** $`T = K_T(\Delta p - \Delta p_0)`$, with
+    $`K_T = \eta/(2\pi k_n)`$, so the differential pressure reads the bit
+    torque.
+  * **Stall:** the bit stops above the stall differential.
+  * **Reactive torque:** the motor's reaction winds the string, so the
+    toolface turns left with WOB while sliding.
+  * **Hydraulics:** the motor differential adds to SPP.
+  * **Well A:** has no motor by default. A generic 6¾" 7/8-lobe motor (0.28
+    rev/gal) is ready to switch on.
 * **Wellbore temperature:** the drift-flux model of Wang et al. (2023),
   coupled every 2 s of simulated time.
 * **Hydraulics** ([`docs/derivation/hydraulics.md`](docs/derivation/hydraulics.md)):
@@ -480,6 +493,7 @@ is released under the [MIT License](LICENSE).
 * Caicedo, H.U., Calhoun, W.M. and Ewy, R.T., 2005. Unique ROP predictor using bit-specific coefficient of sliding friction and mechanical efficiency as a function of confined compressive strength impacts drilling performance. SPE/IADC-92576-MS.
 * Detournay, E. and Defourny, P., 1992. A phenomenological model for the drilling action of drag bits. *Int. J. Rock Mech. Min. Sci.*, 29(1), 13–23.
 * Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. *JPT*, 36, 987–992.
+* Nguyen, T.C., Bui, K.D., Al-Safran, E. and Saasen, A., 2017. Theoretical modeling of positive displacement motor performance. AADE-17-NTCE-026, AADE National Technical Conference and Exhibition, Houston, Texas. https://www.aade.org/application/files/8615/7132/1739/AADE-17-NTCE-026_-_Nguyen.pdf
 * Richard, T., Germay, C. and Detournay, E., 2007. A simplified model to explore the root cause of stick–slip vibrations in drilling systems with drag bits. *J. Sound Vib.*, 305(3), 432–456.
 * Shor, R.J. *Introduction to Drilling Engineering*, ch. 7, Borehole Hydraulics (online book). https://romanshor.github.io/Introduction-to-Drilling-Engineering/main/chapters/chapter07_borehole_hydraulics.html
 * Wang, N., Khaled, M.S., Luu, A., Ashok, P. and van Oort, E., 2023. Downhole temperature estimation of a growing high-temperature wellbore using a modified drift flux modeling approach. *SPE Annual Technical Conference and Exhibition*, San Antonio, Texas. SPE-214836-MS. https://doi.org/10.2118/214836-MS

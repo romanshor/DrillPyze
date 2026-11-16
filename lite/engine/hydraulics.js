@@ -58,7 +58,7 @@ const diff = (e) => e.slice(1).map((x, i) => x - e[i]);
 
 export class WellboreHydraulics {
   constructor(wellbore, grid, fluid, params, tfa, cd, bitDepth, holeDepth) {
-    this.wellbore = wellbore; this.fluid = fluid; this.p = params; this.tfa = tfa; this.cd = cd;
+    this.wellbore = wellbore; this.fluid = fluid; this.p = params; this.tfa = tfa; this.cd = cd; this.dpMotor = 0;
     [this.pv, this.ty] = rheology(fluid);
     this.c = fluid.sound_speed; this.dx = params.dx;
     this.sEdges = [0]; this.cumOd = [0]; this.cumBore = [0];
@@ -185,7 +185,7 @@ export class WellboreHydraulics {
       const rd_ = this._rhoOfP(pk, this.rTD[jd]), ra_ = this._rhoOfP(pA[kab], this.rTA[kab]), rf = 0.5 * (rd_ + ra_);
       const fr = 0.5 * this.LD[jd] * gradient(Gm / (rd_ * AD[jd]), rd_, pv, ty, this.DD[jd], 0)
                + 0.5 * this.LA[kab] * gradient(Gm / (ra_ * AA[kab]), ra_, pv, ty, this.DoA[kab], this.DiA[kab]);
-      pk = pA[kab] - rf * G * (this.zA[kab] - this.zD[jd]) + bitPressureDrop(Gm / rf, rf, this.tfa, this.cd) + fr;
+      pk = pA[kab] - rf * G * (this.zA[kab] - this.zD[jd]) + bitPressureDrop(Gm / rf, rf, this.tfa, this.cd) + fr + this.dpMotor;
     }
     pD[jd] = pk;
     for (let k = jd; k > 0; k--) {
@@ -207,8 +207,9 @@ export class WellboreHydraulics {
     this.qPump = Q;
   }
 
-  advance(duration, q0, q1, bitDepth, holeDepth) {
+  advance(duration, q0, q1, bitDepth, holeDepth, dpMotor = 0) {
     if (duration <= 0) return this.state();
+    this.dpMotor = dpMotor;      // mud motor differential (Pa), in series with the bit nozzles
     holeDepth = Math.max(holeDepth, this.holeDepth);
     this._regrid(bitDepth, holeDepth);
     this.vPipe = (bitDepth - this.bitDepth) / duration;
@@ -242,7 +243,7 @@ export class WellboreHydraulics {
       }
       const jd = nD - 1;
       {
-        const drive = pD[jd] - pA[kab] + 0.5 * (rD[jd] + rA[kab]) * G * (zA[kab] - zD[jd]);
+        const drive = pD[jd] - pA[kab] + 0.5 * (rD[jd] + rA[kab]) * G * (zA[kab] - zD[jd]) - this.dpMotor;
         const invI = 1 / (0.5 * (LD[jd] / AD[jd] + LA[kab] / AA[kab]));
         Gb = face(Gb, dt, invI, drive, rD[jd], AD[jd], LD[jd], DD[jd], 0, rA[kab], AA[kab], LA[kab], DoA[kab], DiA[kab],
                   pv, ty, 0, 0, nozzleR / (0.5 * (rD[jd] + rA[kab])), iters);
@@ -287,7 +288,7 @@ export class WellboreHydraulics {
     return { spp, p_bh: bhp, ecd: this.tvdBottom > 0 ? bhp / (G * this.tvdBottom) : this.fluid.density,
              dp_bit: bitPressureDrop(this.Gb / rbF, rbF, this.tfa, this.cd),
              q_in: q, q_out: -this.GA[0] / ra0, q_bit: this.Gb / (0.5 * (rd0 + ra0)),
-             v_pipe: this.vPipe, surface_loss: spp - pTop,
+             v_pipe: this.vPipe, surface_loss: spp - pTop, dp_motor: this.dpMotor,
              pit_gain: -(this.acc[0] - this.acc[1]) / this.fluid.density };
   }
 }

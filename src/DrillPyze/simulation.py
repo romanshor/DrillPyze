@@ -122,6 +122,7 @@ class Simulation:
         self._slow_ramps = dict(flow_rate=[0.0, 0.0, p.ramps.flow_rate, p.thermal.flow_rate],
                                 inlet_temperature=[p.thermal.inlet_temperature, 0.0, 0.0,
                                                    p.thermal.inlet_temperature])
+        self.ramps[K.R_FLOW] = self._slow_ramps['flow_rate']     # the kernel sees the pump rate (mud motor)
 
         # slow models: wellbore temperature (Wang et al. 2023) and rock strength at the bit
         self._slow_every = max(1, int(1.0 / self.dt))                         # one slow tick per <= 1 s
@@ -136,7 +137,7 @@ class Simulation:
         # circulating-system hydraulics (ch. 7 losses + single-phase drift flux, Wang et al. 2023)
         self.hydraulics = None
         self._hyd_records = []
-        self._hyd_last = dict(t=0.0, q=0.0)
+        self._hyd_last = dict(t=0.0, q=0.0, dpint=0.0)
         if p.hydraulics.enabled:
             from .hydraulics import WellboreHydraulics
             self.hydraulics = WellboreHydraulics(self.wellbore, g, self.fluid, p.hydraulics,
@@ -210,6 +211,15 @@ class Simulation:
             raise ValueError("friction weakening must be 'step' or 'exponential'")
         pf[K.P_WEAK] = 1.0 if f.weakening == 'exponential' else 0.0
         pf[K.P_BLK_ACC] = p.drawworks.block_acceleration
+        m = p.motor
+        pf[K.P_MOTOR] = 1.0 if m.enabled else 0.0
+        pf[K.P_MKN] = 2.0 * np.pi * m.speed_constant
+        pf[K.P_MKT] = m.torque_constant()
+        pf[K.P_MDP0] = m.dp_no_load
+        pf[K.P_MDPMAX] = m.dp_max
+        pf[K.P_MDPSTALL] = m.dp_stall
+        pf[K.P_MSLIP] = m.slip
+        pf[K.P_MQBY] = m.bypass_flow
         self._pack_damping()
 
     # ------------------------------------------------------------- damping
@@ -431,8 +441,12 @@ class Simulation:
         if self.hydraulics is None or dt <= 0:
             return
         q1 = self.flow_rate_now()
-        hs = self.hydraulics.advance(dt, self._hyd_last['q'], q1, self.sc[K.S_BITD], self.sc[K.S_HOLED])
-        self._hyd_last = dict(t=t, q=q1)
+        dpint = self.sc[K.S_DPINT]
+        # mud motor differential, averaged over the interval, in series with the bit nozzles
+        dp_motor = (dpint - self._hyd_last['dpint']) / dt
+        hs = self.hydraulics.advance(dt, self._hyd_last['q'], q1, self.sc[K.S_BITD], self.sc[K.S_HOLED],
+                                     dp_motor=dp_motor)
+        self._hyd_last = dict(t=t, q=q1, dpint=dpint)
         self._hyd_records.append(dict(time=t, **hs))
 
     def _slow_tick(self):
@@ -593,6 +607,7 @@ class Simulation:
         if flow_rate is not None:
             self.inputs['flow_rate'] = float(flow_rate)
             self._set_slow_ramp('flow_rate', float(flow_rate), r.flow_rate)
+            self.ramps[K.R_FLOW] = self._slow_ramps['flow_rate']
         if inlet_temperature is not None:
             self.inputs['inlet_temperature'] = float(inlet_temperature)
             self._set_slow_ramp('inlet_temperature', float(inlet_temperature), r.inlet_temperature)
@@ -651,7 +666,19 @@ class Simulation:
                     wob=s[K.S_WOB], bit_depth=s[K.S_BITD], hole_depth=s[K.S_HOLED],
                     omega_sp=s[K.S_WSP], flow_rate=self.flow_rate_now(),
                     **({k: v for k, v in self.hydraulics.state().items() if k in ('spp', 'p_bh', 'ecd', 'q_out')}
-                       if self.hydraulics is not None else {}))
+                       if self.hydraulics is not None else {}),
+                    **(self.motor_state() if self.params.motor.enabled else {}))
+
+    def motor_state(self):
+        """
+        Mud motor channels (SI): rotor speed relative to the stator ``omega_motor``,
+        differential pressure ``dp_motor``, ``motor_stalled``, and the ``toolface``
+        (rad, 0..2 pi, clockwise from the reference): the motor's toolface offset plus
+        the rotation of the string bottom since the start.
+        """
+        s, m = self.sc, self.params.motor
+        return dict(omega_motor=s[K.S_WMOT], dp_motor=s[K.S_DPM], motor_stalled=bool(s[K.S_STALL] > 0.5),
+                    toolface=float((m.toolface_offset + s[K.S_PHIS]) % (2.0 * np.pi)))
 
     def tare_hookload(self):
         """
