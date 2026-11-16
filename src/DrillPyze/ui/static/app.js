@@ -817,7 +817,7 @@ async function initialise() {
     const i = r.info;
     $('speed-out').textContent = `${i.cells} cells, Δt ${(i.dt * 1e3).toFixed(2)} ms, ${i.controller.replace('_', ' ')}`;
     $('download').href = `/api/results.csv?session=${r.session}`;
-    if (window.DRILLPYZE_LITE) $('download').onclick = (e) => { e.preventDefault(); window.DRILLPYZE_LITE.download(state.session); };
+    if (window.DRILLPYZE_LITE) $('download').onclick = (e) => { e.preventDefault(); track('download'); window.DRILLPYZE_LITE.download(state.session); };
   } catch (e) {
     message(e.message);
   } finally {
@@ -865,6 +865,7 @@ function play() {
   if (state.dirty) message('Inputs have changed since the last reset. The run continues with the previous case until you apply.', 'info');
   goLive();
   state.playing = true;
+  track('play', true);
   for (const b of [$('play'), $('demo-play')]) { b.textContent = 'Pause'; b.classList.add('playing'); b.setAttribute('aria-label', 'Pause'); }
   loop();
 }
@@ -874,6 +875,7 @@ function pause() {
 }
 
 async function runAhead() {
+  track('run-ahead', true);
   const total = Math.max(0, Number($('ahead').value) || 0);
   if (!total || !state.session) return;
   pause(); goLive();
@@ -978,6 +980,19 @@ function wire() {
   });
 }
 
+// ------------------------------------------------------------ usage counts
+// On the hosted Lite site, GoatCounter (cookie-less) counts a few anonymous events, such as
+// pressing Play or entering demo mode. Without its script on the page (the Python UI, local
+// builds) this does nothing.
+const counted = new Set();
+function track(name, once = false) {
+  if (once && counted.has(name)) return;
+  counted.add(name);
+  const send = () => { try { window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* blocked or offline */ } };
+  if (window.goatcounter && window.goatcounter.count) send();
+  else if (document.querySelector('script[data-goatcounter]')) window.addEventListener('load', () => setTimeout(send, 0), { once: true });
+}
+
 // ------------------------------------------------------------ phone layout
 function setInputsOpen(open) {
   document.querySelector('.app').classList.toggle('case-hidden', !open);
@@ -1009,7 +1024,7 @@ function wirePhone() {
     if (!open) window.scrollTo({ top: 0 });
   });
   // applying new inputs on a phone closes them and goes back to the simulator
-  $('apply').addEventListener('click', () => { if (phone()) { setInputsOpen(false); window.scrollTo({ top: 0 }); } });
+  $('apply').addEventListener('click', () => { track('new-case', true); if (phone()) { setInputsOpen(false); window.scrollTo({ top: 0 }); } });
   for (const b of document.querySelectorAll('#view-tabs button')) b.addEventListener('click', () => showView(b.dataset.v));
   $('log-prev').addEventListener('click', () => logPage(-1));
   $('log-next').addEventListener('click', () => logPage(1));
@@ -1077,6 +1092,7 @@ function setDemo(on) {
   document.body.classList.toggle('demo', on);
   $('demo-bar').hidden = !on;
   if (on) {
+    track('demo-mode');
     state.demoPage = 0;
     const el = document.documentElement;
     if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen({ navigationUI: 'hide' }).then(() => { state.demoFs = true; }).catch(() => {});

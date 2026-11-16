@@ -24,3 +24,14 @@ jobs:
         run: pip install -e ".[test]"
       - name: Run tests
         run: pytest -q
+
+  # One check named "Tests" for branch protection to require: it passes only when every
+  # pytest job above passed, so the rule keeps working if the Python matrix changes.
+  tests:
+    name: Tests
+    if: always()
+    needs: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: All test jobs passed
+        run: test "${{ needs.pytest.result }}" = success

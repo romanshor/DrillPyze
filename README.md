@@ -291,6 +291,10 @@ revision.
   ending in `#demo`) goes full screen: the dials fill the screen, and the
   along-string views and the log are pages below and to the right (swipe,
   scroll or use the arrow keys; Esc exits).
+- **Visit counts:** the hosted site counts anonymous visits with
+  [GoatCounter](https://www.goatcounter.com/) (no cookies), plus a few events:
+  first Play, run-ahead, demo mode, a new case, a results download.
+  Local builds aren't counted; `--no-analytics` leaves the counter out.
 - **Conformance:** `tests/test_lite_engine.py` (Node.js) checks that it
   reproduces the Python model to round-off, with and without the
   temperature model.
