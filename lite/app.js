@@ -1169,7 +1169,7 @@ function wireDemo() {
   document.addEventListener('fullscreenchange', () => { if (state.demoFs && !document.fullscreenElement) setDemo(false); });
 }
 
-// version under the title: "1.0 alpha (v1.0.0a1)" and "Released 2026-11-13"
+// version under the title: "1.0 (v1.0.0)" and "Released 2026-11-16"
 function showVersion(d) {
   if (!d.version) return;
   const el = $('version');
