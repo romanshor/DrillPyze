@@ -6,8 +6,8 @@ authors:
   - family-names: Shor
     given-names: Roman J.
     affiliation: Texas A&M University
-version: 1.0.0a1
-date-released: 2026-11-13
+version: 1.0.0
+date-released: 2026-11-16
 license: MIT
 repository-code: "https://github.com/romanshor/DrillPyze"
 url: "https://romanshor.github.io/DrillPyze/"
