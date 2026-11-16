@@ -228,7 +228,7 @@ def _face(G, dt, inv_I, drive, rho_u, A_u, L_u, du_o, du_i, rho_d, A_d, L_d, dd_
 
 
 @njit(cache=True)
-def _advance(nsub, dt, c2, pv, ty, k_ann, v_pipe, q_in_a, q_in_b, rho_in, p_back, nozzle_R, iters,
+def _advance(nsub, dt, c2, pv, ty, k_ann, v_pipe, q_in_a, q_in_b, rho_in, p_back, nozzle_R, dp_motor, iters,
              # drillstring path (n_d cells), faces G_d[0..n_d-1] (face k = top of cell k), bit face Gb
              m_d, V_d0, V_d1, L_d, z_d, rT_d, D_d, G_d,
              # annulus path (n_a cells), faces G_a[0..n_a-1] (face 0 = outlet), bit enters cell kab
@@ -238,7 +238,8 @@ def _advance(nsub, dt, c2, pv, ty, k_ann, v_pipe, q_in_a, q_in_b, rho_in, p_back
 
     Advances the cell masses and face mass fluxes of the drillstring and annulus
     paths over `nsub` substeps of length `dt`: pump inlet face, interior bore
-    faces, the bit (nozzle) face, interior annulus faces and the outlet face, each
+    faces, the bit (nozzle) face -- with the mud motor differential `dp_motor` in series --,
+    interior annulus faces and the outlet face, each
     updated with `_face`, then the mass balance. Arrays are updated in place;
     `acc` accumulates the pumped and returned mass.
     """
@@ -275,7 +276,7 @@ def _advance(nsub, dt, c2, pv, ty, k_ann, v_pipe, q_in_a, q_in_b, rho_in, p_back
                            pv, ty, v_pipe, 1.0, 0.0, iters)
         # ---- bit nozzles: DS bottom cell -> annulus cell kab
         jd = n_d - 1
-        drive = p_d[jd] - p_a[kab] + 0.5 * (r_d[jd] + r_a[kab]) * G * (z_a[kab] - z_d[jd])
+        drive = p_d[jd] - p_a[kab] + 0.5 * (r_d[jd] + r_a[kab]) * G * (z_a[kab] - z_d[jd]) - dp_motor
         inv_I = 1.0 / (0.5 * (L_d[jd] / A_d[jd] + L_a[kab] / A_a[kab]))
         Gb = _face(Gb, dt, inv_I, drive,
                    r_d[jd], A_d[jd], L_d[jd], D_d[jd], 0.0,
@@ -337,6 +338,7 @@ class WellboreHydraulics:
         self.fluid = fluid
         self.p = params
         self.tfa = float(tfa)
+        self.dp_motor = 0.0                 # mud motor differential in series with the nozzles (Pa)
         self.cd = float(cd)
         self.pv, self.ty = rheology(fluid)
         self.c = float(fluid.sound_speed)
@@ -529,7 +531,8 @@ class WellboreHydraulics:
             rf = 0.5 * (rd_ + ra_)
             fr = 0.5 * self.L_d[jd] * gradient(Gm / (rd_ * A_d[jd]), rd_, pv, ty, self.D_d[jd], 0.0) \
                 + 0.5 * self.L_a[kab] * gradient(Gm / (ra_ * A_a[kab]), ra_, pv, ty, self.Do_a[kab], self.Di_a[kab])
-            pk = p_a[kab] - rf * G * (self.z_a[kab] - self.z_d[jd]) + bit_pressure_drop(Gm / rf, rf, self.tfa, self.cd) + fr
+            pk = p_a[kab] - rf * G * (self.z_a[kab] - self.z_d[jd]) + bit_pressure_drop(Gm / rf, rf, self.tfa, self.cd) + fr \
+                + self.dp_motor
         p_d[jd] = pk
         # drillstring upward from the bit
         for k in range(jd, 0, -1):
@@ -549,12 +552,15 @@ class WellboreHydraulics:
         self.q_pump = float(Q)
 
     # ------------------------------------------------------------ advance
-    def advance(self, duration, q_start, q_end, bit_depth, hole_depth):
+    def advance(self, duration, q_start, q_end, bit_depth, hole_depth, dp_motor=0.0):
         """
         Advance by ``duration`` s; the pump rate ramps linearly from
         ``q_start`` to ``q_end`` (m^3/s) and the bit and hole move linearly to
-        the given depths (string motion displaces mud: surge / swab).
+        the given depths (string motion displaces mud: surge / swab).  ``dp_motor``
+        (Pa) is the mud motor differential over the interval, a loss in series with
+        the bit nozzles.
         """
+        self.dp_motor = float(dp_motor)
         if duration <= 0:
             return self.state()
         bit_depth = float(bit_depth)
@@ -578,7 +584,7 @@ class WellboreHydraulics:
         dt = duration / nsub
         nozzle_R = 1.0 / (2.0 * self.cd ** 2 * self.tfa ** 2)
         _advance(nsub, dt, self.c ** 2, self.pv, self.ty, self.p.clinging_constant, self.v_pipe,
-                 q_start, q_end, float(self.rT_d[0]), self.p.back_pressure, nozzle_R, self.p.iterations,
+                 q_start, q_end, float(self.rT_d[0]), self.p.back_pressure, nozzle_R, self.dp_motor, self.p.iterations,
                  self.m_d, V_d0, self._Vd, self.L_d, self.z_d, self.rT_d, self.D_d, self.G_d,
                  self.m_a, V_a0, self._Va, self.L_a, self.z_a, self.rT_a, self.Do_a, self.Di_a, self.G_a,
                  self.kab, self.Gb, self.acc)
@@ -608,7 +614,7 @@ class WellboreHydraulics:
                     p_bit_annulus=float(p_bit), p_bit_bore=float(p_d[-1]),
                     dp_bit=float(bit_pressure_drop(self.Gb[0] / rb_f, rb_f, self.tfa, self.cd)),
                     q_in=float(q), q_out=float(-self.G_a[0] / ra0), q_bit=float(self.Gb[0] / (0.5 * (r_d0 + ra0))),
-                    v_pipe=float(self.v_pipe), surface_loss=float(spp - p_top),
+                    v_pipe=float(self.v_pipe), surface_loss=float(spp - p_top), dp_motor=self.dp_motor,
                     # pit gain (+) / loss (-) since the start, as mud volume at inlet density
                     pit_gain=float((self.acc[0] - self.acc[1]) / self.fluid.density) * -1.0)
 

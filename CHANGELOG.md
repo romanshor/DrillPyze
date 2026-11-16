@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**Mud motor** (physics spec revision 3; derivation §6.4; Python model and DrillPyze Lite).
+- An optional positive-displacement motor between the string and the bit, after Nguyen et al. (2017, AADE-17-NTCE-026). Well A defaults to no motor; ticking *Mud motor in the BHA* adds a generic 6¾" 7/8-lobe motor (0.28 rev/gal) whose values can be edited.
+- **Speed:** motor constant (rev/gal) × flow, with optional slip at the rated differential and bypass flow.
+- **Torque:** T = K_T (Δp − Δp₀) with K_T = η / (2π k_n), so the differential reads the bit torque.
+- **Stall:** above the stall differential the bit stops, the motor passes its stall torque, and SPP jumps; picking up clears it.
+- **Reactive torque and toolface:** the bit torque acts back on the string, so while sliding the toolface turns left as WOB rises.
+- **Hydraulics:** the motor differential is in series with the bit nozzles, so it adds to SPP but not to BHP.
+- **Driller's display:**
+  - a *BHA: Mud motor / No motor* flag in the status strip and a *Motor* badge on the rotary dial;
+  - a toolface dial with motor rpm, differential pressure, a stall warning, and ⟲ / ⟳ buttons that orient the toolface 15° while sliding;
+  - an off-bottom pressure marker on the standpipe dial.
+- **Drilling log:** motor Δp on the hydraulics track and toolface on the downhole track.
+- New outputs: `omega_motor`, `dp_motor`, `motor_stalled` and `toolface` in `Simulation.latest()`; `omega_motor`, `dp_motor` and `stator_angle` in the recorded channels.
+
 **Documentation.**
 - README references now include Wang et al. (2023) (drift-flux temperature and hydraulic transients), the *Introduction to Drilling Engineering* hydraulics chapter, Detournay & Defourny (1992), Richard, Germay & Detournay (2007) and Caicedo, Calhoun & Ewy (2005).
 - Fixed the typesetting of equation (5.2) in the model derivation ("\tag not allowed in split environment").

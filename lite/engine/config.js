@@ -4,7 +4,7 @@ import { Drillstring } from './drillstring.js';
 import { Simulation, stiffController } from './simulation.js';
 import { FORMATION_DEFAULTS } from './formation.js';
 import { BIT_MODELS } from './kernel.js';
-import { IN, PSI } from './units.js';
+import { IN, PSI, GAL } from './units.js';
 import { THERMAL_DEFAULTS } from './thermal.js';
 
 export const FLUID_DEFAULTS = { density: 1000, plastic_viscosity: null, yield_point: null, viscosity: 0.020, heat_capacity: 3750,
@@ -16,6 +16,9 @@ const DEFAULTS = {
              high_pass_fraction: 0.25, yield_drag: 'pumps_off', max_frequency: 10 },
   bit: { model: 'coulomb', mu_static: 0.6, mu_kinetic: 0.4, drilling_strength: 50e6, zeta: 0.8, contact_wob: 0, blades: 5, radius: null,
          strength_source: 'constant', cutting_efficiency: 1.0, nozzle_area: 3.5628e-4, discharge_coefficient: 0.95 },
+  // mud motor (spec 5.5.1): off by default; enabling it uses a generic 6-3/4" 7/8-lobe motor
+  motor: { enabled: false, speed_constant: 0.28 / GAL, efficiency: 0.75, dp_no_load: 100 * PSI, dp_max: 750 * PSI,
+           dp_stall: 1125 * PSI, slip: 0, bypass_flow: 0, toolface_offset: 0 },
   top_drive: { inertia: 2000, max_torque: 0 },
   autodriller: { kp: 1e-7, ki: 1e-8, v_max: 60 / 3600 },
   drawworks: { block_acceleration: 0 },
@@ -70,6 +73,18 @@ export function validate(cfg) {
     if (!(Number(b.drilling_strength ?? 1) > 0)) errs.push('Bit drilling strength must be positive.');
     if (['cutting', 'regenerative'].includes(b.model) && !(Number(b.zeta ?? 1) > 0)) errs.push('Bit ζ must be positive.');
     if (b.model === 'regenerative' && !(Number(b.blades ?? 1) >= 1)) errs.push('The regenerative bit needs at least one blade.');
+    const m = { ...DEFAULTS.motor, ...(cfg.parameters.motor || {}) };
+    if (m.enabled) {
+      const v = (k) => num(m[k], DEFAULTS.motor[k]);
+      if (!(v('speed_constant') > 0)) errs.push('Motor speed constant (rev per volume) must be positive.');
+      if (!(v('efficiency') > 0 && v('efficiency') <= 1)) errs.push('Motor efficiency must be between 0 and 1.');
+      if (v('dp_no_load') < 0) errs.push('Motor off-bottom differential must not be negative.');
+      if (!(v('dp_max') > v('dp_no_load'))) errs.push('Motor rated differential must exceed the off-bottom differential.');
+      if (!(v('dp_stall') > v('dp_no_load'))) errs.push('Motor stall differential must exceed the off-bottom differential.');
+      if (v('slip') < 0 || v('slip') * v('dp_stall') / v('dp_max') >= 1)
+        errs.push('Motor slip must be at least 0 and leave the rotor turning at stall (s dp_stall / dp_max < 1).');
+      if (v('bypass_flow') < 0) errs.push('Motor bypass flow must not be negative.');
+    }
     const h = cfg.parameters.hydraulics || {};
     if (h.enabled !== false) {
       if (!(Number(b.nozzle_area ?? 1) > 0)) errs.push('Bit nozzle area must be positive.');
@@ -118,6 +133,8 @@ export function build(cfg) {
   const params = {};
   for (const k of Object.keys(DEFAULTS)) params[k] = section(p, k);
   params.bit.blades = Math.trunc(params.bit.blades);
+  params.motor.enabled = !!params.motor.enabled;
+  for (const k of Object.keys(params.motor)) if (k !== 'enabled') params.motor[k] = num(params.motor[k], DEFAULTS.motor[k]);
   params.thermal.enabled = !!params.thermal.enabled;
   params.thermal.n_radial = Math.trunc(params.thermal.n_radial); params.thermal.gs_iterations = Math.trunc(params.thermal.gs_iterations);
   params.cfl = num(p.cfl, 0.95);

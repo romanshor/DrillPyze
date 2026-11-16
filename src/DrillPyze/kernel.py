@@ -35,7 +35,12 @@ S_BLKPOS = 18     # block travel since start (m, + down)
 S_BITSTUCK = 19   # 1 if bit rotationally sticking
 S_PHIB = 20       # bit rotation angle (rad), regenerative model
 S_WINT = 21       # integral of |omega_bit| dt (rad), for averages over slow updates
-N_SCALARS = 22
+S_PHIS = 22       # string-bottom (motor stator) rotation angle (rad): toolface = offset + PHIS
+S_DPM = 23        # mud motor differential pressure (Pa)
+S_DPINT = 24      # integral of the motor differential dt (Pa s), for the hydraulics
+S_WMOT = 25       # motor (rotor relative to stator) speed (rad/s)
+S_STALL = 26      # 1 if the motor is stalled
+N_SCALARS = 27
 
 # indices into the float parameter vector ``pf``
 P_DT = 0
@@ -69,11 +74,19 @@ P_BLK_ACC = 27     # block acceleration limit (m/s^2), 0 = unlimited
 P_HP_T = 28        # high-pass filter coefficient for the torsional Stokes damping (per step)
 P_HP_A = 29        # same, axial
 P_KV = 30          # 1 if Kelvin-Voigt material damping is active
-N_PF = 31
+P_MOTOR = 31       # 1 if a mud motor sits between the string and the bit
+P_MKN = 32         # motor speed per unit flow, 2 pi k_n (rad per m^3)
+P_MKT = 33         # motor torque constant K_T = eta / (2 pi k_n) (N m / Pa)
+P_MDP0 = 34        # off-bottom (no-load) differential (Pa)
+P_MDPMAX = 35      # rated differential, reference for the slip (Pa)
+P_MDPSTALL = 36    # stall differential (Pa)
+P_MSLIP = 37       # fractional speed drop at the rated differential
+P_MQBY = 38        # flow bypassing the power section (m^3/s)
+N_PF = 39
 
 # set-point ramp table: one row per input, columns (start value, start time, ramp time, target)
-R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB = 0, 1, 2, 3, 4
-N_RAMPS = 5
+R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB, R_FLOW = 0, 1, 2, 3, 4, 5
+N_RAMPS = 6                     # R_FLOW: pump rate (m^3/s), drives the mud motor
 
 # indices into the integer parameter vector ``pi``
 I_CTRL = 0         # 0 internal PI/ZTorque, 1 external motor torque, 2 prescribed speed
@@ -87,7 +100,7 @@ BIT_MODELS = ('coulomb', 'cutting', 'regenerative')
 # recorded channels
 REC_CHANNELS = ('time', 'omega_td', 'motor_torque', 'pipe_torque', 'omega_bit',
                 'tob', 'v_block', 'hookload', 'v_bit', 'wob', 'bit_depth',
-                'hole_depth', 'omega_sp')
+                'hole_depth', 'omega_sp', 'omega_motor', 'dp_motor', 'stator_angle')
 N_REC = len(REC_CHANNELS)
 
 
@@ -248,6 +261,22 @@ def _sweep(phi_old, phi_new, u, surf, n):
 
 
 @njit(cache=True)
+def _motor_drive(q_pump, pf):
+    """
+    Mud motor drive at pump rate ``q_pump`` (docs/derivation sec. 6.4).  The rotor turns
+    at omega_r = w0 (c - g' T), T the torque it delivers, with w0 = 2 pi k_n (Q - Q_bypass)
+    the no-slip speed and c = 1 - s dp_0 / dp_max, g' = s / (K_T dp_max).
+    Returns (w0, rotor speed at zero torque, d(rotor speed)/dT).
+    """
+    q = q_pump - pf[P_MQBY]
+    if q <= 0.0:
+        return 0.0, 0.0, 0.0
+    w0 = pf[P_MKN] * q
+    s = pf[P_MSLIP]
+    return w0, w0 * (1.0 - s * pf[P_MDP0] / pf[P_MDPMAX]), w0 * s / (pf[P_MKT] * pf[P_MDPMAX])
+
+
+@njit(cache=True)
 def _coulomb_2d(va, vt, m_a, m_t, c):
     """
     Implicit (backward-Euler) 2-D Coulomb friction on one cell.
@@ -384,6 +413,7 @@ def advance(nsteps, sc, pf, pi,
     n_blades = int(pf[P_BLADES])
     axc = pf[P_AXC]
     weak_exp = pf[P_WEAK] > 0.5
+    motor = pf[P_MOTOR] > 0.5
 
     # filter coefficients (exact discretisation of first-order lags)
     a_en = np.exp(-dt / pf[P_TEN]) if pf[P_TEN] > 0.0 else 0.0
@@ -479,14 +509,53 @@ def advance(nsteps, sc, pf, pi,
         # ---------------------------------------------------------- bit face
         alpha_t = w[n - 1] + tau[n - 1] / Zt[n - 1]
         alpha_a = v[n - 1] + qd[n - 1] / Za[n - 1]
+        # mud motor (sec. 6.4): bit speed = string-bottom speed + rotor speed, the
+        # massless rotor passes the bit torque to the string as reactive torque, so the
+        # bit sees the string's invariant shifted by the rotor speed and an impedance
+        # lowered by the slip
+        Zb = Zt[n - 1]
+        alpha_b = alpha_t
+        Zbit = Zb
+        w0m = 0.0
+        if motor:
+            w0m, wr0, dwr = _motor_drive(_ramp(ramps, R_FLOW, t_now), pf)
+            if w0m > 0.0:
+                alpha_b = alpha_t + wr0
+                Zbit = 1.0 / (1.0 / Zb + dwr)
+        on_bottom = sc[S_BITD] >= sc[S_HOLED] - 1e-9
         if bit_model == 2:
-            wb_, tob, vb_, wob, stuck = _bit_regen(alpha_t, alpha_a, Zt[n - 1], Za[n - 1], sc[S_BITD], dt,
+            wb_, tob, vb_, wob, stuck = _bit_regen(alpha_b, alpha_a, Zbit, Za[n - 1], sc[S_BITD], dt,
                                                    sc[S_WBIT], sc[S_BITSTUCK], sc[S_PHIB], surf, pf)
         else:
-            on_bottom = sc[S_BITD] >= sc[S_HOLED] - 1e-9
-            wb_, tob, vb_, wob, stuck = _bit(alpha_t, alpha_a, Zt[n - 1], Za[n - 1],
+            wb_, tob, vb_, wob, stuck = _bit(alpha_b, alpha_a, Zbit, Za[n - 1],
                                              on_bottom, sc[S_WBIT], sc[S_BITSTUCK], pf)
-        wf[n] = wb_
+        if motor:
+            dpm = 0.0
+            stall = 0.0
+            if w0m > 0.0:
+                t_stall = pf[P_MKT] * (pf[P_MDPSTALL] - pf[P_MDP0])
+                if tob > t_stall:
+                    # stall: the motor cannot deliver the torque the bit needs; the bit
+                    # stops and the motor passes its stall torque at the stall differential
+                    wb_ = 0.0
+                    tob = t_stall
+                    stuck = 1.0
+                    stall = 1.0
+                    if bit_model != 2:
+                        vb_ = 0.0
+                        wob = Za[n - 1] * alpha_a if (on_bottom and alpha_a > 0.0) else 0.0
+                    dpm = pf[P_MDPSTALL]
+                else:
+                    dpm = pf[P_MDP0] + tob / pf[P_MKT]
+                    if dpm < 0.0:
+                        dpm = 0.0
+            w_str = alpha_t - tob / Zb          # string bottom (stator) speed
+            wf[n] = w_str
+            sc[S_WMOT] = wb_ - w_str
+            sc[S_DPM] = dpm
+            sc[S_STALL] = stall
+        else:
+            wf[n] = wb_
         tf[n] = tob
         vf[n] = vb_
         qf[n] = wob
@@ -600,6 +669,8 @@ def advance(nsteps, sc, pf, pi,
         sc[S_BITD] += sc[S_VBIT] * dt
         sc[S_BLKPOS] += sc[S_VBLK] * dt
         sc[S_WINT] += abs(sc[S_WBIT]) * dt
+        sc[S_PHIS] += wf[n] * dt
+        sc[S_DPINT] += sc[S_DPM] * dt
         if bit_model == 2:
             phi_new = sc[S_PHIB] + sc[S_WBIT] * dt
             _sweep(sc[S_PHIB], phi_new, sc[S_BITD], surf, n_blades)
@@ -627,5 +698,8 @@ def advance(nsteps, sc, pf, pi,
                 rec[rec_idx, 10] = sc[S_BITD]
                 rec[rec_idx, 11] = sc[S_HOLED]
                 rec[rec_idx, 12] = sc[S_WSP]
+                rec[rec_idx, 13] = sc[S_WMOT]
+                rec[rec_idx, 14] = sc[S_DPM]
+                rec[rec_idx, 15] = sc[S_PHIS]
                 rec_idx += 1
     return rec_idx, rec_phase

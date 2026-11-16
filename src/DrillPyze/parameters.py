@@ -6,6 +6,7 @@ and damping are meant to be calibrated against field data.
 from dataclasses import dataclass, field, asdict, replace
 
 from .thermal import ThermalParameters
+from .units import GAL, PSI
 
 
 @dataclass
@@ -115,6 +116,37 @@ class BitParameters:
 
 
 @dataclass
+class MotorParameters:
+    """
+    Positive-displacement mud motor between the string and the bit
+    (docs/derivation/README.md, sec. 6.4; Nguyen et al. 2017).  Defaults: a generic
+    6-3/4" 7/8-lobe motor.  ``enabled=False`` means no motor in the BHA.
+
+    Speed:  N_r = k_n (Q - Q_bypass) (1 - s dp/dp_max)        (rev/s; k_n in rev/m^3)
+    Torque: T = K_T (dp - dp_0),  K_T = eta / (2 pi k_n)       (N m)
+    Stall:  T <= K_T (dp_stall - dp_0); beyond it the rotor stops and dp = dp_stall.
+    """
+    enabled: bool = False
+    speed_constant: float = 0.28 / GAL   # k_n, rev per m^3 of flow (0.28 rev/gal)
+    efficiency: float = 0.75             # eta, mechanical efficiency
+    dp_no_load: float = 100 * PSI        # dp_0, off-bottom differential pressure (Pa)
+    dp_max: float = 750 * PSI            # rated (maximum recommended) differential (Pa)
+    dp_stall: float = 1125 * PSI         # stall differential (Pa)
+    slip: float = 0.0                    # s, fractional speed drop at dp_max (leakage)
+    bypass_flow: float = 0.0             # flow not passing through the power section (m^3/s)
+    toolface_offset: float = 0.0         # toolface (rad) when the string-bottom angle is zero
+
+    def torque_constant(self):
+        """K_T = eta / (2 pi k_n), N m per Pa of differential pressure."""
+        import math
+        return self.efficiency / (2.0 * math.pi * self.speed_constant)
+
+    def stall_torque(self):
+        """Largest torque the motor delivers, K_T (dp_stall - dp_0) (N m)."""
+        return self.torque_constant() * (self.dp_stall - self.dp_no_load)
+
+
+@dataclass
 class TopDriveParameters:
     """Top-drive inertia and optional torque limit."""
     inertia: float = 2000.0     # kg m^2 (including gearbox, reflected to the quill)
@@ -198,12 +230,13 @@ class AutodrillerParameters:
 @dataclass
 class ModelParameters:
     """
-    All model parameters: friction, damping, bit, top drive, controller,
+    All model parameters: friction, damping, bit, mud motor, top drive, controller,
     autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.
     """
     friction: FrictionParameters = field(default_factory=FrictionParameters)
     damping: DampingParameters = field(default_factory=DampingParameters)
     bit: BitParameters = field(default_factory=BitParameters)
+    motor: MotorParameters = field(default_factory=MotorParameters)
     top_drive: TopDriveParameters = field(default_factory=TopDriveParameters)
     controller: ControllerParameters = None
     autodriller: AutodrillerParameters = field(default_factory=AutodrillerParameters)

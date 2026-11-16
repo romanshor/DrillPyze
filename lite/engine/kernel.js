@@ -3,9 +3,10 @@
 
 export const BIT_MODELS = ['coulomb', 'cutting', 'regenerative'];
 export const REC_CHANNELS = ['time', 'omega_td', 'motor_torque', 'pipe_torque', 'omega_bit', 'tob', 'v_block',
-                             'hookload', 'v_bit', 'wob', 'bit_depth', 'hole_depth', 'omega_sp'];
-// ramp rows (spec 5.1)
-export const R_WSP = 0, R_VBLK = 1, R_TAUM = 2, R_WTD = 3, R_WOB = 4;
+                             'hookload', 'v_bit', 'wob', 'bit_depth', 'hole_depth', 'omega_sp',
+                             'omega_motor', 'dp_motor', 'stator_angle'];
+// ramp rows (spec 5.1); R_FLOW is the pump rate, which drives the mud motor
+export const R_WSP = 0, R_VBLK = 1, R_TAUM = 2, R_WTD = 3, R_WOB = 4, R_FLOW = 5;
 
 const sign = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
@@ -35,6 +36,14 @@ function bitQS(alT, alA, Zt, Za, onBottom, wPrev, stuckPrev, p) {
     w = wNew;
   }
   return [w, tob, v, wob, stuck];
+}
+
+// mud motor drive at pump rate q (spec 5.5.1): [w0, rotor speed at zero torque, d(rotor speed)/dT]
+function motorDrive(q, p) {
+  const qm = q - p.mQby;
+  if (qm <= 0) return [0, 0, 0];
+  const w0 = p.mKn * qm, s = p.mSlip;
+  return [w0, w0 * (1 - s * p.mDp0 / p.mDpMax), w0 * s / (p.mKt * p.mDpMax)];
 }
 
 // regenerative bit (spec 5.5)
@@ -112,7 +121,7 @@ export function advance(s, nsteps) {
   const fy = s.yieldDragNow();
   const { wst, vst, wOld, vOld, cpr, dpr } = s.tmp;
   const wc = p.wc, vc = p.vc, I = p.itd, ctrl = s.ctrl, axialMode = s.axial, coupled = p.coupled,
-        bitModel = p.bitModel, nBl = p.blades, axc = p.axc, weakExp = p.weakExp, useKv = p.kv;
+        bitModel = p.bitModel, nBl = p.blades, axc = p.axc, weakExp = p.weakExp, useKv = p.kv, motor = p.motor;
   const aEn = p.ten > 0 ? Math.exp(-dt / p.ten) : 0, aLp = p.tlp > 0 ? Math.exp(-dt / p.tlp) : 0,
         aHp = p.thp > 0 ? Math.exp(-dt / p.thp) : 0;
   const R = s.ramps, sc = s.sc, rec = s.rec;
@@ -169,10 +178,33 @@ export function advance(s, nsteps) {
 
     // ---- bit face (5.5)
     const alT = w[n - 1] + tau[n - 1] / Zt[n - 1], alA = v[n - 1] + qd[n - 1] / Za[n - 1];
+    // mud motor (5.5.1): the bit sees the string invariant shifted by the rotor speed
+    const Zb = Zt[n - 1];
+    let alB = alT, Zbit = Zb, w0m = 0;
+    if (motor) {
+      const [w0, wr0, dwr] = motorDrive(rampValue(R[R_FLOW], tNow), p);
+      w0m = w0;
+      if (w0m > 0) { alB = alT + wr0; Zbit = 1 / (1 / Zb + dwr); }
+    }
+    const onBottom = sc.bitd >= sc.holed - 1e-9;
     const res = bitModel === 2
-      ? bitRegen(alT, alA, Zt[n - 1], Za[n - 1], sc.bitd, dt, sc.wbit, sc.stuck, sc.phib, surf, p)
-      : bitQS(alT, alA, Zt[n - 1], Za[n - 1], sc.bitd >= sc.holed - 1e-9, sc.wbit, sc.stuck, p);
-    wf[n] = res[0]; tf[n] = res[1]; vf[n] = res[2]; qf[n] = res[3];
+      ? bitRegen(alB, alA, Zbit, Za[n - 1], sc.bitd, dt, sc.wbit, sc.stuck, sc.phib, surf, p)
+      : bitQS(alB, alA, Zbit, Za[n - 1], onBottom, sc.wbit, sc.stuck, p);
+    if (motor) {
+      let dpm = 0, stall = 0;
+      if (w0m > 0) {
+        const tStall = p.mKt * (p.mDpStall - p.mDp0);
+        if (res[1] > tStall) {
+          // stall: the bit stops and the motor passes its stall torque at the stall differential
+          res[0] = 0; res[1] = tStall; res[4] = 1; stall = 1;
+          if (bitModel !== 2) { res[2] = 0; res[3] = onBottom && alA > 0 ? Za[n - 1] * alA : 0; }
+          dpm = p.mDpStall;
+        } else dpm = Math.max(p.mDp0 + res[1] / p.mKt, 0);
+      }
+      const wStr = alT - res[1] / Zb;
+      wf[n] = wStr; sc.wmot = res[0] - wStr; sc.dpm = dpm; sc.stall = stall;
+    } else wf[n] = res[0];
+    tf[n] = res[1]; vf[n] = res[2]; qf[n] = res[3];
     sc.wbit = res[0]; sc.tob = res[1]; sc.vbit = res[2]; sc.wob = res[3]; sc.stuck = res[4];
 
     // ---- cell update and linear damping (5.6)
@@ -232,6 +264,8 @@ export function advance(s, nsteps) {
     sc.bitd += sc.vbit * dt;
     sc.blkpos += sc.vblk * dt;
     sc.wint += Math.abs(sc.wbit) * dt;
+    sc.phis += wf[n] * dt;
+    sc.dpint += sc.dpm * dt;
     if (bitModel === 2) {
       const phiNew = sc.phib + sc.wbit * dt;
       sweep(sc.phib, phiNew, sc.bitd, surf, nBl);
@@ -241,7 +275,8 @@ export function advance(s, nsteps) {
 
     if (++s.recPhase >= s.recEvery) {
       s.recPhase = 0;
-      rec.push([sc.t, sc.wtd, sc.taum, sc.tau0, sc.wbit, sc.tob, sc.vblk, sc.hkld, sc.vbit, sc.wob, sc.bitd, sc.holed, sc.wsp]);
+      rec.push([sc.t, sc.wtd, sc.taum, sc.tau0, sc.wbit, sc.tob, sc.vblk, sc.hkld, sc.vbit, sc.wob, sc.bitd, sc.holed, sc.wsp,
+                sc.wmot, sc.dpm, sc.phis]);
     }
   }
 }

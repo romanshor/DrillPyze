@@ -1,6 +1,6 @@
 // Simulation: set-up, inputs and ramps, slow tick and outputs (spec sections 2.4, 3, 4, 6, 7, 12)
 import { G, STEEL_DENSITY } from './units.js';
-import { advance, rampValue, BIT_MODELS, R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB } from './kernel.js';
+import { advance, rampValue, BIT_MODELS, R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB, R_FLOW } from './kernel.js';
 import { WellboreHydraulics } from './hydraulics.js';
 import { rockStrength } from './formation.js';
 import { WellboreThermal } from './thermal.js';
@@ -34,7 +34,8 @@ export class Simulation {
     this.tmp = { wst: F64(n), vst: F64(n), wOld: F64(n), vOld: F64(n), cpr: F64(n), dpr: F64(n) };
     const hole = holeDepth == null ? bitDepth : Math.max(holeDepth, bitDepth);
     this.sc = { t: 0, wtd: 0, taum: 0, tau0: 0, int: 0, lptau: 0, hplp: 0, wfilt: 0, wsp: 0, bitd: bitDepth, holed: hole,
-                wbit: 0, tob: 0, vbit: 0, wob: 0, vblk: 0, hkld: 0, adInt: 0, blkpos: 0, stuck: 0, phib: 0, wint: 0 };
+                wbit: 0, tob: 0, vbit: 0, wob: 0, vblk: 0, hkld: 0, adInt: 0, blkpos: 0, stuck: 0, phib: 0, wint: 0,
+                phis: 0, dpm: 0, dpint: 0, wmot: 0, stall: 0 };
     this.surf = F64(720, hole);
     this.bitDepth0 = bitDepth; this.geomBitd = null; this.qsC = null; this.refreshDistance = refreshDistance;
     this.p = {};
@@ -46,13 +47,14 @@ export class Simulation {
     this.p.hkldRef = -this.qsTop;
     this.inputs = { omega_sp: 0, v_block: 0, motor_torque: 0, omega_td: 0, wob_sp: 0,
                     flow_rate: P.thermal.flow_rate, inlet_temperature: P.thermal.inlet_temperature };
-    this.ramps = [0, 1, 2, 3, 4].map(() => [0, 0, 0, 0]);
+    this.ramps = [0, 1, 2, 3, 4, 5].map(() => [0, 0, 0, 0]);
     this.slowRamps = { flow_rate: [0, 0, P.ramps.flow_rate, P.thermal.flow_rate],
                        inlet_temperature: [P.thermal.inlet_temperature, 0, 0, P.thermal.inlet_temperature] };
+    this.ramps[R_FLOW] = this.slowRamps.flow_rate;     // the kernel sees the pump rate (mud motor)
     this.slowEvery = Math.max(1, Math.trunc(1 / this.dt));
     this.thermalEvery = Math.max(1, Math.round(P.thermal_update_period));
     this.slowTicks = 0; this.slowRecords = []; this.lastSlow = { t: 0, hole, wint: 0 };
-    this.hydRecords = []; this.hydLast = { t: 0, q: 0 };
+    this.hydRecords = []; this.hydLast = { t: 0, q: 0, dpint: 0 };
     // wellbore temperature (spec 10), then hydraulics with its mud temperatures (10.7)
     if (this.formation && P.thermal.enabled)
       this.thermal = new WellboreThermal(this.wellbore, this.drillstring, this.fluid, this.formation, P.thermal, bitDepth, hole);
@@ -99,6 +101,9 @@ export class Simulation {
     if (!['step', 'exponential'].includes(f.weakening)) throw new Error("friction weakening must be 'step' or 'exponential'");
     p.weakExp = f.weakening === 'exponential';
     p.blkAcc = P.drawworks.block_acceleration;
+    const m = P.motor;
+    Object.assign(p, { motor: !!m.enabled, mKn: 2 * Math.PI * m.speed_constant, mKt: m.efficiency / (2 * Math.PI * m.speed_constant),
+                       mDp0: m.dp_no_load, mDpMax: m.dp_max, mDpStall: m.dp_stall, mSlip: m.slip, mQby: m.bypass_flow });
     this.packDamping();
   }
 
@@ -248,9 +253,10 @@ export class Simulation {
   hydraulicsTick() {
     const t = this.sc.t, dt = t - this.hydLast.t;
     if (!this.hydraulics || dt <= 0) return;
-    const q1 = this.flowRateNow();
-    const hs = this.hydraulics.advance(dt, this.hydLast.q, q1, this.sc.bitd, this.sc.holed);
-    this.hydLast = { t, q: q1 };
+    const q1 = this.flowRateNow(), dpint = this.sc.dpint;
+    // mud motor differential, averaged over the interval, in series with the bit nozzles
+    const hs = this.hydraulics.advance(dt, this.hydLast.q, q1, this.sc.bitd, this.sc.holed, (dpint - this.hydLast.dpint) / dt);
+    this.hydLast = { t, q: q1, dpint };
     this.hydRecords.push({ time: t, ...hs });
   }
   slowTick() {
@@ -283,7 +289,7 @@ export class Simulation {
     if (inp.omega_td != null) { this.inputs.omega_td = inp.omega_td; this.setRamp(R_WTD, inp.omega_td, r.omega_td, ctrl === 2 ? null : sc.wtd); this.ctrl = 2; }
     if (inp.v_block != null) { this.inputs.v_block = inp.v_block; this.setRamp(R_VBLK, inp.v_block, r.v_block, axial === 0 ? null : sc.vblk); this.axial = 0; }
     if (inp.wob_sp != null) { this.inputs.wob_sp = inp.wob_sp; this.setRamp(R_WOB, inp.wob_sp, r.wob_sp, axial === 1 ? null : this.p.hkldRef - sc.hkld); this.axial = 1; }
-    if (inp.flow_rate != null) { this.inputs.flow_rate = inp.flow_rate; this.setSlowRamp('flow_rate', inp.flow_rate, r.flow_rate); }
+    if (inp.flow_rate != null) { this.inputs.flow_rate = inp.flow_rate; this.setSlowRamp('flow_rate', inp.flow_rate, r.flow_rate); this.ramps[R_FLOW] = this.slowRamps.flow_rate; }
     if (inp.inlet_temperature != null) { this.inputs.inlet_temperature = inp.inlet_temperature; this.setSlowRamp('inlet_temperature', inp.inlet_temperature, r.inlet_temperature); }
     this.tRequested += duration;
     let remaining = Math.round(this.tRequested / this.dt) - this.stepsTotal;
@@ -308,7 +314,13 @@ export class Simulation {
                   v_block: s.vblk, hookload: s.hkld, v_bit: s.vbit, wob: s.wob, bit_depth: s.bitd, hole_depth: s.holed,
                   omega_sp: s.wsp, flow_rate: this.flowRateNow() };
     if (this.hydraulics) { const h = this.hydraulics.state(); Object.assign(out, { spp: h.spp, p_bh: h.p_bh, ecd: h.ecd, q_out: h.q_out }); }
+    if (this.params.motor.enabled) Object.assign(out, this.motorState());
     return out;
+  }
+  // mud motor channels (spec 12): rotor speed, differential, stall flag, toolface (rad, 0..2 pi)
+  motorState() {
+    const s = this.sc, tf = this.params.motor.toolface_offset + s.phis, tp = 2 * Math.PI;
+    return { omega_motor: s.wmot, dp_motor: s.dpm, motor_stalled: s.stall > 0.5, toolface: ((tf % tp) + tp) % tp };
   }
   profiles() {
     const n = this.n;

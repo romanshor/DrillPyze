@@ -789,6 +789,111 @@ friction coupling of §5.2.
   blade passage. That delay can destabilise steady drilling, producing bit
   bounce and stick-slip.
 
+### 6.4 Mud motor between the string and the bit
+
+A positive-displacement motor (PDM) turns the bit relative to the string, driven
+by the mud flowing through its power section. Nguyen, Bui, Al-Safran & Saasen
+(2017) derive the motor's flow and torque from the power-section geometry. Here
+only their two global relations are used, with the geometry folded into one
+user-supplied **motor constant** $`k_n`$, the revolutions per unit volume of flow
+(rev/gal on a spec sheet, rev/m³ internally). The motor is optional
+(`MotorParameters.enabled`); without it the bit sits directly on the string as
+in §6.3.
+
+**Speed from flow.** Each revolution of the rotor displaces the volume
+$`V_\text{rev} = 1/k_n`$ (Nguyen et al., $`Q = A_F P_r K N`$). The rotor speed
+relative to the stator is
+
+```math
+\omega_r = 2\pi k_n\,(Q - Q_\text{by})\left(1 - s\,\frac{\Delta p_m}{\Delta p_\text{max}}\right), \tag{6.4}
+```
+
+* $`Q`$ is the pump rate.
+* $`Q_\text{by}`$ is any flow bypassing the power section (default 0).
+* $`s`$ is the fractional speed drop at the rated differential
+  $`\Delta p_\text{max}`$. It represents internal leakage across the seals,
+  which Nguyen et al. note is negligible at low pressure (default 0).
+
+**Torque from differential pressure.** The energy balance gives the efficiency
+as mechanical over hydraulic power,
+$`\eta = T\omega_r / (Q\,\Delta p)`$ (Nguyen et al. eq. 23). With no slip,
+$`\omega_r = 2\pi k_n Q`$, so the torque is proportional to the differential
+pressure that does the work:
+
+```math
+T_m = K_T\,(\Delta p_m - \Delta p_0), \qquad K_T = \frac{\eta}{2\pi k_n}. \tag{6.5}
+```
+
+* The torque constant $`K_T`$ follows from the same motor constant and an
+  efficiency $`\eta`$ (default 0.75, the value used by Nguyen et al.). No
+  separate torque input is needed.
+* $`\Delta p_0`$ is the off-bottom (no-load) differential: the pressure needed
+  to turn the rotor against its own friction and the seal interference.
+* Read backwards, (6.5) is the driller's rule:
+
+```math
+\Delta p_m = \Delta p_0 + \frac{\text{TOB}}{K_T}.
+```
+
+**Stall.** The motor delivers at most
+$`T_\text{stall} = K_T(\Delta p_\text{stall} - \Delta p_0)`$. If the bit needs
+more torque than that, the rotor stops: the bit stalls ($`\omega_b = 0`$), the
+motor passes $`T_\text{stall}`$, and the differential sits at
+$`\Delta p_\text{stall}`$. The stall shows at surface as a jump in standpipe
+pressure. It clears when the bit torque falls back below $`T_\text{stall}`$,
+typically after picking up off bottom.
+
+**Coupling to the string.** The rotor and bit are treated as massless, like
+the bit alone in §6.3. Then:
+
+* The bit turns at the string-bottom (stator) speed plus the rotor speed,
+  $`\omega_b = \omega_s + \omega_r`$.
+* The motor passes the bit torque straight through, $`T_m = \text{TOB}`$.
+* The stator feels the same torque, the **reactive torque**. The string's
+  bottom boundary therefore carries $`\text{TOB}`$ exactly as without a motor,
+  but at the stator speed $`\omega_s = \alpha_t - \text{TOB}/Z_t`$.
+
+Substituting (6.4)–(6.5), the rotor speed is linear in the torque,
+$`\omega_r = \omega_{r0} - g\,\text{TOB}`$ with
+$`\omega_0 = 2\pi k_n(Q - Q_\text{by})`$,
+$`\omega_{r0} = \omega_0(1 - s\Delta p_0/\Delta p_\text{max})`$ and
+$`g = \omega_0 s/(K_T\Delta p_\text{max})`$. The bit therefore sees
+
+```math
+\omega_b = \underbrace{\alpha_t + \omega_{r0}}_{\alpha_b} - \text{TOB}\left(\frac{1}{Z_t} + g\right)
+= \alpha_b - \frac{\text{TOB}}{Z_b}, \qquad \frac{1}{Z_b} = \frac{1}{Z_t} + g . \tag{6.6}
+```
+
+This has the form of (6.3), so the bit–rock laws of §6.3 apply unchanged with
+$`(\alpha_t, Z_t)`$ replaced by $`(\alpha_b, Z_b)`$. The motor shifts the
+incoming torsional invariant by its speed, and the slip softens the bit's
+torsional impedance. If the solution needs $`\text{TOB} > T_\text{stall}`$, the
+stall branch above replaces it. With no flow through the motor
+($`Q \le Q_\text{by}`$), the rotor is hydraulically locked: $`\omega_r = 0`$ and
+$`\Delta p_m = 0`$.
+
+**Hydraulics.** The motor differential is a pressure loss in series with the
+bit nozzles. It raises the standpipe pressure but not the annulus or bottomhole
+pressure. In the transient model (§8 of the spec) it is subtracted from the
+drive across the bit face, using its average over each ~1 s hydraulics
+interval.
+
+**Sliding and toolface.** In slide drilling the string is not rotated from
+surface (top-drive set point 0, which the PI controller holds as an angle), and
+the motor alone turns the bit.
+
+* The toolface is the angle of the motor's bend: the stator angle plus a
+  reference offset,
+  $`\text{TF} = \text{TF}_0 + \int \omega_s\,dt`$ (mod 360°), clockwise looking
+  downhole.
+* As WOB and TOB rise, the reactive torque winds the bottom of the string
+  counter-clockwise and the toolface turns left. When WOB falls it unwinds back
+  to the right.
+* The driller orients the toolface by turning the string a few degrees at
+  surface. The coupled friction of §5.2 sets how much of that turn, and of the
+  WOB, reaches the bottom: the string hangs up while sliding.
+* The bend's effect on the well path (build and turn rates) is not modelled.
+
 ---
 
 ## 7. Top-drive controllers (Aarsnes, di Meglio & Shor 2018)
@@ -1017,6 +1122,10 @@ These limits connect the model to classical results and are used in the tests.
 | steady rotation with F1+M1: surface torque = Couette (5.6) only | within 2% |
 | yield drag (5.9) with pumps off; absent with pumps on | within 5% |
 | Kelvin–Voigt solve conserves momentum, dissipates energy | to $`10^{-12}`$ |
+| mud motor: rotor speed $`2\pi k_n Q`$ (with slip and bypass), $`\Delta p_m = \Delta p_0 + \text{TOB}/K_T`$ every row | to $`10^{-12}`$ |
+| mud motor stall: TOB capped at $`T_\text{stall}`$, bit stopped, cleared by picking up | yes |
+| mud motor: SPP rises by $`\Delta p_m`$, BHP unchanged (steady circulation) | within 2% / $`10^{-6}`$ |
+| sliding: reactive torque turns the toolface left as WOB rises | yes |
 
 ---
 
@@ -1061,6 +1170,7 @@ These limits connect the model to classical results and are used in the tests.
 * Jansen, J.D. and van den Steen, L., 1995. Active damping of self-excited torsional vibrations in oil well drillstrings. *J. Sound and Vibration*, 179(4), 647–668.
 * Lyons, W.C. and Plisga, G.J., 2005. *Standard Handbook of Petroleum and Natural Gas Engineering*, 2nd ed. Gulf Professional Publishing.
 * Moharrami, M.J., Shiri, H. and Martins, C.A., 2024. Vibration (MDPI), 7(4), 56. https://www.mdpi.com/2571-631X/7/4/56
+* Nguyen, T.C., Bui, K.D., Al-Safran, E. and Saasen, A., 2017. Theoretical modeling of positive displacement motor performance. AADE-17-NTCE-026, AADE National Technical Conference and Exhibition, Houston, Texas. https://www.aade.org/application/files/8615/7132/1739/AADE-17-NTCE-026_-_Nguyen.pdf
 * Orban, F., 2011. Damping of materials and members in structures. *J. Physics: Conference Series*, 268, 012022.
 * Stokes, G.G., 1851. On the effect of the internal friction of fluids on the motion of pendulums. *Trans. Cambridge Phil. Soc.*, 9, 8–106.
 * Johancsik, C.A., Friesen, D.B. and Dawson, R., 1984. Torque and drag in directional wells — prediction and measurement. *JPT*, 36, 987–992.
