@@ -1,6 +1,6 @@
 # DrillPyze physics specification
 
-**Spec revision: 2** (matches the Python model, DrillPyze 1.0.0a1, November 2026)
+**Spec revision: 3** (matches the Python model, DrillPyze 1.0.0a1 + mud motor, November 2026)
 
 This document specifies, at implementation level, every piece of physics and
 numerics in the Python model (`src/DrillPyze`). It is precise enough to build
@@ -79,7 +79,7 @@ A case is a JSON object (see `src/DrillPyze/config.py`):
 | `fluid` | density $\rho_m$, plastic viscosity PV (or null), yield point $\tau_y$ (or null), viscosity $\mu$, heat capacity, conductivity, thermal expansion $\beta_T$, sound speed $c_m$, reference temperature $T_\text{ref}$ |
 | `formation` | layers `{top_md, ucs, friction_angle, porosity}` and the scalars of section 9 |
 | `drillstring` | components bit-first `{name, length, od, id, linear_mass, contact_od}`; the last row is stretched to surface |
-| `parameters` | friction, damping, bit, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, `cfl` |
+| `parameters` | friction, damping, bit, motor, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, `cfl` |
 | `simulation` | `bit_depth`, `hole_depth`, `dx`, `record_rate`, `start_time`, `block_height` |
 
 **Defaults** (dataclasses in `parameters.py`, `wellbore.py`, `formation.py`):
@@ -109,6 +109,12 @@ A case is a JSON object (see `src/DrillPyze/config.py`):
 | | cutting efficiency | 1 |
 | | nozzle area $A_n$ | 3.5628e-4 m² |
 | | $C_d$ | 0.95 |
+| motor | `enabled` | false (no motor) |
+| | motor constant $k_n$ | 0.28 rev/gal = 73.968 rev/m³ |
+| | efficiency $\eta$ | 0.75 |
+| | $\Delta p_0$, $\Delta p_\text{max}$, $\Delta p_\text{stall}$ | 100, 750, 1125 psi |
+| | slip $s$, bypass $Q_\text{by}$ | 0, 0 |
+| | toolface offset $\text{TF}_0$ | 0 rad |
 | top drive | inertia $I$ | 2000 kg m² |
 | | max torque | 0 (unlimited) |
 | autodriller | $K_p, K_i, v_{max}$ | 1e-7 m/(s N), 1e-8 m/(s² N), 60 m/h |
@@ -134,6 +140,7 @@ A case is a JSON object (see `src/DrillPyze/config.py`):
   - drill pipe, 5 in × 4.276 in (no tool joints).
 - **Friction:** cased 0.40 / 0.22, open 0.45 / 0.25.
 - **Bit:** `cutting` with `strength_source = formation`.
+- **Motor:** none (`enabled = false`; the defaults above are used when it is switched on).
 - **Controller:** `stiff`.
 - **Circulation:** flow 2000 L/min (0.03333 m³/s), inlet 30 °C.
 - **Run settings:**
@@ -276,6 +283,11 @@ All start at 0.
 | stuck | bit sticking flag |
 | $\phi_b$ | bit angle |
 | $W = \int|\omega_b|dt$ | accumulated bit rotation |
+| $\phi_s$ | string-bottom (motor stator) angle, $\int\omega_s dt$ |
+| $\Delta p_m$ | mud motor differential |
+| $P_m = \int\Delta p_m dt$ | accumulated motor differential (for the hydraulics) |
+| $\omega_r$ | motor speed (rotor relative to stator) |
+| stall | motor stall flag |
 
 **Initial state:**
 - $s_{bit}$ is the bit depth; $s_{hole} = \max(\text{hole depth}, s_{bit})$.
@@ -319,6 +331,10 @@ $a = D/2$. With the drilling strength $S$ (section 9 when `strength_source = for
 | `regenerative` | $a/(2\zeta)$ | $a/(2\zeta)$ | $1/(2\pi a S)$ | 0 |
 
 The regenerative model also uses the cutting stiffness $k_c = S a$ and the blade count $n_b \ge 1$.
+
+**Mud motor** (when `motor.enabled`): rad per volume $2\pi k_n$, torque constant
+$K_T = \eta/(2\pi k_n)$ (N m/Pa), and $\Delta p_0, \Delta p_\text{max}, \Delta p_\text{stall}, s, Q_\text{by}$
+as given. The stall torque is $T_\text{stall} = K_T(\Delta p_\text{stall} - \Delta p_0)$.
 
 ### 4.3 Damping (derivation sec. 5.6)
 
@@ -371,12 +387,13 @@ One step advances all states by $\Delta t$. Notation: $t^+ = t + \Delta t$.
 
 ### 5.1 Ramped inputs
 
-Five ramped inputs, each a row (start value $v_0$, start time $t_0$, ramp time $T_r$, target $v_1$):
+Six ramped inputs, each a row (start value $v_0$, start time $t_0$, ramp time $T_r$, target $v_1$):
 - speed set point $\omega_{sp}$;
 - block velocity;
 - motor torque;
 - prescribed top-drive speed;
-- WOB set point.
+- WOB set point;
+- pump rate $Q$ (a copy of the pump-rate slow ramp of section 6; it drives the mud motor).
 
 Each is evaluated at $t^+$:
 
@@ -485,6 +502,29 @@ $\alpha_t = \omega_{n-1} + \tau_{n-1}/Z_{t,n-1}$ and $\alpha_a = v_{n-1} + q^d_{
 
 **Bit face values.** Face $n$ gets $(\omega_b, \text{TOB})$ and $(v_b, \text{WOB})$. The scalar bit state is updated.
 
+#### 5.5.1 Mud motor (derivation sec. 6.4)
+
+With a motor, the bit models above are called with a shifted invariant and impedance,
+and face $n$ carries the string-bottom (stator) speed instead of the bit speed.
+
+1. **Drive.** $q = Q(t^+) - Q_\text{by}$ from the pump-rate ramp row. If $q \le 0$:
+   $\omega_0 = \omega_{r0} = g = 0$. Otherwise
+   $\omega_0 = 2\pi k_n q$, $\omega_{r0} = \omega_0(1 - s\,\Delta p_0/\Delta p_\text{max})$ and
+   $g = \omega_0 s/(K_T\Delta p_\text{max})$.
+2. **Bit.** If $\omega_0 > 0$: $\alpha_b = \alpha_t + \omega_{r0}$ and $Z_b = 1/(1/Z_{t,n-1} + g)$;
+   else $\alpha_b = \alpha_t$, $Z_b = Z_{t,n-1}$. Evaluate the bit model with $(\alpha_b, Z_b)$ in place of
+   $(\alpha_t, Z_t)$ (the on-bottom test is the same).
+3. **Stall** (only if $\omega_0 > 0$). If TOB $> T_\text{stall}$: $\omega_b = 0$, TOB $= T_\text{stall}$, stuck = 1,
+   stall = 1 and $\Delta p_m = \Delta p_\text{stall}$. For the quasi-static models also $v_b = 0$ and
+   WOB $= Z_a\alpha_a$ if on bottom with $\alpha_a > 0$, else 0; the regenerative model keeps its $v_b$ and WOB.
+   Otherwise stall = 0 and $\Delta p_m = \max(\Delta p_0 + \text{TOB}/K_T, 0)$.
+   If $\omega_0 = 0$: $\Delta p_m = 0$, stall = 0.
+4. **Faces.** $\omega_s = \alpha_t - \text{TOB}/Z_{t,n-1}$; face $n$ gets $(\omega_s, \text{TOB})$ and
+   $(v_b, \text{WOB})$; $\omega_r = \omega_b - \omega_s$.
+
+Without a motor, face $n$ carries $\omega_b$ exactly as returned by the bit model, and
+$\omega_r = \Delta p_m = \text{stall} = 0$.
+
 ### 5.6 Cell update
 
 For every cell (all with old values on the right):
@@ -564,7 +604,9 @@ Then:
 - $t \mathrel{+}= \Delta t$;
 - $s_{bit} \mathrel{+}= v_b\Delta t$;
 - $x_{blk} \mathrel{+}= v_{blk}\Delta t$;
-- $W \mathrel{+}= |\omega_b|\Delta t$.
+- $W \mathrel{+}= |\omega_b|\Delta t$;
+- $\phi_s \mathrel{+}= \omega_{face,n}\Delta t$ (the speed on face $n$: the stator speed with a motor, the bit speed without);
+- $P_m \mathrel{+}= \Delta p_m\Delta t$.
 
 **Regenerative model only:** the blades sweep from $\phi_b$ to $\phi_b' = \phi_b + \omega_b\Delta t$.
 - Only forward rotation sweeps.
@@ -581,7 +623,8 @@ steps, one row is recorded with these columns:
 - $v_{blk}$, $H$;
 - $v_b$, WOB;
 - $s_{bit}$, $s_{hole}$;
-- $\omega_{sp}$.
+- $\omega_{sp}$;
+- $\omega_r$, $\Delta p_m$, $\phi_s$.
 
 ---
 
@@ -606,7 +649,8 @@ with the ramp times of section 1.
 **Slow ramps.** Pump rate and inlet temperature ramp the same way, evaluated
 at the time they are read. At initialisation the pump ramps from 0 at
 $t = 0$ to the case flow rate over the flow ramp time; the inlet
-temperature starts at its value.
+temperature starts at its value. The pump-rate ramp row of the kernel (5.1) is set to
+the pump-rate slow ramp at initialisation and whenever a new pump rate is given.
 
 **Zeroing the weight indicator.** This sets $H_{ref} \leftarrow H$.
 
@@ -627,6 +671,7 @@ At every slow tick (about every 1 s of simulated time):
 2. **Hydraulics:** advance from the last hydraulics time to now (section 8.3).
    - The pump rate ramps linearly from its value at the last tick to the current ramped value.
    - The bit and hole depths are the current ones.
+   - The mud motor differential is its average since the last tick, $(P_m - P_m^{last})/\Delta t_{hyd}$.
 3. **Every `thermal_update_period` ticks** (default 2):
    - average ROP = $\max(s_{hole} - s_{hole}^{last}, 0)/\Delta t_{slow}$;
    - average bit speed = $(W - W^{last})/\Delta t_{slow}$;
@@ -719,7 +764,7 @@ pressure (gauge) is $p = c_m^2(m/V - \rho_T)$.
    2. **Cell values:** for each cell, $V$ by interpolation, $A = V/L$, $\rho = m/V$, $p = c_m^2(\rho - \rho_T)$.
    3. **Face updates** with the face rule below:
       - interior bore faces (slip factor 1 relative to $v_p$);
-      - the bit face, bore bottom cell to annulus cell $k_{ab}$: no slip, with the nozzle term $R_n|G|$, where $R_n = 1/(2C_d^2A_n^2\bar\rho)$;
+      - the bit face, bore bottom cell to annulus cell $k_{ab}$: no slip, with the nozzle term $R_n|G|$, where $R_n = 1/(2C_d^2A_n^2\bar\rho)$, and the mud motor differential $\Delta p_m$ of the interval (section 7; 0 without a motor) subtracted from its drive;
       - interior annulus faces (slip factor $K_c$ if both cells contain pipe, else 0);
       - the outlet face. Its drive is $p_{back} - p_{a0} + \rho_{a0} g z_{a0}$; there is no upstream half cell, and the slip factor is $K_c$ if the cell contains pipe.
    4. **Mass:**
@@ -747,7 +792,7 @@ This is the exact discrete steady state with the pipe at rest:
 - **Annulus pressures,** from the outlet down, by fixed point (50 iterations) on the face densities:
   - outlet: $p_{a0} = p_{back} + \rho_0 g z_0 - \tfrac12L_0\,(dp/dL)_0$;
   - each face $k$: $p_k = p_{k-1} + \bar\rho g(z_k - z_{k-1}) - \text{friction of the two half cells}$.
-- **Bit:** $p_{d,last} = p_{a,k_{ab}} - \bar\rho g(z_{a,k_{ab}} - z_{d,last}) + \Delta p_{bit} + \text{friction}$.
+- **Bit:** $p_{d,last} = p_{a,k_{ab}} - \bar\rho g(z_{a,k_{ab}} - z_{d,last}) + \Delta p_{bit} + \text{friction} + \Delta p_m$ (the last motor differential; 0 at initialisation).
 - **Bore pressures:** upward from the bit, $p_{k-1} = p_k - \bar\rho g(z_k - z_{k-1}) + \text{friction}$.
 - **Masses:** $m = (\rho_T + p/c_m^2)V$.
 
@@ -763,6 +808,7 @@ This is the exact discrete steady state with the pipe at rest:
   - $q_{out} = -G_a[0]/\rho_{a0}$;
   - $q_{bit} = G_b/\tfrac12(\rho_{d0} + \rho_{a0})$.
 - **Nozzle loss:** $\Delta p_{bit}$ at the mean of the bit-face densities.
+- **Motor differential:** $\Delta p_m$ used over the last interval.
 - **Pit gain:** $-(\text{pumped} - \text{returned})/\rho_m$.
 
 ---
@@ -1006,7 +1052,9 @@ With decoupled friction, the static normal force is used.
   - bit: $\omega_b$, TOB, $v_b$, WOB;
   - axial: $v_{blk}$, $H$;
   - depths: $s_{bit}$, $s_{hole}$;
-  - circulation: the current pump rate, plus hydraulics SPP, $p_{bh}$, ECD, $q_{out}$.
+  - circulation: the current pump rate, plus hydraulics SPP, $p_{bh}$, ECD, $q_{out}$;
+  - mud motor (only when enabled): $\omega_r$ (`omega_motor`), $\Delta p_m$ (`dp_motor`), stall (`motor_stalled`), and
+    the toolface $(\text{TF}_0 + \phi_s) \bmod 2\pi$ in $[0, 2\pi)$ (`toolface`).
 - **Recorded channels:** section 5.8.
 - **Profiles per cell:**
   - MD, ω, τ, $v$;
@@ -1027,7 +1075,8 @@ the browser contract: the lite engine reproduces it field for field.
 
 `tests/test_lite_engine.py` runs the browser engine under Node.js against the
 Python model on the same case (Well A with the temperature model off) and the
-same input script, with and without the wellbore temperature model. It requires:
+same input script, with and without the wellbore temperature model, and with a
+mud motor (a low stall differential, so the script stalls it, then a slide). It requires:
 - agreement to rounding level for the first seconds, before stick-slip chaos amplifies round-off;
 - agreement of the statistics over the whole run (mean torque and hookload, stick-slip amplitude, hydraulic pressures).
 
@@ -1039,3 +1088,4 @@ A new spec revision must keep this test passing for the lite version.
 |---|---|
 | 1 | First specification of the Python model (November 2026). |
 | 2 | Section 10 (wellbore temperature) written at implementation level; the browser version implements it. No change to the Python physics. |
+| 3 | Mud motor (5.5.1; derivation sec. 6.4): speed from flow with slip and bypass, differential pressure from torque, stall, reactive torque and toolface; pump-rate ramp row in the kernel; motor differential in series with the nozzles (8.3); new scalar state, recorded channels and outputs. Off by default, so cases without a motor are unchanged. |

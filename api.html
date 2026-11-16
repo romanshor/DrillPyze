@@ -67,6 +67,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.build_well"><code class="docutils literal notranslate"><span class="pre">build_well()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.build_drillstring"><code class="docutils literal notranslate"><span class="pre">build_drillstring()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.bit_parameters"><code class="docutils literal notranslate"><span class="pre">bit_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.motor_parameters"><code class="docutils literal notranslate"><span class="pre">motor_parameters()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.build_parameters"><code class="docutils literal notranslate"><span class="pre">build_parameters()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.make_controller"><code class="docutils literal notranslate"><span class="pre">make_controller()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.config.build_fluid"><code class="docutils literal notranslate"><span class="pre">build_fluid()</span></code></a></li>
@@ -87,6 +88,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.FrictionParameters"><code class="docutils literal notranslate"><span class="pre">FrictionParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.DampingParameters"><code class="docutils literal notranslate"><span class="pre">DampingParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.BitParameters"><code class="docutils literal notranslate"><span class="pre">BitParameters</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.MotorParameters"><code class="docutils literal notranslate"><span class="pre">MotorParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.TopDriveParameters"><code class="docutils literal notranslate"><span class="pre">TopDriveParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.RampParameters"><code class="docutils literal notranslate"><span class="pre">RampParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.HydraulicsParameters"><code class="docutils literal notranslate"><span class="pre">HydraulicsParameters</span></code></a></li>
@@ -284,6 +286,12 @@ stiff top-drive controller.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="DrillPyze.config.motor_parameters">
+<span class="sig-prename descclassname"><span class="pre">DrillPyze.config.</span></span><span class="sig-name descname"><span class="pre">motor_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/config.html#motor_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.config.motor_parameters" title="Link to this definition"></a></dt>
+<dd><p>MotorParameters from a config entry (None or missing: no motor).</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="DrillPyze.config.build_parameters">
 <span class="sig-prename descclassname"><span class="pre">DrillPyze.config.</span></span><span class="sig-name descname"><span class="pre">build_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zeta_p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/config.html#build_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.config.build_parameters" title="Link to this definition"></a></dt>
 <dd><p>ModelParameters from the case <cite>parameters</cite> section.</p>
@@ -470,6 +478,15 @@ not ramped by default: the controller shapes the response.</p>
 <dt class="sig sig-object py" id="DrillPyze.simulation.Simulation.latest">
 <span class="sig-name descname"><span class="pre">latest</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/simulation.html#Simulation.latest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.simulation.Simulation.latest" title="Link to this definition"></a></dt>
 <dd><p>Latest scalar values as a dict (SI units).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DrillPyze.simulation.Simulation.motor_state">
+<span class="sig-name descname"><span class="pre">motor_state</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/simulation.html#Simulation.motor_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.simulation.Simulation.motor_state" title="Link to this definition"></a></dt>
+<dd><p>Mud motor channels (SI): rotor speed relative to the stator <code class="docutils literal notranslate"><span class="pre">omega_motor</span></code>,
+differential pressure <code class="docutils literal notranslate"><span class="pre">dp_motor</span></code>, <code class="docutils literal notranslate"><span class="pre">motor_stalled</span></code>, and the <code class="docutils literal notranslate"><span class="pre">toolface</span></code>
+(rad, 0..2 pi, clockwise from the reference): the motor’s toolface offset plus
+the rotation of the string bottom since the start.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -803,6 +820,90 @@ specific energy; zeta the ratio of normal to tangential cutting force.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">MotorParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed_constant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">73.96817466028156</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">efficiency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_no_load</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">689475.7293168</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5171067.969876</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_stall</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">7756601.954814</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bypass_flow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">toolface_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#MotorParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.MotorParameters" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Positive-displacement mud motor between the string and the bit
+(docs/derivation/README.md, sec. 6.4; Nguyen et al. 2017).  Defaults: a generic
+6-3/4” 7/8-lobe motor.  <code class="docutils literal notranslate"><span class="pre">enabled=False</span></code> means no motor in the BHA.</p>
+<p>Speed:  N_r = k_n (Q - Q_bypass) (1 - s dp/dp_max)        (rev/s; k_n in rev/m^3)
+Torque: T = K_T (dp - dp_0),  K_T = eta / (2 pi k_n)       (N m)
+Stall:  T &lt;= K_T (dp_stall - dp_0); beyond it the rotor stops and dp = dp_stall.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>enabled</strong> (<em>bool</em>)</p></li>
+<li><p><strong>speed_constant</strong> (<em>float</em>)</p></li>
+<li><p><strong>efficiency</strong> (<em>float</em>)</p></li>
+<li><p><strong>dp_no_load</strong> (<em>float</em>)</p></li>
+<li><p><strong>dp_max</strong> (<em>float</em>)</p></li>
+<li><p><strong>dp_stall</strong> (<em>float</em>)</p></li>
+<li><p><strong>slip</strong> (<em>float</em>)</p></li>
+<li><p><strong>bypass_flow</strong> (<em>float</em>)</p></li>
+<li><p><strong>toolface_offset</strong> (<em>float</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.enabled" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.speed_constant">
+<span class="sig-name descname"><span class="pre">speed_constant</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">73.96817466028156</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.speed_constant" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.efficiency">
+<span class="sig-name descname"><span class="pre">efficiency</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.75</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.efficiency" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.dp_no_load">
+<span class="sig-name descname"><span class="pre">dp_no_load</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">689475.7293168</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.dp_no_load" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.dp_max">
+<span class="sig-name descname"><span class="pre">dp_max</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5171067.969876</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.dp_max" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.dp_stall">
+<span class="sig-name descname"><span class="pre">dp_stall</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">7756601.954814</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.dp_stall" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.slip">
+<span class="sig-name descname"><span class="pre">slip</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.slip" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.bypass_flow">
+<span class="sig-name descname"><span class="pre">bypass_flow</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.bypass_flow" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.toolface_offset">
+<span class="sig-name descname"><span class="pre">toolface_offset</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></span><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.toolface_offset" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.torque_constant">
+<span class="sig-name descname"><span class="pre">torque_constant</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#MotorParameters.torque_constant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.torque_constant" title="Link to this definition"></a></dt>
+<dd><p>K_T = eta / (2 pi k_n), N m per Pa of differential pressure.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="DrillPyze.parameters.MotorParameters.stall_torque">
+<span class="sig-name descname"><span class="pre">stall_torque</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#MotorParameters.stall_torque"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.MotorParameters.stall_torque" title="Link to this definition"></a></dt>
+<dd><p>Largest torque the motor delivers, K_T (dp_stall - dp_0) (N m).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="DrillPyze.parameters.TopDriveParameters">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">TopDriveParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inertia</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_torque</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#TopDriveParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.TopDriveParameters" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1070,9 +1171,9 @@ factories in <a class="reference internal" href="#module-DrillPyze.controllers" 
 
 <dl class="py class">
 <dt class="sig sig-object py" id="DrillPyze.parameters.ModelParameters">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">ModelParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">friction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">damping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_drive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autodriller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drawworks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ramps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydraulics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal_update_period</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#ModelParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.ModelParameters" title="Link to this definition"></a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">ModelParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">friction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">damping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">motor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_drive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autodriller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drawworks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ramps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydraulics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal_update_period</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#ModelParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.ModelParameters" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>All model parameters: friction, damping, bit, top drive, controller,
+<p>All model parameters: friction, damping, bit, mud motor, top drive, controller,
 autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1080,6 +1181,7 @@ autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
 <li><p><strong>friction</strong> (<a class="reference internal" href="#DrillPyze.parameters.FrictionParameters" title="DrillPyze.parameters.FrictionParameters"><em>FrictionParameters</em></a>)</p></li>
 <li><p><strong>damping</strong> (<a class="reference internal" href="#DrillPyze.parameters.DampingParameters" title="DrillPyze.parameters.DampingParameters"><em>DampingParameters</em></a>)</p></li>
 <li><p><strong>bit</strong> (<a class="reference internal" href="#DrillPyze.parameters.BitParameters" title="DrillPyze.parameters.BitParameters"><em>BitParameters</em></a>)</p></li>
+<li><p><strong>motor</strong> (<a class="reference internal" href="#DrillPyze.parameters.MotorParameters" title="DrillPyze.parameters.MotorParameters"><em>MotorParameters</em></a>)</p></li>
 <li><p><strong>top_drive</strong> (<a class="reference internal" href="#DrillPyze.parameters.TopDriveParameters" title="DrillPyze.parameters.TopDriveParameters"><em>TopDriveParameters</em></a>)</p></li>
 <li><p><strong>controller</strong> (<a class="reference internal" href="#DrillPyze.parameters.ControllerParameters" title="DrillPyze.parameters.ControllerParameters"><em>ControllerParameters</em></a>)</p></li>
 <li><p><strong>autodriller</strong> (<a class="reference internal" href="#DrillPyze.parameters.AutodrillerParameters" title="DrillPyze.parameters.AutodrillerParameters"><em>AutodrillerParameters</em></a>)</p></li>
@@ -1105,6 +1207,11 @@ autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="DrillPyze.parameters.ModelParameters.bit">
 <span class="sig-name descname"><span class="pre">bit</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#DrillPyze.parameters.BitParameters" title="DrillPyze.parameters.BitParameters"><span class="pre">BitParameters</span></a></span><a class="headerlink" href="#DrillPyze.parameters.ModelParameters.bit" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.ModelParameters.motor">
+<span class="sig-name descname"><span class="pre">motor</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#DrillPyze.parameters.MotorParameters" title="DrillPyze.parameters.MotorParameters"><span class="pre">MotorParameters</span></a></span><a class="headerlink" href="#DrillPyze.parameters.ModelParameters.motor" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -2031,10 +2138,12 @@ each face drive = friction (fixed-point on the face densities).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="DrillPyze.hydraulics.WellboreHydraulics.advance">
-<span class="sig-name descname"><span class="pre">advance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">duration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hole_depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/hydraulics.html#WellboreHydraulics.advance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.hydraulics.WellboreHydraulics.advance" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">advance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">duration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hole_depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_motor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/hydraulics.html#WellboreHydraulics.advance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.hydraulics.WellboreHydraulics.advance" title="Link to this definition"></a></dt>
 <dd><p>Advance by <code class="docutils literal notranslate"><span class="pre">duration</span></code> s; the pump rate ramps linearly from
 <code class="docutils literal notranslate"><span class="pre">q_start</span></code> to <code class="docutils literal notranslate"><span class="pre">q_end</span></code> (m^3/s) and the bit and hole move linearly to
-the given depths (string motion displaces mud: surge / swab).</p>
+the given depths (string motion displaces mud: surge / swab).  <code class="docutils literal notranslate"><span class="pre">dp_motor</span></code>
+(Pa) is the mud motor differential over the interval, a loss in series with
+the bit nozzles.</p>
 </dd></dl>
 
 <dl class="py method">
