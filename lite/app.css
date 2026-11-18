@@ -181,6 +181,32 @@ table.grid .del { border: 0; background: none; color: var(--steel); cursor: poin
 .scrub input { flex: 1; accent-color: var(--steel); }
 #scrub-label { font-size: 14px; color: var(--steel); min-width: 120px; }
 
+/* ------------------------------------------------------------ energy panel */
+section.energy {
+  --e-mud: #1f6fb2; --e-rot: #c97a12; --e-ax: #2f8a5b; --e-heat: #b8473a; --e-store: #7d6bb0; --e-regen: #0e8c8c; --e-motor: #4a5fc1;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px 14px; display: grid; gap: 10px; min-width: 0;
+}
+.energy-head { padding: 0 0 2px; flex-wrap: wrap; gap: 10px 16px; }
+.energy-head .seg button { white-space: nowrap; }
+.e-state { margin: 0; color: var(--steel); font-size: 13.5px; }
+.e-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.e-tile { border-left: 3px solid var(--line); padding: 2px 0 2px 10px; min-width: 0; }
+.e-tile .k { font: 600 11px/1.2 var(--font); text-transform: uppercase; letter-spacing: .07em; color: var(--steel); }
+.e-tile .v { font: 600 24px/1.15 var(--font-cond); }
+.e-tile .s { font-size: 12.5px; line-height: 1.35; color: var(--steel); }
+.e-tile.mud { border-color: var(--e-mud); } .e-tile.rot { border-color: var(--e-rot); } .e-tile.heat { border-color: var(--e-heat); }
+.e-tile.regen { border-color: var(--e-regen); } .e-tile.ax { border-color: var(--e-ax); }
+.e-grid { display: grid; gap: 14px; }
+.e-fig { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.e-fig figcaption { font: 600 13px/1.2 var(--font); text-transform: uppercase; letter-spacing: .05em; }
+.e-scroll { overflow-x: auto; }
+.e-scroll svg { display: block; }
+.e-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--steel); }
+.e-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+#energy svg text { font-family: var(--font); }
+#energy .sk-label { fill: var(--ink); }
+#energy .sk-value { fill: var(--steel); font-variant-numeric: tabular-nums; }
+
 section.traces { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 6px 6px; display: grid; gap: 4px; }
 .trace-head { display: flex; align-items: center; gap: 16px; padding: 0 8px 4px; font: 600 16px/1.2 var(--font-cond); }
 .trace-head .btn { margin-left: auto; font: 500 14px var(--font); }
@@ -296,7 +322,16 @@ section.traces { background: var(--panel); border: 1px solid var(--line); border
   .demo-bar { gap: 8px; }
   .demo-bar .play-btn { min-width: 64px; padding-inline: 8px; }
   .demo-clock span { display: none; }
-  .demo-bar .seg button { padding: 5px 8px; }
+  .demo-bar .seg button { padding: 5px 6px; font-size: 13px; }
+  .demo-bar .play-btn { min-width: 52px; padding-inline: 6px; }
+  .demo-clock b { font-size: 16px; white-space: nowrap; }
+  .demo-bar .seg { flex: none; }
+  section.energy { padding: 8px 8px 10px; }
+  .e-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .e-tile { border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; }
+  .e-tile .k { font-size: 9.5px; letter-spacing: .05em; }
+  .e-tile .v { font-size: 17px; }
+  .e-legend { font-size: 12px; gap: 2px 12px; }
   .trace-head { flex-wrap: wrap; gap: 8px; padding: 0 6px 6px; }
   .trace-head > span { flex: 1 0 100%; }
   .trace-head .seg button { white-space: nowrap; padding: 4px 8px; }
@@ -307,7 +342,7 @@ section.traces { background: var(--panel); border: 1px solid var(--line); border
 }
 /* ------------------------------------------------------------ demo mode
    Full screen: the dials fill the first page (scaled to fit by fitDeck in app.js), with the
-   along-string views and the log as further pages, snapped one per screen. */
+   along-string views, the log and the energy panel as further pages, snapped one per screen. */
 :root { --demo-bar: 52px; }
 body.demo { overflow: hidden; background: var(--bg); }
 body.demo .app { display: block; height: 100vh; height: 100dvh; }
@@ -315,7 +350,7 @@ body.demo .case, body.demo .transport, body.demo .message, body.demo .scrub, bod
 body.demo .trace-head > span, body.demo #download { display: none !important; }
 body.demo .work { position: fixed; inset: var(--demo-bar) 0 0 0; display: block; padding: 0; overflow-x: hidden; overflow-y: auto;
   scroll-snap-type: y mandatory; overscroll-behavior: contain; }
-body.demo .deck-wrap, body.demo .views-page, body.demo section.traces {
+body.demo .deck-wrap, body.demo .views-page, body.demo section.traces, body.demo section.energy {
   height: calc(100vh - var(--demo-bar)); height: calc(100dvh - var(--demo-bar));
   scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; }
 body.demo .deck-wrap { padding: 8px; }
@@ -323,7 +358,7 @@ body.demo .deck { transform-origin: 0 0; }
 body.demo .views-page { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
 body.demo .string-views { flex: 1; min-height: 0; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; }
 body.demo .string-views .plot, body.demo .string-views .plot:first-child { height: 100%; min-height: 0; grid-column: auto; }
-body.demo section.traces { border: 0; border-radius: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+body.demo section.traces, body.demo section.energy { border: 0; border-radius: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
 body.demo .deck-toast { top: calc(var(--demo-bar) + 8px); }
 .demo-bar { position: fixed; top: 0; left: 0; right: 0; height: var(--demo-bar); z-index: 30; display: flex; align-items: center; gap: 12px;
   padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left)); background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -347,3 +382,9 @@ table.grid input[type=number]::-webkit-outer-spin-button { -webkit-appearance: n
 .field select { grid-column: 2 / 4; }
 
 .field[hidden] { display: none; }
+/* phone demo bar: four page buttons, the clock and Play fit across a 360 px screen */
+@media (max-width: 760px) {
+  .demo-bar { gap: 6px; }
+  .demo-bar .play-btn { min-width: 50px; padding-inline: 6px; }
+  .demo-clock b { font-size: 15px; white-space: nowrap; }
+}

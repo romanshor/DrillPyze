@@ -3,6 +3,7 @@
 import { build, validate } from './config.js';
 import { torqueDrag } from './statics.js';
 import { REC_CHANNELS } from './kernel.js';
+import { HYD_ENERGY } from './simulation.js';
 import { RPM } from './units.js';
 
 const MAX_TRACE_ROWS = 400;
@@ -127,8 +128,22 @@ export class Session {
         vs: R(nn.map((x, i) => x * Math.cos(this.vsAz) + ee[i] * Math.sin(this.vsAz)), 2), tvd: R(zz, 2),
       },
       trace,
+      energy: this.energy(),
       perf: { wall, sim: duration, realtime: wall > 0 ? duration / wall : null },
     };
+  }
+
+  // cumulative energy (J) for the energy panel; the hydraulic terms are carried forward from
+  // the last hydraulics tick at the latest split so that short averaging windows stay smooth
+  energy() {
+    const sim = this.sim, e = sim.energy();
+    if (sim.hydraulics) {
+      const ls = sim.hydraulics.lossSplit(), lag = e.time - sim.hydLast.t;
+      for (const k of HYD_ENERGY) e['h_' + k] += (k === 'pump' ? ls.spp : ls[k]) * ls.q * lag;
+    }
+    const p = sim.params.energy;
+    return { ...e, pump_efficiency: p.pump_efficiency, regen_efficiency: p.regen_efficiency,
+             bit_diameter: sim.wellbore.hole_diameter, has_motor: !!sim.params.motor.enabled };
   }
 
   // driller's-display motor values (null without a motor)

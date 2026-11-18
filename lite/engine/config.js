@@ -26,6 +26,8 @@ const DEFAULTS = {
   hydraulics: { enabled: true, dx: 30, cut_factor: 1.5, cfl: 0.8, iterations: 2, back_pressure: 0, surface_loss_coefficient: 0,
                 surface_loss_exponent: 1.8, clinging_constant: 0.45 },
   thermal: { ...THERMAL_DEFAULTS },
+  // energy accounting (spec 5.9): mechanical efficiency of the mud pumps and of a regenerative drive
+  energy: { pump_efficiency: 0.9, regen_efficiency: 0.9 },
 };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -73,6 +75,11 @@ export function validate(cfg) {
     if (!(Number(b.drilling_strength ?? 1) > 0)) errs.push('Bit drilling strength must be positive.');
     if (['cutting', 'regenerative'].includes(b.model) && !(Number(b.zeta ?? 1) > 0)) errs.push('Bit ζ must be positive.');
     if (b.model === 'regenerative' && !(Number(b.blades ?? 1) >= 1)) errs.push('The regenerative bit needs at least one blade.');
+    const en = cfg.parameters.energy || {};
+    for (const [k, label] of [['pump_efficiency', 'Pump efficiency'], ['regen_efficiency', 'Regeneration efficiency']]) {
+      const v = en[k];
+      if (v !== null && v !== undefined && v !== '' && !(Number(v) > 0 && Number(v) <= 1)) errs.push(`${label} must be between 0 and 1.`);
+    }
     const m = { ...DEFAULTS.motor, ...(cfg.parameters.motor || {}) };
     if (m.enabled) {
       const v = (k) => num(m[k], DEFAULTS.motor[k]);
@@ -135,6 +142,7 @@ export function build(cfg) {
   params.bit.blades = Math.trunc(params.bit.blades);
   params.motor.enabled = !!params.motor.enabled;
   for (const k of Object.keys(params.motor)) if (k !== 'enabled') params.motor[k] = num(params.motor[k], DEFAULTS.motor[k]);
+  for (const k of Object.keys(params.energy)) params.energy[k] = num(params.energy[k], DEFAULTS.energy[k]);
   params.thermal.enabled = !!params.thermal.enabled;
   params.thermal.n_radial = Math.trunc(params.thermal.n_radial); params.thermal.gs_iterations = Math.trunc(params.thermal.gs_iterations);
   params.cfl = num(p.cfl, 0.95);
