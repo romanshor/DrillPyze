@@ -29,6 +29,7 @@ import numpy as np
 from .. import config as C
 from .. import kernel as K
 from .. import statics, units
+from ..simulation import HYD_ENERGY
 from .. import __version__, __release_date__, __release_name__
 
 STATIC = os.path.join(os.path.dirname(__file__), 'static')
@@ -239,9 +240,28 @@ class Session:
                 'tvd': _r(z, 2),
             },
             'trace': trace,
+            'energy': self._energy(),
             'perf': {'wall': wall, 'sim': duration,
                      'realtime': (duration / wall) if wall > 0 else None},
         }
+
+    def _energy(self):
+        """
+        Cumulative energy (J) for the energy panel.  The hydraulic terms advance once per
+        hydraulics tick; they are carried forward to the frame time at the latest split so
+        that short averaging windows stay smooth.
+        """
+        sim = self.sim
+        e = sim.energy()
+        if sim.hydraulics is not None:
+            ls = sim.hydraulics.loss_split()
+            lag = e['time'] - sim._hyd_last['t']
+            for k in HYD_ENERGY:
+                e[f'h_{k}'] += (ls['spp'] if k == 'pump' else ls[k]) * ls['q'] * lag
+        p = sim.params.energy
+        e.update(pump_efficiency=p.pump_efficiency, regen_efficiency=p.regen_efficiency,
+                 bit_diameter=float(sim.wellbore.hole_diameter), has_motor=bool(sim.params.motor.enabled))
+        return e
 
     def _motor_latest(self, L):
         """Driller's-display motor values: presence flag, rpm, differential (Pa), stall and toolface."""

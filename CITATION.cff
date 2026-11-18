@@ -6,9 +6,9 @@ authors:
   - family-names: Shor
     given-names: Roman J.
     affiliation: Texas A&M University
-version: 1.0.0
-date-released: 2026-11-16
-doi: 10.5281/zenodo.24289880
+version: 1.1.0
+date-released: 2026-11-18
+doi: 10.5281/zenodo.24289879
 identifiers:
   - type: doi
     value: 10.5281/zenodo.24289880

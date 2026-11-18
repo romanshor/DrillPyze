@@ -227,6 +227,12 @@ const SECTIONS = [
       ['display.pore_density', 'Pore pressure (equivalent density)', 'density', { live: true }],
       ['display.frac_density', 'Fracture pressure (equivalent density)', 'density', { live: true }],
     ] },
+  { title: 'Energy',
+    note: () => 'Used by the energy panel; change them at any time. The mud pumps draw SPP·Q / η from their drive; a hybrid rig with a regenerative drive could store η times the braking of the top drive and the drawworks.',
+    fields: [
+      ['parameters.energy.pump_efficiency', 'Pump efficiency η_pump', 'none', { live: true, hint: 'Mechanical and volumetric, 0 to 1 (0.9 = 90 %)' }],
+      ['parameters.energy.regen_efficiency', 'Regeneration efficiency η_regen', 'none', { live: true, hint: 'Braking energy stored by a regenerative drive, 0 to 1' }],
+    ] },
   { title: 'Numerics',
     fields: [
       ['simulation.dx', 'Cell size', 'length', { hint: 'Halving the cell size makes runs about 4× slower' }],
@@ -318,7 +324,7 @@ function fieldRow(spec) {
   if (opt.hint) el.title = opt.hint;
   el.addEventListener('change', () => {
     set(state.cfg, path, el.value === '' ? null : fromDisp(kind, Number(el.value)));
-    if (opt.live) deckRedraw(); else markDirty();
+    if (opt.live) { if (path.startsWith('parameters.energy.')) energyRedraw(); else deckRedraw(); } else markDirty();
   });
   return row;
 }
@@ -816,7 +822,9 @@ function render(fr, live = true) {
   deckUpdate(fr.latest, live ? null : fr.time);
   $('clock').textContent = `${fr.time.toFixed(2)} s`;
   drawTraces(live ? null : fr.time);
+  EnergyPanel.draw(live ? null : fr.time);
 }
+function energyRedraw() { const s = state.shown; EnergyPanel.draw(s && !s.live ? s.fr.time : null, true); }
 
 // -------------------------------------------------------------- simulation
 function inputs(duration = 0) { return deckInputs(duration); }
@@ -834,6 +842,7 @@ async function initialise() {
     $('dirty-hint').hidden = true;
     ctl.flow = get(state.cfg, 'parameters.thermal.flow_rate'); ctl.tin = get(state.cfg, 'parameters.thermal.inlet_temperature');
     deck.key = null;
+    EnergyPanel.reset();
     pushFrame(r.frame);
     render(r.frame);
     const i = r.info;
@@ -851,6 +860,7 @@ function pushFrame(fr) {
   appendTrace(fr.trace);
   appendSlow(fr.slow);
   appendHyd(fr.hyd);
+  EnergyPanel.push(fr.energy, fr.latest);
   state.frames.push({ time: fr.time, latest: fr.latest, profile: fr.profile, thermal: fr.thermal });
   if (state.frames.length > MAX_FRAMES) state.frames.splice(0, state.frames.length - MAX_FRAMES);
   const s = $('scrub'); s.max = state.frames.length - 1; if (state.scrub == null) s.value = s.max;
@@ -952,6 +962,10 @@ function download(name, text, type = 'application/json') {
 
 // ------------------------------------------------------------------ wiring
 function wire() {
+  EnergyPanel.init({
+    phone, system: () => SYSTEM, logWindow: () => state.windowS,
+    efficiencies: () => { const e = (state.cfg && state.cfg.parameters.energy) || {}; return { pump: e.pump_efficiency, regen: e.regen_efficiency }; },
+  });
   $('apply').addEventListener('click', initialise);
   $('reset').addEventListener('click', initialise);
   $('play').addEventListener('click', () => (state.playing ? pause() : play()));
@@ -992,6 +1006,7 @@ function wire() {
       for (const o of document.querySelectorAll('#window button')) o.setAttribute('aria-checked', String(o === b));
       state.windowS = Number(b.dataset.w);
       drawTraces(state.scrub == null ? null : state.frames[state.scrub].time);
+      EnergyPanel.draw(state.scrub == null ? null : state.frames[state.scrub].time, true);
     });
   }
   document.addEventListener('keydown', (e) => {
@@ -1025,6 +1040,7 @@ function setInputsOpen(open) {
 function redrawShown() {
   const s = state.shown; if (!s) return;
   drawStringViews(s.fr); drawTraces(s.live ? null : s.fr.time);
+  EnergyPanel.draw(s.live ? null : s.fr.time, true);
 }
 function showView(id) {
   state.view = id;
@@ -1066,9 +1082,10 @@ function wirePhone() {
 
 // --------------------------------------------------------------- demo mode
 // Full screen for showing the simulator: the dials fill the first page, the along-string
-// views and the log are pages below (scroll or swipe up) and to the right (swipe left),
+// views, the log and the energy panel are pages below (scroll or swipe up) and to the right (swipe left),
 // and a slim bar keeps Play, the clock and the page picker in reach.
-const demoPages = () => [document.querySelector('.deck-wrap'), document.querySelector('.views-page'), document.querySelector('section.traces')];
+const demoPages = () => [document.querySelector('.deck-wrap'), document.querySelector('.views-page'), document.querySelector('section.traces'),
+                          document.querySelector('section.energy')];
 function demoLogHeight() {
   const sec = document.querySelector('section.traces'), top = $('t-log').getBoundingClientRect().top - sec.getBoundingClientRect().top;
   // at least ~240 px of plot under the curve headers; a short screen (a phone on its side) scrolls the page
@@ -1169,7 +1186,7 @@ function wireDemo() {
   document.addEventListener('fullscreenchange', () => { if (state.demoFs && !document.fullscreenElement) setDemo(false); });
 }
 
-// version under the title: "1.0 (v1.0.0)" and "Released 2026-11-16"
+// version under the title: "1.1 (v1.1.0)" and "Released 2026-11-18"
 function showVersion(d) {
   if (!d.version) return;
   const el = $('version');

@@ -9,15 +9,15 @@ from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
 from .parameters import (ModelParameters, FrictionParameters, DampingParameters,
-                         BitParameters, MotorParameters, TopDriveParameters, ControllerParameters,
+                         BitParameters, MotorParameters, EnergyParameters, TopDriveParameters, ControllerParameters,
                          AutodrillerParameters, RampParameters, HydraulicsParameters)
 from .simulation import Simulation
 from .statics import torque_drag
 from .formation import Formation, FormationLayer
 from .thermal import WellboreThermal, ThermalParameters
 
-__version__ = "1.0.0"             # PEP 440 (keep pyproject.toml in step)
-__release_date__ = "2026-11-16"
-__release_name__ = "1.0"
+__version__ = "1.1.0"             # PEP 440 (keep pyproject.toml in step)
+__release_date__ = "2026-11-18"
+__release_name__ = "1.1"
 __author__ = 'Roman J. Shor'
 __credits__ = 'Texas A&M University; University of Calgary'

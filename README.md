@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24289879.svg)](https://doi.org/10.5281/zenodo.24289879)
 
-**Version 1.0.0 (released 2026-11-16).**
+**Version 1.1.0 (released 2026-11-18).**
 [Documentation](https://romanshor.github.io/DrillPyze/) ·
 [Try it in your browser (DrillPyze Lite)](https://romanshor.github.io/DrillPyze/lite/) ·
 [Demo mode](https://romanshor.github.io/DrillPyze/lite/#demo) ·
@@ -139,6 +139,22 @@ Other model components:
   * **Hydraulics:** the motor differential adds to SPP.
   * **Well A:** has no motor by default. A generic 6¾" 7/8-lobe motor (0.28
     rev/gal) is ready to switch on.
+* **Energy accounting** (derivation §11): where the power goes, in real time.
+  * **In:** the mud pumps (SPP·Q over a pump efficiency, 90 % by default), the
+    top drive, the drawworks hoisting and gravity lowering the string.
+  * **Out:** rock destruction at the bit (string and mud motor), wall friction,
+    damping, frictional losses inside the string and in the annulus, the bit
+    nozzles, the mud motor's losses, and the energy stored in the string.
+  * **Regenerative braking:** the braking of the top drive (negative torque)
+    and the drawworks (tripping in, and drilling at ROP) that a hybrid rig
+    could store, at a regeneration efficiency (90 % by default). Tripping
+    Well A to 2500 m brakes 255 kWh; see `examples/tripping_energy.py`.
+  * **Exact bookkeeping:** accumulated every time step, closing to the scheme's
+    numerical dissipation (about 0.6 %). `Simulation.energy()` returns the
+    totals; `DrillPyze.energy.flows` turns two snapshots into mean powers.
+  * **Simulator:** an energy panel under the drilling log, with a Sankey
+    diagram, power over time and 1, 10 or 60 s means; the fourth page in demo
+    mode.
 * **Wellbore temperature:** the drift-flux model of Wang et al. (2023),
   coupled every 2 s of simulated time.
 * **Hydraulics** ([`docs/derivation/hydraulics.md`](docs/derivation/hydraulics.md)):
@@ -304,8 +320,8 @@ revision.
 - **Speed:** about 20–30× real time for Well A.
 - **Phones and demos:** the layout adapts to a phone. **Demo** (or a link
   ending in `#demo`) goes full screen: the dials fill the screen, and the
-  along-string views and the log are pages below and to the right (swipe,
-  scroll or use the arrow keys; Esc exits).
+  along-string views, the log and the energy flow are pages below and to the
+  right (swipe, scroll or use the arrow keys; Esc exits).
 - **Visit counts:** the hosted site counts anonymous visits with
   [GoatCounter](https://www.goatcounter.com/) (no cookies), plus a few events:
   first Play, run-ahead, demo mode, a new case, a results download.
@@ -440,6 +456,16 @@ The 2023 prototype ran at about 2× real time on a shorter 2,100 m string.
   * surge and swab have the right sign and are symmetric;
   * set-point ramps are linear in time;
   * pause and resume stay exact with hydraulics running;
+* Energy accounting:
+  * the rotation and axial balances close to the scheme's numerical
+    dissipation (within 2%), and the top drive within $`10^{-4}`$;
+  * with no wall friction there is no friction energy;
+  * the hydraulic split sums to SPP·Q; with a motor, the power it delivers to
+    the bit is below its hydraulic power and counts as rock destruction;
+  * tripping in brakes, tripping out lifts, and stopping the rotation brakes
+    the top drive;
+  * the efficiencies are validated, and pause and resume are exact;
+  * the browser engine reproduces every accumulator to round-off;
 * General:
   * pause and resume are exact;
   * an external Python PI reproduces the internal controller.
@@ -463,7 +489,7 @@ documentation.
 
 | Branch | Purpose | Published at |
 |---|---|---|
-| `main` | releases (currently 1.0.0) | documentation at the site root, DrillPyze Lite at `/lite/` |
+| `main` | releases (currently 1.1.0) | documentation at the site root, DrillPyze Lite at `/lite/` |
 | `coupled-model` | development of the Python model, UI and docs | development docs at `/coupled-model/` |
 | `browser-lite` | brings DrillPyze Lite up to date with the physics | — |
 

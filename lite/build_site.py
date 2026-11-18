@@ -42,6 +42,7 @@ def index_html(analytics=True):
         ('<script src="/static/plotly.min.js"></script>', '<script src="plotly.min.js"></script>'),
         ('<h1>DrillPyze</h1>', '<h1>DrillPyze <span class="lite-badge" title="Runs entirely in your browser">Lite</span></h1>'),
         ('<script src="/static/deck.js"></script>', '<script src="lite-api.js"></script>\n<script src="deck.js"></script>'),
+        ('<script src="/static/energy.js"></script>', '<script src="energy.js"></script>'),
         ('<script src="/static/app.js"></script>', '<script src="app.js"></script>'),
         ('<link rel="stylesheet" href="/static/app.css">',
          '<link rel="stylesheet" href="app.css">\n<style>.lite-badge { font: 600 12px/1 var(--font); vertical-align: middle; '
@@ -71,7 +72,7 @@ def build(out, analytics=True):
         shutil.rmtree(out)
     (out / 'engine').mkdir(parents=True)
     (out / 'index.html').write_text(index_html(analytics))
-    for f in ('app.js', 'deck.js', 'app.css'):
+    for f in ('app.js', 'deck.js', 'energy.js', 'app.css'):
         shutil.copy(STATIC / f, out / f)
     shutil.copy(LITE / 'lite-api.js', out / 'lite-api.js')
     shutil.copy(plotly_js(), out / 'plotly.min.js')

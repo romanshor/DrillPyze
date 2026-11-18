@@ -291,4 +291,21 @@ export class WellboreHydraulics {
              v_pipe: this.vPipe, surface_loss: spp - pTop, dp_motor: this.dpMotor,
              pit_gain: -(this.acc[0] - this.acc[1]) / this.fluid.density };
   }
+
+  // where the standpipe pressure goes (Pa, spec 8.4): surface lines, friction inside the
+  // string, the mud motor, the bit nozzles, friction in the annulus, and the rest
+  lossSplit() {
+    const c2 = this.c * this.c, hs = this.state(), nD = this.mD.length, k = this.kab;
+    let hydD = 0, hydA = 0, z = 0;
+    for (let j = 0; j < nD; j++) { hydD += this.mD[j] / this.VD[j] * G * (this.zD[j] - z); z = this.zD[j]; }
+    z = 0;
+    for (let j = 0; j <= k; j++) { hydA += this.mA[j] / this.VA[j] * G * (this.zA[j] - z); z = this.zA[j]; }
+    const pDb = c2 * (this.mD[nD - 1] / this.VD[nD - 1] - this.rTD[nD - 1]);
+    const pAk = c2 * (this.mA[k] / this.VA[k] - this.rTA[k]);
+    const pTop = hs.spp - hs.surface_loss;
+    const out = { q: hs.q_in, spp: hs.spp, surface: hs.surface_loss, string: pTop + hydD - pDb, motor: this.dpMotor,
+                  nozzles: hs.dp_bit, annulus: pAk - hydA - this.p.back_pressure };
+    out.other = out.spp - (out.surface + out.string + out.motor + out.nozzles + out.annulus);
+    return out;
+  }
 }

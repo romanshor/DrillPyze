@@ -21,6 +21,10 @@ Simulation (``simulation``)
 ---------------------------
 .. automodule:: DrillPyze.simulation
 
+Energy accounting (``energy``)
+------------------------------
+.. automodule:: DrillPyze.energy
+
 Parameters (``parameters``)
 ---------------------------
 .. automodule:: DrillPyze.parameters

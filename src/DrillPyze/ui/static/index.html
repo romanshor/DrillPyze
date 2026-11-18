@@ -173,10 +173,43 @@
         </div>
       </div></div>
     </section>
+
+    <section class="energy" id="energy" aria-label="Energy flow">
+      <div class="trace-head energy-head">
+        <span>Energy flow</span>
+        <div class="seg" role="radiogroup" aria-label="Averaging window" id="e-win">
+          <button role="radio" data-w="1" aria-checked="false">1 s</button>
+          <button role="radio" data-w="10" aria-checked="false">10 s</button>
+          <button role="radio" data-w="60" aria-checked="true">60 s mean</button>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Flows shown" id="e-view">
+          <button role="radio" data-v="all" aria-checked="true">Everything</button>
+          <button role="radio" data-v="mech" aria-checked="false">Drillstring</button>
+        </div>
+      </div>
+      <p class="e-state" id="e-state"></p>
+      <div class="e-tiles" id="e-tiles"></div>
+      <div class="e-grid">
+        <figure class="e-fig">
+          <figcaption id="e-sk-title">Power flow</figcaption>
+          <div class="e-scroll"><svg id="e-sankey" role="img" aria-label="Sankey diagram of the power flows"></svg></div>
+          <div class="e-legend">
+            <span><i style="background:var(--e-mud)"></i>Mud (hydraulic)</span><span><i style="background:var(--e-rot)"></i>Rotation (torque × speed)</span>
+            <span><i style="background:var(--e-ax)"></i>Axial (force × speed)</span><span><i style="background:var(--e-heat)"></i>Lost as heat</span>
+            <span><i style="background:var(--e-regen)"></i>Braking a hybrid rig could recover</span><span><i style="background:var(--e-store)"></i>Stored or released</span>
+          </div>
+        </figure>
+        <figure class="e-fig">
+          <figcaption>Power over time, same span as the log</figcaption>
+          <div class="e-scroll"><svg id="e-timeline" role="img" aria-label="Power over time"></svg></div>
+          <div class="e-legend" id="e-legend-t"></div>
+        </figure>
+      </div>
+    </section>
   </main>
 </div>
 
-<!-- demo mode: a slim bar over full-screen pages (dials, along-string views, log) -->
+<!-- demo mode: a slim bar over full-screen pages (dials, along-string views, log, energy) -->
 <div class="demo-bar" id="demo-bar" hidden>
   <button class="btn play-btn" id="demo-play" aria-label="Play">Play</button>
   <div class="demo-clock"><b id="demo-clock">0.00 s</b><span id="demo-speed"></span></div>
@@ -184,12 +217,14 @@
     <button role="tab" data-p="0" aria-selected="true">Dials</button>
     <button role="tab" data-p="1" aria-selected="false">String</button>
     <button role="tab" data-p="2" aria-selected="false">Log</button>
+    <button role="tab" data-p="3" aria-selected="false">Energy</button>
   </div>
   <button class="icon-btn" id="demo-exit" aria-label="Exit demo" title="Exit demo (Esc)">×</button>
 </div>
 <div class="demo-hint" id="demo-hint" role="status" aria-live="polite"></div>
 
 <script src="/static/deck.js"></script>
+<script src="/static/energy.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

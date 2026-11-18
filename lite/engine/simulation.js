@@ -1,11 +1,13 @@
 // Simulation: set-up, inputs and ramps, slow tick and outputs (spec sections 2.4, 3, 4, 6, 7, 12)
 import { G, STEEL_DENSITY } from './units.js';
-import { advance, rampValue, BIT_MODELS, R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB, R_FLOW } from './kernel.js';
+import { advance, rampValue, BIT_MODELS, EN_NAMES, R_WSP, R_VBLK, R_TAUM, R_WTD, R_WOB, R_FLOW } from './kernel.js';
 import { WellboreHydraulics } from './hydraulics.js';
 import { rockStrength } from './formation.js';
 import { WellboreThermal } from './thermal.js';
 
 const F64 = (n, v = 0) => new Float64Array(n).fill(v);
+// hydraulic energy terms (spec 8.4), from WellboreHydraulics.lossSplit
+export const HYD_ENERGY = ['pump', 'surface', 'string', 'motor', 'nozzles', 'annulus', 'other'];
 
 export function stiffController(zetaP, inertia) {
   return { kp: 100 * zetaP, ki: 5 * inertia, impedance: 0, t_hp: 10, t_lp: 0.005, t_en: 0.001, name: 'stiff' };
@@ -37,6 +39,8 @@ export class Simulation {
                 wbit: 0, tob: 0, vbit: 0, wob: 0, vblk: 0, hkld: 0, adInt: 0, blkpos: 0, stuck: 0, phib: 0, wint: 0,
                 phis: 0, dpm: 0, dpint: 0, wmot: 0, stall: 0 };
     this.surf = F64(720, hole);
+    this.en = F64(EN_NAMES.length);                         // energy accumulators (J), spec 5.9
+    this.enHyd = Object.fromEntries(HYD_ENERGY.map(k => [k, 0]));   // hydraulic energy (J), spec 8.4
     this.bitDepth0 = bitDepth; this.geomBitd = null; this.qsC = null; this.refreshDistance = refreshDistance;
     this.p = {};
     this.refreshGeometry();
@@ -258,6 +262,9 @@ export class Simulation {
     const hs = this.hydraulics.advance(dt, this.hydLast.q, q1, this.sc.bitd, this.sc.holed, (dpint - this.hydLast.dpint) / dt);
     this.hydLast = { t, q: q1, dpint };
     this.hydRecords.push({ time: t, ...hs });
+    // hydraulic energy over the interval: each pressure drop times the pump rate
+    const ls = this.hydraulics.lossSplit();
+    for (const k of HYD_ENERGY) this.enHyd[k] += (k === 'pump' ? ls.spp : ls[k]) * ls.q * dt;
   }
   slowTick() {
     this.slowTicks++;
@@ -318,6 +325,22 @@ export class Simulation {
     return out;
   }
   // mud motor channels (spec 12): rotor speed, differential, stall flag, toolface (rad, 0..2 pi)
+  // energy accounting (J, cumulative since the start; spec 5.9 and 8.4)
+  energy() {
+    const h = this.grid.dx, n = this.w.length;
+    const out = { time: this.sc.t };
+    EN_NAMES.forEach((k, i) => { out[k] = this.en[i]; });
+    for (const k of HYD_ENERGY) out['h_' + k] = this.enHyd[k];
+    let st = 0, sa = 0;
+    for (let j = 0; j < n; j++) {
+      st += h[j] * (0.5 * this.mt[j] * this.w[j] ** 2 + 0.5 * this.tau[j] ** 2 / this.Kt[j]);
+      sa += h[j] * (0.5 * this.ma[j] * this.v[j] ** 2 + 0.5 * this.qd[j] ** 2 / this.Ka[j]);
+    }
+    out.store_torsion = st; out.store_axial = sa;
+    out.store_top_drive = 0.5 * this.params.top_drive.inertia * this.sc.wtd ** 2;
+    return out;
+  }
+
   motorState() {
     const s = this.sc, tf = this.params.motor.toolface_offset + s.phis, tp = 2 * Math.PI;
     return { omega_motor: s.wmot, dp_motor: s.dpm, motor_stalled: s.stall > 0.5, toolface: ((tf % tp) + tp) % tp };

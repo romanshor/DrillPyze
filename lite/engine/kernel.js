@@ -5,6 +5,11 @@ export const BIT_MODELS = ['coulomb', 'cutting', 'regenerative'];
 export const REC_CHANNELS = ['time', 'omega_td', 'motor_torque', 'pipe_torque', 'omega_bit', 'tob', 'v_block',
                              'hookload', 'v_bit', 'wob', 'bit_depth', 'hole_depth', 'omega_sp',
                              'omega_motor', 'dp_motor', 'stator_angle'];
+// energy accumulators (J), spec 5.9: work at the string's ends and dissipation
+export const EN_NAMES = ['td_pos', 'td_neg', 'top', 'bit_torsion', 'motor', 'bit_axial', 'hook_pos', 'hook_neg',
+                         'gravity', 'friction_torsion', 'friction_axial', 'damping_torsion', 'damping_axial'];
+const EN_TD_POS = 0, EN_TD_NEG = 1, EN_TOP = 2, EN_BIT_T = 3, EN_MOTOR = 4, EN_BIT_A = 5, EN_HOOK_POS = 6,
+      EN_HOOK_NEG = 7, EN_GRAV = 8, EN_FRIC_T = 9, EN_FRIC_A = 10, EN_DAMP_T = 11, EN_DAMP_A = 12;
 // ramp rows (spec 5.1); R_FLOW is the pump rate, which drives the mud motor
 export const R_WSP = 0, R_VBLK = 1, R_TAUM = 2, R_WTD = 3, R_WOB = 4, R_FLOW = 5;
 
@@ -124,7 +129,7 @@ export function advance(s, nsteps) {
         bitModel = p.bitModel, nBl = p.blades, axc = p.axc, weakExp = p.weakExp, useKv = p.kv, motor = p.motor;
   const aEn = p.ten > 0 ? Math.exp(-dt / p.ten) : 0, aLp = p.tlp > 0 ? Math.exp(-dt / p.tlp) : 0,
         aHp = p.thp > 0 ? Math.exp(-dt / p.thp) : 0;
-  const R = s.ramps, sc = s.sc, rec = s.rec;
+  const R = s.ramps, sc = s.sc, rec = s.rec, en = s.en;
 
   for (let step = 0; step < nsteps; step++) {
     // ---- top drive input (5.1, 5.2)
@@ -165,6 +170,13 @@ export function advance(s, nsteps) {
     let q0 = Za[0] * (sc.vblk - betaA1), vTop = sc.vblk;
     if (-(q0 + p.qsTop) < 0) { q0 = -p.qsTop; vTop = betaA1 + q0 / Za[0]; }
     vf[0] = vTop; qf[0] = q0; sc.hkld = -(q0 + p.qsTop);
+    // surface work this step (5.9)
+    const pM = sc.taum * wNewTd;
+    if (pM >= 0) en[EN_TD_POS] += pM * dt; else en[EN_TD_NEG] -= pM * dt;
+    en[EN_TOP] += tau0 * wNewTd * dt;
+    const pH = -sc.hkld * vTop;
+    if (pH >= 0) en[EN_HOOK_POS] += pH * dt; else en[EN_HOOK_NEG] -= pH * dt;
+    en[EN_GRAV] -= p.qsTop * vTop * dt;
 
     // ---- interior faces (5.4)
     for (let j = 0; j < n - 1; j++) {
@@ -203,17 +215,23 @@ export function advance(s, nsteps) {
       }
       const wStr = alT - res[1] / Zb;
       wf[n] = wStr; sc.wmot = res[0] - wStr; sc.dpm = dpm; sc.stall = stall;
+      en[EN_MOTOR] += res[1] * (res[0] - wStr) * dt;
     } else wf[n] = res[0];
     tf[n] = res[1]; vf[n] = res[2]; qf[n] = res[3];
+    en[EN_BIT_T] += tf[n] * wf[n] * dt;
     sc.wbit = res[0]; sc.tob = res[1]; sc.vbit = res[2]; sc.wob = res[3]; sc.stuck = res[4];
 
-    // ---- cell update and linear damping (5.6)
+    // ---- cell update and linear damping (5.6); kinetic energy before damping, after
+    //      damping and after friction gives each split step's loss (5.9)
+    en[EN_BIT_A] += qf[n] * vf[n] * dt;
+    let keT0 = 0, keA0 = 0, keT1 = 0, keA1 = 0, keT2 = 0, keA2 = 0;
     for (let j = 0; j < n; j++) {
       wOld[j] = w[j]; vOld[j] = v[j];
       tau[j] -= dt * Kt[j] / h[j] * (wf[j + 1] - wf[j]);
       const ws = w[j] - dt / (mt[j] * h[j]) * (tf[j + 1] - tf[j]);
       qd[j] -= dt * Ka[j] / h[j] * (vf[j + 1] - vf[j]);
       const vs = v[j] - dt / (ma[j] * h[j]) * (qf[j + 1] - qf[j]);
+      keT0 += 0.5 * mt[j] * h[j] * ws * ws; keA0 += 0.5 * ma[j] * h[j] * vs * vs;
       wst[j] = (ws + dt * k1t[j] * wbar[j]) / (1 + dt * (k0t[j] + k1t[j]));
       vst[j] = (vs + dt * k1a[j] * vbar[j]) / (1 + dt * (k0a[j] + k1a[j]));
     }
@@ -222,6 +240,7 @@ export function advance(s, nsteps) {
     // ---- along-string friction (5.7)
     for (let j = 0; j < n; j++) {
       const wo = wOld[j], vo = vOld[j], ws = wst[j], vs = vst[j], fyj = fy[j], r = rc[j];
+      keT1 += 0.5 * mt[j] * h[j] * ws * ws; keA1 += 0.5 * ma[j] * h[j] * vs * vs;
       if (coupled) {
         const T = -(qsC[j] + qd[j]);
         const fx = T * kx[j] + wb[j] * zx[j], fyy = T * ky[j] + wb[j] * zy[j], fz = T * kz[j] + wb[j] * zz[j];
@@ -259,7 +278,12 @@ export function advance(s, nsteps) {
       }
     }
     // ---- low-pass states and bookkeeping (5.8)
-    for (let j = 0; j < n; j++) { wbar[j] += p.hpT * (w[j] - wbar[j]); vbar[j] += p.hpA * (v[j] - vbar[j]); }
+    for (let j = 0; j < n; j++) {
+      keT2 += 0.5 * mt[j] * h[j] * w[j] * w[j]; keA2 += 0.5 * ma[j] * h[j] * v[j] * v[j];
+      wbar[j] += p.hpT * (w[j] - wbar[j]); vbar[j] += p.hpA * (v[j] - vbar[j]);
+    }
+    en[EN_DAMP_T] += keT0 - keT1; en[EN_DAMP_A] += keA0 - keA1;
+    en[EN_FRIC_T] += keT1 - keT2; en[EN_FRIC_A] += keA1 - keA2;
     sc.t += dt;
     sc.bitd += sc.vbit * dt;
     sc.blkpos += sc.vblk * dt;

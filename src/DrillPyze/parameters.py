@@ -147,6 +147,18 @@ class MotorParameters:
 
 
 @dataclass
+class EnergyParameters:
+    """
+    Efficiencies for the energy accounting (docs/derivation sec. 11); they do not
+    change the physics.  The pumps' drive power is SPP Q / pump_efficiency; braking
+    by the top drive and the drawworks could be recovered at regen_efficiency by a
+    hybrid rig's regenerative drives.
+    """
+    pump_efficiency: float = 0.9
+    regen_efficiency: float = 0.9
+
+
+@dataclass
 class TopDriveParameters:
     """Top-drive inertia and optional torque limit."""
     inertia: float = 2000.0     # kg m^2 (including gearbox, reflected to the quill)
@@ -231,7 +243,7 @@ class AutodrillerParameters:
 class ModelParameters:
     """
     All model parameters: friction, damping, bit, mud motor, top drive, controller,
-    autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.
+    autodriller, drawworks, ramps, hydraulics, thermal, energy accounting and the CFL number.
     """
     friction: FrictionParameters = field(default_factory=FrictionParameters)
     damping: DampingParameters = field(default_factory=DampingParameters)
@@ -244,6 +256,7 @@ class ModelParameters:
     ramps: RampParameters = field(default_factory=RampParameters)
     hydraulics: HydraulicsParameters = field(default_factory=HydraulicsParameters)
     thermal: ThermalParameters = field(default_factory=ThermalParameters)
+    energy: EnergyParameters = field(default_factory=EnergyParameters)
     thermal_update_period: float = 2.0   # s between thermal / rock-strength updates
     cfl: float = 0.95           # Courant number on the axial wave speed
 
