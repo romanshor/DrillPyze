@@ -7,7 +7,8 @@ const sc = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const t0 = performance.now();
 const sim = build(sc.config);
 const out = { info: sim.info(), rock0: sim.rock, latest: [] };
-for (const seg of sc.script) out.latest.push(sim.step(seg.duration, seg.inputs || {}));
+out.energy = [];
+for (const seg of sc.script) { out.latest.push(sim.step(seg.duration, seg.inputs || {})); out.energy.push(sim.energy()); }
 out.wall = (performance.now() - t0) / 1000;
 out.rec = sim.rec;
 out.hyd = sim.hydRecords;

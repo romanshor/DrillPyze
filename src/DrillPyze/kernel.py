@@ -103,6 +103,26 @@ REC_CHANNELS = ('time', 'omega_td', 'motor_torque', 'pipe_torque', 'omega_bit',
                 'hole_depth', 'omega_sp', 'omega_motor', 'dp_motor', 'stator_angle')
 N_REC = len(REC_CHANNELS)
 
+# energy accumulators (J), integrated every step (docs/derivation sec. 11): work at the
+# string's ends, by the top-drive motor and the hook (split by sign: braking is < 0
+# power), by gravity on the moving string, and dissipated by wall friction and damping
+EN_TD_POS = 0      # top-drive motor work while driving, int max(tau_m w_td, 0) dt
+EN_TD_NEG = 1      # top-drive motor braking, int max(-tau_m w_td, 0) dt
+EN_TOP = 2         # into the string at surface, int tau_0 w_td dt
+EN_BIT_T = 3       # out of the string at the bit, int TOB w_s dt (w_s: string-bottom speed)
+EN_MOTOR = 4       # mud motor to the bit, int TOB w_r dt
+EN_BIT_A = 5       # out of the string at the bit, int WOB v_bit dt
+EN_HOOK_POS = 6    # drawworks hoisting, int max(-HL v_top, 0) dt
+EN_HOOK_NEG = 7    # drawworks braking, int max(HL v_top, 0) dt
+EN_GRAV = 8        # gravity on the string, int W v_top dt (W: static hanging weight)
+EN_FRIC_T = 9      # wall friction, torsional part
+EN_FRIC_A = 10     # wall friction, axial part
+EN_DAMP_T = 11     # fluid and material damping, torsional
+EN_DAMP_A = 12     # fluid and material damping, axial
+N_EN = 13
+EN_NAMES = ('td_pos', 'td_neg', 'top', 'bit_torsion', 'motor', 'bit_axial', 'hook_pos', 'hook_neg',
+            'gravity', 'friction_torsion', 'friction_axial', 'damping_torsion', 'damping_axial')
+
 
 @njit(cache=True, fastmath=False)
 def _face(aL, bR, ZL, ZR):
@@ -381,7 +401,9 @@ def advance(nsteps, sc, pf, pi,
             # regenerative bit: hole-bottom profile over angular bins
             surf,
             # damping (per cell / per face), see docs/derivation sec. 5.6
-            k0t, k0a, k1t, k1a, wbar, vbar, kvt, kva, fy):
+            k0t, k0a, k1t, k1a, wbar, vbar, kvt, kva, fy,
+            # energy accumulators (N_EN), see EN_*
+            en):
     """
     Advance the model ``nsteps`` time steps.  State arrays are updated in
     place.
@@ -496,6 +518,19 @@ def advance(nsteps, sc, pf, pi,
         vf[0] = v_top
         qf[0] = q0
         sc[S_HKLD] = -(q0 + pf[P_QS_TOP])
+        # surface work this step: top-drive motor, into the string, hook and gravity
+        p_m = sc[S_TAUM] * w_new_td
+        if p_m >= 0.0:
+            en[EN_TD_POS] += p_m * dt
+        else:
+            en[EN_TD_NEG] -= p_m * dt
+        en[EN_TOP] += tau0 * w_new_td * dt
+        p_h = -sc[S_HKLD] * v_top
+        if p_h >= 0.0:
+            en[EN_HOOK_POS] += p_h * dt
+        else:
+            en[EN_HOOK_NEG] -= p_h * dt
+        en[EN_GRAV] -= pf[P_QS_TOP] * v_top * dt
 
         # --------------------------------------------------- interior faces
         for j in range(n - 1):
@@ -552,11 +587,13 @@ def advance(nsteps, sc, pf, pi,
             w_str = alpha_t - tob / Zb          # string bottom (stator) speed
             wf[n] = w_str
             sc[S_WMOT] = wb_ - w_str
+            en[EN_MOTOR] += tob * (wb_ - w_str) * dt
             sc[S_DPM] = dpm
             sc[S_STALL] = stall
         else:
             wf[n] = wb_
         tf[n] = tob
+        en[EN_BIT_T] += tf[n] * wf[n] * dt
         vf[n] = vb_
         qf[n] = wob
         sc[S_WBIT] = wb_
@@ -566,6 +603,15 @@ def advance(nsteps, sc, pf, pi,
         sc[S_BITSTUCK] = stuck
 
         # -------------------------------------------- cell update + sources
+        en[EN_BIT_A] += qf[n] * vf[n] * dt
+        # kinetic energy before damping, after damping, after friction: each split
+        # step's loss is the energy it removes
+        ke_t0 = 0.0
+        ke_a0 = 0.0
+        ke_t1 = 0.0
+        ke_a1 = 0.0
+        ke_t2 = 0.0
+        ke_a2 = 0.0
         for j in range(n):
             w_old_a[j] = w[j]
             v_old_a[j] = v[j]
@@ -576,6 +622,8 @@ def advance(nsteps, sc, pf, pi,
             vs = v[j] - dt / (ma[j] * h[j]) * (qf[j + 1] - qf[j])
             # implicit linear fluid damping: Couette (+ calibration) on the full
             # velocity, Stokes layer on the part above the high-pass corner
+            ke_t0 += 0.5 * mt[j] * h[j] * ws * ws
+            ke_a0 += 0.5 * ma[j] * h[j] * vs * vs
             wst[j] = (ws + dt * k1t[j] * wbar[j]) / (1.0 + dt * (k0t[j] + k1t[j]))
             vst[j] = (vs + dt * k1a[j] * vbar[j]) / (1.0 + dt * (k0a[j] + k1a[j]))
 
@@ -589,6 +637,8 @@ def advance(nsteps, sc, pf, pi,
             v_old = v_old_a[j]
             ws = wst[j]
             vs = vst[j]
+            ke_t1 += 0.5 * mt[j] * h[j] * ws * ws
+            ke_a1 += 0.5 * ma[j] * h[j] * vs * vs
             fyj = fy[j]
             r = rc[j]
             if coupled:
@@ -661,8 +711,15 @@ def advance(nsteps, sc, pf, pi,
 
         # mean (low-passed) velocities seen by the Stokes-layer damping
         for j in range(n):
+            ke_t2 += 0.5 * mt[j] * h[j] * w[j] * w[j]
+            ke_a2 += 0.5 * ma[j] * h[j] * v[j] * v[j]
             wbar[j] += a_hp_t * (w[j] - wbar[j])
             vbar[j] += a_hp_a * (v[j] - vbar[j])
+
+        en[EN_DAMP_T] += ke_t0 - ke_t1
+        en[EN_DAMP_A] += ke_a0 - ke_a1
+        en[EN_FRIC_T] += ke_t1 - ke_t2
+        en[EN_FRIC_A] += ke_a1 - ke_a2
 
         # -------------------------------------------------- bookkeeping
         sc[S_T] += dt

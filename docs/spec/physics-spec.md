@@ -1,6 +1,6 @@
 # DrillPyze physics specification
 
-**Spec revision: 3** (matches the Python model, DrillPyze 1.0.0, November 2026)
+**Spec revision: 4** (matches the Python model, DrillPyze 1.1.0, November 2026)
 
 This document specifies, at implementation level, every piece of physics and
 numerics in the Python model (`src/DrillPyze`). It is precise enough to build
@@ -79,7 +79,7 @@ A case is a JSON object (see `src/DrillPyze/config.py`):
 | `fluid` | density $`\rho_m`$, plastic viscosity PV (or null), yield point $`\tau_y`$ (or null), viscosity $`\mu`$, heat capacity, conductivity, thermal expansion $`\beta_T`$, sound speed $`c_m`$, reference temperature $`T_\text{ref}`$ |
 | `formation` | layers `{top_md, ucs, friction_angle, porosity}` and the scalars of section 9 |
 | `drillstring` | components bit-first `{name, length, od, id, linear_mass, contact_od}`; the last row is stretched to surface |
-| `parameters` | friction, damping, bit, motor, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, `cfl` |
+| `parameters` | friction, damping, bit, motor, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, energy, `cfl` |
 | `simulation` | `bit_depth`, `hole_depth`, `dx`, `record_rate`, `start_time`, `block_height` |
 
 **Defaults** (dataclasses in `parameters.py`, `wellbore.py`, `formation.py`):
@@ -124,6 +124,7 @@ A case is a JSON object (see `src/DrillPyze/config.py`):
 | | back pressure, surface loss $`c`$, exponent $`m`$ | 0, 0, 1.8 |
 | | clinging constant $`K_c`$ | 0.45 |
 | thermal | `enabled`, flow rate, inlet temperature | true, 0.0347 m³/s, 30 °C (+ section 10) |
+| energy | pump efficiency, regeneration efficiency (each in (0, 1]; output only, 5.9) | 0.9, 0.9 |
 | model | `cfl` | 0.95 |
 | | `thermal_update_period` | 2 (slow ticks) |
 | fluid | $`\rho_m`$, PV, $`\tau_y`$ | 1000, null, null |
@@ -626,6 +627,34 @@ steps, one row is recorded with these columns:
 - $`\omega_{sp}`$;
 - $`\omega_r`$, $`\Delta p_m`$, $`\phi_s`$.
 
+### 5.9 Energy accumulators
+
+Thirteen accumulators (J, zero at initialisation; derivation sec. 11) are advanced
+every step. They change no state, so the physics is the same with or without them.
+
+**Surface**, after the top drive and drawworks (5.2, 5.3):
+- top-drive motor: with $`P_m = \tau_m\omega_{td}^+`$, `td_pos` $`\mathrel{+}= P_m\Delta t`$ if $`P_m \ge 0`$, else `td_neg` $`\mathrel{-}= P_m\Delta t`$;
+- into the string: `top` $`\mathrel{+}= \tau_0\omega_{td}^+\Delta t`$;
+- hook: with $`P_h = -H v_{top}`$, `hook_pos` $`\mathrel{+}= P_h\Delta t`$ if $`P_h \ge 0`$, else `hook_neg` $`\mathrel{-}= P_h\Delta t`$;
+- gravity on the string's static load: `gravity` $`\mathrel{-}= q^s_{top}v_{top}\Delta t`$.
+
+**Bit face** (5.5):
+- with a motor, `motor` $`\mathrel{+}= \text{TOB}\,(\omega_b - \omega_s)\Delta t`$ (the rotor's work on the bit relative to the stator);
+- `bit_torsion` $`\mathrel{+}= \tau^f_n\omega^f_n\Delta t`$ (the string side of the bit face: the stator speed with a motor);
+- `bit_axial` $`\mathrel{+}= q^f_n v^f_n\Delta t`$, at the start of the cell update.
+
+**Losses** (5.6, 5.7), from the kinetic energies $`E_t = \sum_j \tfrac12 m_{t,j}h_j\omega_j^2`$ and
+$`E_a = \sum_j \tfrac12 m_{a,j}h_j v_j^2`$ at three points of the step: after the cell update
+($`\omega^*, v^*`$; $`E^0`$), after damping and Kelvin–Voigt ($`\omega^s, v^s`$; $`E^1`$, taken before
+the stick check) and after friction ($`E^2`$):
+- `damping_torsion` $`\mathrel{+}= E^0_t - E^1_t`$, `damping_axial` $`\mathrel{+}= E^0_a - E^1_a`$;
+- `friction_torsion` $`\mathrel{+}= E^1_t - E^2_t`$, `friction_axial` $`\mathrel{+}= E^1_a - E^2_a`$.
+
+**Stored energy** (evaluated on request):
+`store_torsion` $`= \sum_j h_j(\tfrac12 m_{t,j}\omega_j^2 + \tau_j^2/2K_{t,j})`$,
+`store_axial` $`= \sum_j h_j(\tfrac12 m_{a,j}v_j^2 + (q^d_j)^2/2K_{a,j})`$ and
+`store_top_drive` $`= \tfrac12 I\omega_{td}^2`$.
+
 ---
 
 ## 6. Inputs, ramps and modes
@@ -810,6 +839,18 @@ This is the exact discrete steady state with the pipe at rest:
 - **Nozzle loss:** $`\Delta p_{bit}`$ at the mean of the bit-face densities.
 - **Motor differential:** $`\Delta p_m`$ used over the last interval.
 - **Pit gain:** $`-(\text{pumped} - \text{returned})/\rho_m`$.
+
+### 8.4 Energy split
+
+`loss_split` divides the standpipe pressure (Pa) by where it goes, from the current state:
+- surface lines $`SPP - p_{top}`$;
+- inside the string $`p_{top} + \sum_j \rho_{d,j}g(z_{d,j} - z_{d,j-1}) - p_{d,last}`$ ($`z_{d,-1} = 0`$);
+- the mud motor $`\Delta p_m`$ and the nozzles $`\Delta p_{bit}`$;
+- the annulus $`p_{a,k_{ab}} - \sum_{j \le k_{ab}} \rho_{a,j}g(z_{a,j} - z_{a,j-1}) - p_{back}`$;
+- `other`, the remainder (the hydrostatic difference between the two paths, and compression).
+
+At every hydraulics tick (section 7), after `advance`, each term times $`q_{in}`$ times the
+interval is added to an accumulator `h_<term>` (J); `h_pump` accumulates $`SPP\,q_{in}`$.
 
 ---
 
@@ -1065,6 +1106,12 @@ With decoupled friction, the static normal force is used.
   - block speed $`v_{blk}`$;
   - bit ROP $`\max(v_b, 0)`$ when $`s_{bit} \ge s_{hole} - 10^{-6}`$, else 0.
 - **Surface WOB:** $`H_{ref} - H`$.
+- **Energy** (`energy()`): time, the thirteen accumulators of 5.9, the hydraulic accumulators of 8.4
+  and the three stores. A mean power over an interval is the difference of two snapshots over
+  the elapsed time; the pump drive is `h_pump` divided by the pump efficiency, and the recoverable
+  braking is (`td_neg` + `hook_neg`) times the regeneration efficiency (case section `energy`).
+  In the UI frame the hydraulic accumulators are carried forward from the last tick to the frame
+  time at the current split, so that short averaging windows stay smooth.
 
 The UI frame format (`src/DrillPyze/ui/server.py`, `Session.frame`) is part of
 the browser contract: the lite engine reproduces it field for field.
@@ -1089,3 +1136,4 @@ A new spec revision must keep this test passing for the lite version.
 | 1 | First specification of the Python model (November 2026). |
 | 2 | Section 10 (wellbore temperature) written at implementation level; the browser version implements it. No change to the Python physics. |
 | 3 | Mud motor (5.5.1; derivation sec. 6.4): speed from flow with slip and bypass, differential pressure from torque, stall, reactive torque and toolface; pump-rate ramp row in the kernel; motor differential in series with the nozzles (8.3); new scalar state, recorded channels and outputs. Off by default, so cases without a motor are unchanged. |
+| 4 | Energy accounting (5.9, 8.4; derivation sec. 11): accumulators for the work at the string's ends, the motor, friction and damping, the hydraulic split and the stored energy; `energy` case section with the pump and regeneration efficiencies. No change to the computed state. |

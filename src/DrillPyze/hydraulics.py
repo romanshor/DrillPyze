@@ -618,6 +618,27 @@ class WellboreHydraulics:
                     # pit gain (+) / loss (-) since the start, as mud volume at inlet density
                     pit_gain=float((self.acc[0] - self.acc[1]) / self.fluid.density) * -1.0)
 
+    def loss_split(self):
+        """
+        Where the standpipe pressure goes (Pa, docs/derivation sec. 11): surface lines,
+        friction inside the string, the mud motor, the bit nozzles, friction in the
+        annulus, and the rest (hydrostatic imbalance between the two paths and
+        compression).  Times the pump rate these are the hydraulic power flows.
+        """
+        p_d, p_a = self._pressure_profiles()
+        hs = self.state()
+        r_d, r_a = self.m_d / self.V_d, self.m_a / self.V_a
+        hyd_d = float(np.sum(r_d * G * np.diff(np.concatenate([[0.0], self.z_d]))))
+        k = self.kab
+        hyd_a = float(np.sum(r_a[:k + 1] * G * np.diff(np.concatenate([[0.0], self.z_a[:k + 1]]))))
+        p_top = hs['spp'] - hs['surface_loss']
+        string = p_top + hyd_d - float(p_d[-1])
+        annulus = float(p_a[k]) - hyd_a - self.p.back_pressure
+        out = dict(q=hs['q_in'], spp=hs['spp'], surface=hs['surface_loss'], string=string, motor=self.dp_motor,
+                   nozzles=hs['dp_bit'], annulus=annulus)
+        out['other'] = out['spp'] - (out['surface'] + string + out['motor'] + out['nozzles'] + annulus)
+        return out
+
     def profiles(self):
         """Pressure and density per cell of both paths (DataFrame with a `path` column)."""
         import pandas as pd

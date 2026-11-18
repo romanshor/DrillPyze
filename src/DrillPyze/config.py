@@ -23,6 +23,7 @@ from .survey import Survey
 from .drillstring import Component, Drillstring
 from .wellbore import Wellbore, Fluid
 from .parameters import (ModelParameters, FrictionParameters, DampingParameters, BitParameters, MotorParameters,
+                         EnergyParameters,
                          TopDriveParameters, AutodrillerParameters, DrawworksParameters,
                          RampParameters, HydraulicsParameters)
 from .simulation import Simulation
@@ -75,6 +76,7 @@ def well_a():
             'ramps': asdict(RampParameters()),
             'hydraulics': asdict(HydraulicsParameters()),
             'thermal': asdict(ThermalParameters(flow_rate=2000 / 60000, inlet_temperature=30.0)),
+            'energy': asdict(EnergyParameters()),
             'cfl': 0.95,
         },
         'simulation': {'bit_depth': 2500.0, 'hole_depth': 2505.0, 'dx': 10.0, 'record_rate': 50.0,
@@ -169,6 +171,8 @@ def build_parameters(cfg, zeta_p=None, first_mode=None):
         ramps=RampParameters(**{k: float(v) for k, v in p.get('ramps', {}).items() if v is not None}),
         hydraulics=HydraulicsParameters(**p.get('hydraulics', {})),
         thermal=ThermalParameters(**p['thermal']) if p.get('thermal') else ThermalParameters(enabled=False),
+        energy=EnergyParameters(**{k: float(v) for k, v in (p.get('energy') or {}).items()
+                                   if k in EnergyParameters.__dataclass_fields__ and v not in (None, '')}),
         cfl=float(p.get('cfl', 0.95)),
     )
     c = p.get('controller', {'type': 'stiff'})
@@ -291,6 +295,11 @@ def validate(cfg):
             errs.append('Bit ζ must be positive.')
         if b.get('model') == 'regenerative' and int(b.get('blades', 1) or 0) < 1:
             errs.append('The regenerative bit needs at least one blade.')
+        en = cfg['parameters'].get('energy') or {}
+        for k, label in (('pump_efficiency', 'Pump efficiency'), ('regen_efficiency', 'Regeneration efficiency')):
+            v = en.get(k)
+            if v not in (None, '') and not 0 < _num(v) <= 1:
+                errs.append(f'{label} must be between 0 and 1.')
         m = cfg['parameters'].get('motor') or {}
         if m.get('enabled'):
             mp = motor_parameters(m)

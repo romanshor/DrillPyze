@@ -47,7 +47,10 @@ def _script(kind):
 def runs(request, tmp_path_factory):
     cfg, script = _case(request.param), _script(request.param)
     sim = config.build(cfg)
-    py = [sim.step(s['duration'], **s['inputs']) for s in script]
+    py, sim.energy_steps = [], []
+    for s in script:
+        py.append(sim.step(s['duration'], **s['inputs']))
+        sim.energy_steps.append(sim.energy())
     path = tmp_path_factory.mktemp('lite') / 'scenario.json'
     path.write_text(json.dumps(dict(config=cfg, script=script)))
     out = subprocess.run([NODE, str(ROOT / 'lite' / 'tests' / 'run_scenario.mjs'), str(path)],
@@ -96,6 +99,17 @@ def test_motor_channels_match(runs, channel):
         d = np.abs(a - b)
     lite_check(np.max(d) <= 1e-6 * max(np.abs(a).max(), 1e-9), f'{channel}: max |diff| {np.max(d):.3g}')
     assert [r['motor_stalled'] for r in py] == [r['motor_stalled'] for r in js['latest']]
+
+
+def test_energy_matches(runs):
+    """Energy accumulators (spec 5.9, 8.9): the same work and losses to round-off."""
+    sim, js = runs[0], _js(runs)
+    lite_check('energy' in js, 'browser engine reports no energy')
+    for k in sim.energy_steps[0]:
+        a = np.array([e[k] for e in sim.energy_steps])
+        b = np.array([e.get(k, np.nan) for e in js['energy']])
+        scale = max(np.abs(a).max(), 1e-3)
+        lite_check(np.max(np.abs(a - b)) <= 1e-6 * scale, f'energy {k}: max |diff| {np.max(np.abs(a - b)):.3g}')
 
 
 def test_script_drills(runs):

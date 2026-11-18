@@ -23,6 +23,9 @@ import pandas as pd
 from . import kernel as K
 from . import controllers
 from .geometry import buoyed_weight
+
+# hydraulic energy terms (docs/derivation sec. 11), from WellboreHydraulics.loss_split
+HYD_ENERGY = ('pump', 'surface', 'string', 'motor', 'nozzles', 'annulus', 'other')
 from .parameters import ModelParameters
 from .wellbore import Fluid
 
@@ -101,6 +104,8 @@ class Simulation:
         self.sc[K.S_HOLED] = bit_depth if hole_depth is None else max(hole_depth, bit_depth)
         # hole-bottom profile for the regenerative bit model (flat at the hole depth)
         self.surf = np.full(720, self.sc[K.S_HOLED])
+        self.en = np.zeros(K.N_EN)                 # energy accumulators (J), see kernel EN_*
+        self.en_hyd = dict.fromkeys(HYD_ENERGY, 0.0)   # hydraulic energy (J) by where it goes
         self._bit_depth0 = bit_depth
         self._geom_bitd = None
         self._qs_c = None
@@ -448,6 +453,10 @@ class Simulation:
                                      dp_motor=dp_motor)
         self._hyd_last = dict(t=t, q=q1, dpint=dpint)
         self._hyd_records.append(dict(time=t, **hs))
+        # hydraulic energy over the interval: each pressure drop times the pump rate
+        ls = self.hydraulics.loss_split()
+        for k in HYD_ENERGY:
+            self.en_hyd[k] += (ls['spp'] if k == 'pump' else ls[k]) * ls['q'] * dt
 
     def _slow_tick(self):
         """Called every ~1 s of simulated time at fixed step counts (pause/resume exact)."""
@@ -646,7 +655,7 @@ class Simulation:
             rec, 0, self.rec_every, self._rec_phase,
             wf, tf, vf, qf, self.surf,
             self.k0t, self.k0a, self.k1t, self.k1a, self.wbar, self.vbar,
-            self.kvt, self.kva, self._yield_drag_now())
+            self.kvt, self.kva, self._yield_drag_now(), self.en)
         if idx:
             self._records.append(rec[:idx])
         self._steps_total += nsteps
@@ -668,6 +677,33 @@ class Simulation:
                     **({k: v for k, v in self.hydraulics.state().items() if k in ('spp', 'p_bh', 'ecd', 'q_out')}
                        if self.hydraulics is not None else {}),
                     **(self.motor_state() if self.params.motor.enabled else {}))
+
+    def energy(self):
+        """
+        Energy accounting (J, docs/derivation sec. 11), cumulative since the start:
+
+        * work by the top-drive motor (``td_pos``) and its braking (``td_neg``), into the
+          string at surface (``top``), by the hook hoisting (``hook_pos``) and braking
+          (``hook_neg``), and by gravity on the moving string (``gravity``);
+        * out of the string at the bit (``bit_torsion``, ``bit_axial``), from the mud
+          motor to the bit (``motor``), lost to wall friction and damping
+          (``friction_*``, ``damping_*``);
+        * hydraulic: pump work SPP Q (``h_pump``) and where it goes (``h_surface``,
+          ``h_string``, ``h_motor``, ``h_nozzles``, ``h_annulus``, ``h_other``);
+        * stored now: kinetic and strain energy of the string's dynamic state (``store_torsion``,
+          ``store_axial``) and of the top drive (``store_top_drive``).
+
+        Mean power over an interval is the difference of two calls over the elapsed time
+        (``DrillPyze.energy.flows``).
+        """
+        g = self.grid
+        h = g.dx
+        out = dict(time=float(self.sc[K.S_T]), **{k: float(v) for k, v in zip(K.EN_NAMES, self.en)})
+        out.update({f'h_{k}': float(v) for k, v in self.en_hyd.items()})
+        out['store_torsion'] = float(np.sum(h * (0.5 * self.mt * self.w ** 2 + 0.5 * self.tau ** 2 / self.Kt)))
+        out['store_axial'] = float(np.sum(h * (0.5 * self.ma * self.v ** 2 + 0.5 * self.qd ** 2 / self.Ka)))
+        out['store_top_drive'] = float(0.5 * self.params.top_drive.inertia * self.sc[K.S_WTD] ** 2)
+        return out
 
     def motor_state(self):
         """

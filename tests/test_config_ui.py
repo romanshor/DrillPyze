@@ -6,7 +6,7 @@ import urllib.request
 import numpy as np
 import pytest
 
-from DrillPyze import config, units
+from DrillPyze import config, energy, units
 from DrillPyze.ui import server
 
 
@@ -111,6 +111,23 @@ def test_ui_server_drillers_display_fields(ui_url):
     assert 'id="deck"' in html and '/static/deck.js' in html
     js = urllib.request.urlopen(ui_url + '/static/deck.js').read().decode()
     assert 'function deckInputs' in js
+
+
+def test_ui_server_energy_frame(ui_url):
+    """Frames carry every energy accumulator, the efficiencies and the motor flag (energy panel)."""
+    cfg = config.default()
+    cfg['parameters']['motor']['enabled'] = True
+    cfg['parameters']['energy'] = {'pump_efficiency': 0.85, 'regen_efficiency': 0.8}
+    sid = _post(ui_url + '/api/init', {'config': cfg})['session']
+    inp = {'td_mode': 'setpoint', 'rpm': 40, 'dw_mode': 'velocity', 'v_block_mh': 0}
+    e = _post(ui_url + '/api/step', {'session': sid, 'duration': 4.0, 'inputs': inp})['energy']
+    for k in energy.CUMULATIVE + energy.STORES:
+        assert isinstance(e[k], float), k
+    assert e['has_motor'] is True and e['pump_efficiency'] == 0.85 and e['regen_efficiency'] == 0.8
+    assert e['h_motor'] > 0 and e['h_pump'] > e['h_motor'] and e['td_pos'] > 0
+    assert e['bit_diameter'] == pytest.approx(cfg['well']['hole_diameter'])
+    html = urllib.request.urlopen(ui_url + '/').read().decode()
+    assert 'id="energy"' in html and '/static/energy.js' in html and 'data-p="3"' in html
 
 
 def test_tare_hookload_sets_autodriller_reference():
