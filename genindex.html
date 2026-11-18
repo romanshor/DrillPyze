@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; DrillPyze 1.0.0</title>
+  <title>Index &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8d563738"></script>
+      <script src="_static/documentation_options.js?v=fc837d61"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -312,14 +312,21 @@
 </li>
       </ul></li>
       <li>
+    DrillPyze.energy
+
+      <ul>
+        <li><a href="api.html#module-DrillPyze.energy">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
     DrillPyze.formation
 
       <ul>
         <li><a href="api.html#module-DrillPyze.formation">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     DrillPyze.geometry
 
@@ -421,8 +428,6 @@
       </ul></li>
       <li><a href="api.html#DrillPyze.drillstring.Component.effective_density">effective_density (DrillPyze.drillstring.Component property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#DrillPyze.parameters.MotorParameters.efficiency">efficiency (DrillPyze.parameters.MotorParameters attribute)</a>
 </li>
       <li><a href="api.html#DrillPyze.parameters.HydraulicsParameters.enabled">enabled (DrillPyze.parameters.HydraulicsParameters attribute)</a>
@@ -433,6 +438,14 @@
         <li><a href="api.html#DrillPyze.thermal.ThermalParameters.enabled">(DrillPyze.thermal.ThermalParameters attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#DrillPyze.parameters.ModelParameters.energy">energy (DrillPyze.parameters.ModelParameters attribute)</a>
+</li>
+      <li><a href="api.html#DrillPyze.simulation.Simulation.energy">energy() (DrillPyze.simulation.Simulation method)</a>
+</li>
+      <li><a href="api.html#DrillPyze.parameters.EnergyParameters">EnergyParameters (class in DrillPyze.parameters)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -450,6 +463,8 @@
 </li>
       </ul></li>
       <li><a href="api.html#DrillPyze.simulation.Simulation.flow_rate_now">flow_rate_now() (DrillPyze.simulation.Simulation method)</a>
+</li>
+      <li><a href="api.html#DrillPyze.energy.flows">flows() (in module DrillPyze.energy)</a>
 </li>
       <li><a href="api.html#DrillPyze.wellbore.Fluid">Fluid (class in DrillPyze.wellbore)</a>
 </li>
@@ -635,6 +650,8 @@
 </li>
       <li><a href="api.html#DrillPyze.parameters.DampingParameters.loss_factor">loss_factor (DrillPyze.parameters.DampingParameters attribute)</a>
 </li>
+      <li><a href="api.html#DrillPyze.hydraulics.WellboreHydraulics.loss_split">loss_split() (DrillPyze.hydraulics.WellboreHydraulics method)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -678,6 +695,8 @@
         <li><a href="api.html#module-DrillPyze.controllers">DrillPyze.controllers</a>
 </li>
         <li><a href="api.html#module-DrillPyze.drillstring">DrillPyze.drillstring</a>
+</li>
+        <li><a href="api.html#module-DrillPyze.energy">DrillPyze.energy</a>
 </li>
         <li><a href="api.html#module-DrillPyze.formation">DrillPyze.formation</a>
 </li>
@@ -798,10 +817,10 @@
 </li>
       <li><a href="api.html#DrillPyze.formation.Formation.pore_pressure_gradient">pore_pressure_gradient (DrillPyze.formation.Formation attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#DrillPyze.formation.FormationLayer.porosity">porosity (DrillPyze.formation.FormationLayer attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#DrillPyze.formation.Formation.porosity_high">porosity_high (DrillPyze.formation.Formation attribute)</a>
 </li>
       <li><a href="api.html#DrillPyze.formation.Formation.porosity_low">porosity_low (DrillPyze.formation.Formation attribute)</a>
@@ -816,6 +835,8 @@
         <li><a href="api.html#DrillPyze.thermal.WellboreThermal.profiles">(DrillPyze.thermal.WellboreThermal method)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#DrillPyze.parameters.EnergyParameters.pump_efficiency">pump_efficiency (DrillPyze.parameters.EnergyParameters attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -838,9 +859,11 @@
 </li>
       <li><a href="api.html#DrillPyze.wellbore.Fluid.reference_temperature">reference_temperature (DrillPyze.wellbore.Fluid attribute)</a>
 </li>
+      <li><a href="api.html#DrillPyze.controllers.reflection_coefficient">reflection_coefficient() (in module DrillPyze.controllers)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api.html#DrillPyze.controllers.reflection_coefficient">reflection_coefficient() (in module DrillPyze.controllers)</a>
+      <li><a href="api.html#DrillPyze.parameters.EnergyParameters.regen_efficiency">regen_efficiency (DrillPyze.parameters.EnergyParameters attribute)</a>
 </li>
       <li><a href="api.html#DrillPyze.simulation.Simulation.results">results() (DrillPyze.simulation.Simulation method)</a>
 </li>

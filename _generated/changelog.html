@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Changelog &mdash; DrillPyze 1.0.0</title>
+  <title>Changelog &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
@@ -46,7 +46,8 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="readme.html">DrillPyze — coupled drillstring dynamics</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Changelog</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1">1.0.0 (2026-11-16)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">1.1.0 (2026-11-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">1.0.0 (2026-11-16)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#a1-1-0-alpha-2026-11-13">1.0.0a1 — 1.0 alpha (2026-11-13)</a></li>
 </ul>
 </li>
@@ -94,7 +95,25 @@
   <section class="tex2jax_ignore mathjax_ignore" id="changelog">
 <h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading"></a></h1>
 <section id="id1">
-<span id="100-2026-11-16"></span><h2>1.0.0 (2026-11-16)<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<span id="110-2026-11-18"></span><h2>1.1.0 (2026-11-18)<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>Adds energy accounting to the Python model and DrillPyze Lite (physics spec revision 4; derivation §11): where the power goes, in real time, and how much a hybrid rig could recover by regenerative braking. The accumulators change no state, so every case gives the same results as in 1.0.0.</p>
+<p><strong>Energy accounting.</strong></p>
+<ul class="simple">
+<li><p>Every time step accumulates the work of the top-drive motor (driving and braking), the power into the string at surface, the hook (hoisting and braking), gravity on the moving string, the bit (torsional and axial), the mud motor, and the losses to wall friction and damping (from the kinetic energy each implicit sub-step removes). The balances close to the scheme’s numerical dissipation, about 0.6 % for Well A.</p></li>
+<li><p>The hydraulics split the standpipe pressure into surface lines, friction inside the string, the mud motor, the bit nozzles, friction in the annulus and the remainder (<code class="docutils literal notranslate"><span class="pre">WellboreHydraulics.loss_split</span></code>); each times the flow is a power.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Simulation.energy()</span></code> returns the cumulative energies (J) and the energy stored in the string and the top drive; <code class="docutils literal notranslate"><span class="pre">DrillPyze.energy.flows(e0,</span> <span class="pre">e1)</span></code> gives mean powers between two snapshots, with rock destruction, the motor’s losses, the pump drive, braking and the recoverable part.</p></li>
+<li><p>New case section <code class="docutils literal notranslate"><span class="pre">parameters.energy</span></code> (<code class="docutils literal notranslate"><span class="pre">EnergyParameters</span></code>): pump efficiency and regeneration efficiency, 0.9 each by default, editable under <em>Energy</em> in the case panel.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">examples/tripping_energy.py</span></code>: tripping Well A to 2500 m brakes 255 kWh, of which 230 kWh is recoverable at 90 %; the trip out lifts 280 kWh.</p></li>
+</ul>
+<p><strong>Simulator</strong> (Python UI and DrillPyze Lite).</p>
+<ul class="simple">
+<li><p>An energy panel under the drilling log: a Sankey diagram from the Mud Pumps, top drive, drawworks and gravity to Rock Destruction, Frictional Losses inside the string, Frictional Losses in the Annulus, the nozzles, wall friction, damping and recoverable braking, with the mud motor branching off the mud circulation; summary tiles (MSE, recoverable braking, energy since the start in kWh); and power over the same span as the log.</p></li>
+<li><p>1, 10 or 60 s means; <em>Everything</em> or the drillstring alone; kW in SI, hp in field units.</p></li>
+<li><p>On a phone the losses are grouped so every label fits, and demo mode has a fourth page, <em>Energy</em>.</p></li>
+</ul>
+</section>
+<section id="id2">
+<span id="100-2026-11-16"></span><h2>1.0.0 (2026-11-16)<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <p>First stable release, archived on Zenodo: https://doi.org/10.5281/zenodo.24289880. Since 1.0.0a1 it adds a mud motor (physics spec revision 3), a phone layout and a full-screen demo mode for the simulator, anonymous visit counts on the hosted DrillPyze Lite, and documentation fixes. Cases without a motor give the same results as in 1.0.0a1.</p>
 <p><strong>Mud motor</strong> (physics spec revision 3; derivation §6.4; Python model and DrillPyze Lite).</p>
 <ul class="simple">

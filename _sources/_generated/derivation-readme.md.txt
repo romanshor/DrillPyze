@@ -16,7 +16,7 @@ scheme.
 * A decoupled variant (`along_string_coupling=False`), in which the only
   coupling is at the bit, is kept for comparison (§5.4).
 
-All quantities are SI. Notation is collected in §11.
+All quantities are SI. Energy accounting is in §11 and notation is collected in §12.
 
 ---
 
@@ -1130,10 +1130,155 @@ These limits connect the model to classical results and are used in the tests.
 | mud motor stall: TOB capped at $T_\text{stall}$, bit stopped, cleared by picking up | yes |
 | mud motor: SPP rises by $\Delta p_m$, BHP unchanged (steady circulation) | within 2% / $10^{-6}$ |
 | sliding: reactive torque turns the toolface left as WOB rises | yes |
+| energy balances (rotation, axial) close to the scheme's numerical dissipation; top drive | within 2% / $10^{-4}$ |
+| no wall friction: no friction energy; tripping in brakes, tripping out lifts; stopping rotation brakes the top drive | yes |
+| hydraulic split sums to SPP·Q; motor power to the bit below its hydraulic power | to $10^{-9}$ / yes |
+| energy accumulators: pause–resume, Python vs browser engine | exact / round-off |
 
 ---
 
-## 11. Notation
+## 11. Energy accounting
+
+The model tracks where the power put into the drilling system goes: the mud
+pumps, the top drive, the drawworks and the weight of the string on one side;
+rock destruction at the bit, wall friction, viscous damping, frictional losses
+in the mud, the mud motor and energy a hybrid rig could recover by
+regenerative braking on the other. The accumulators change no state, so the
+dynamics are identical with or without them (`Simulation.energy()`,
+`DrillPyze.energy.flows`; spec 5.9 and 8.4).
+
+### 11.1 Mechanical power balances
+
+Multiplying the torsional momentum balance (§3) by $\omega$ and the
+constitutive relation by $\tau/K_t$, and integrating over the string, gives
+
+```{math}
+\frac{d}{dt}\underbrace{\int_0^L\Big(\tfrac12 m_t\omega^2 + \frac{\tau^2}{2K_t}\Big)dz}_{E_t}
+= \tau_0\,\omega_{td} - \text{TOB}\,\omega_s - P_{f,t} - P_{d,t},
+```
+
+where $\omega_s$ is the speed of the string at the bit face (the stator speed
+with a mud motor, the bit speed without), $P_{f,t}$ the power lost to wall
+friction and $P_{d,t}$ the power lost to fluid and material damping. The top
+drive's inertia closes the surface end:
+$\tau_m\omega_{td} = \tfrac{d}{dt}\big(\tfrac12 I\omega_{td}^2\big) + \tau_0\omega_{td}$.
+When $\tau_m\omega_{td} < 0$ the string drives the motor: the top drive brakes,
+as when rotation is stopped or the string unwinds in stick-slip.
+
+The axial balance has the same form with the dynamic force $q^d = q - q^s$. The
+static load $q^s$ balances the buoyed weight, $\partial_z q^s = -w_b t_z$, and vanishes at
+the bit, so the work of gravity on the moving string is a boundary term:
+
+```{math}
+\frac{d}{dt}\underbrace{\int_0^L\Big(\tfrac12 m_a v^2 + \frac{(q^d)^2}{2K_a}\Big)dz}_{E_a}
+= \underbrace{\int_0^L w_b t_z v\,dz}_{=\,-q^s_{top}v_{top}} \; - \; H v_{top} - \text{WOB}\,v_b - P_{f,a} - P_{d,a}.
+```
+
+The hook power $-Hv_{top}$ is negative while lowering ($v$ positive down): gravity
+does the work and the drawworks brakes most of it. Hoisting reverses both signs.
+In a rotating string almost all wall friction is torsional, because the 2-D
+Coulomb force (§5) acts along the combined sliding direction.
+
+With a mud motor the rotor turns the bit at $\omega_b = \omega_s + \omega_r$, so the
+power into the rock is
+
+```{math}
+P_{rock} = \text{TOB}\,\omega_s + \text{TOB}\,\omega_r + \text{WOB}\,v_b,
+```
+
+the first term from the string and the second from the motor.
+
+### 11.2 Discrete accounting
+
+The scheme (§8) splits each step into the characteristic update, the implicit
+damping (and Kelvin–Voigt) solve and the implicit friction projection. The last
+two change only velocities, so the energy each removes is the drop in kinetic
+energy across it, $\sum_j\tfrac12 m h_j(x_{before}^2 - x_{after}^2)$, evaluated exactly
+every step for both directions. Boundary work uses the face values of the
+step: $\tau_m\omega_{td}^+$ (split into its positive and negative parts),
+$\tau_0\omega_{td}^+$, $-Hv_{top}$ (split likewise), $-q^s_{top}v_{top}$,
+$\tau^f_n\omega^f_n$, $q^f_nv^f_n$ and, with a motor, $\text{TOB}\,\omega_r$.
+
+Each balance then closes up to the numerical dissipation of the Godunov update,
+reported by `flows` as `numerical_torsion`, `numerical_axial` and
+`numerical_top_drive`. For Well A rotating at 80 rpm it is about 0.6 % of the
+power entering the string (0.3 kW of 46 kW); the top drive's backward-Euler
+inertia loses less than $10^{-4}$ of its power.
+
+### 11.3 Hydraulic power and the mud motor
+
+The pumps deliver $SPP\cdot Q$ to the mud. The standpipe pressure splits as
+
+```{math}
+SPP = \Delta p_{surf} + \Delta p_{string} + \Delta p_m + \Delta p_{bit} + \Delta p_{ann} + \Delta p_{other},
+```
+
+the surface lines, friction inside the string, the motor, the nozzles, friction in
+the annulus and the remainder (the hydrostatic difference between the bore and
+the annulus, and compression), taken from the transient model's pressures and
+densities. Each times $Q$ is a power, accumulated over every hydraulics tick.
+The motor differential $\Delta p_m = \Delta p_0 + \text{TOB}/K_T$ (§6.4) rises with bit
+torque, so the standpipe pressure rises on bottom; the motor turns $\Delta p_m Q$
+into $\text{TOB}\,\omega_r$ and the rest, including the off-bottom differential
+$\Delta p_0$, is lost as heat. The power drawn by the pumps is
+
+```{math}
+P_{pump} = \frac{SPP\cdot Q}{\eta_{pump}},\qquad \eta_{pump} = 0.9 \text{ by default},
+```
+
+with $\eta_{pump}$ the pumps' mechanical and volumetric efficiency (case section
+`parameters.energy`).
+
+Mechanical specific energy follows from the whole bit power, string and motor:
+$MSE = P_{rock}/(A_{bit}\,ROP)$.
+
+### 11.4 Regenerative braking
+
+A hybrid rig with a regenerative drive could store the braking of the top drive
+and the drawworks:
+
+```{math}
+E_{rec} = \eta_{regen}\int\Big(\max(0, -\tau_m\omega_{td}) + \max(0, Hv_{top})\Big)dt,\qquad \eta_{regen} = 0.9 \text{ by default}.
+```
+
+Well A, tripping one 90 ft stand at 0.5 m/s with the pumps off and no rotation
+(`examples/tripping_energy.py`):
+
+| bit depth (m) | in: braked (kWh) | out: lifted (kWh) |
+|---|---|---|
+| 300 | 1.53 | 1.58 |
+| 1100 | 2.88 | 2.93 |
+| 1900 | 3.87 | 4.31 |
+| 2500 | 3.71 | 4.97 |
+
+Below the kick-off (1500 m) the string lies on the low side and wall friction
+grows: going in it takes energy from the descent, coming out it adds to the lift.
+Integrated over depth, a trip in to 2500 m (91 stands) brakes 255 kWh, of which
+230 kWh is recoverable at 90 %; the trip out lifts 280 kWh, so the round trip
+costs 25 kWh, mostly in wall friction. Stopping 80 rpm rotation returns only
+about 0.02 kWh through the top drive. While drilling the drawworks brakes the
+string continuously at the rate of penetration (3.6 kW in the case below), and a
+string in stick-slip returns power to the top drive on every unwinding.
+
+### 11.5 Well A while drilling
+
+60 s means, Well A, 2000 L/min, autodriller at 80 kN:
+
+| | rotary, 80 rpm | mud motor, 40 rpm |
+|---|---|---|
+| mud pumps, hydraulic (drive at 90 %) | 476 kW (529 kW) | SPP 2622 psi |
+| top drive | 84 kW | |
+| mud motor: in from the mud / to the bit | – | 129 kW / 79 kW |
+| rock destruction | 45.7 kW | 102 kW (ROP 60 m/h) |
+| wall friction | 38 kW | |
+
+Hydraulically, in the rotary case the string takes 228 kW, the nozzles 194 kW and
+the annulus 51 kW. All the dissipated power ends up as heat in the mud and the
+rock.
+
+---
+
+## 12. Notation
 
 | symbol | meaning | unit |
 |---|---|---|

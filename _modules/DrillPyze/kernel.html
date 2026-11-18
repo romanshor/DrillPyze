@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrillPyze.kernel &mdash; DrillPyze 1.0.0</title>
+  <title>DrillPyze.kernel &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -189,6 +189,26 @@
                 <span class="s1">'tob'</span><span class="p">,</span> <span class="s1">'v_block'</span><span class="p">,</span> <span class="s1">'hookload'</span><span class="p">,</span> <span class="s1">'v_bit'</span><span class="p">,</span> <span class="s1">'wob'</span><span class="p">,</span> <span class="s1">'bit_depth'</span><span class="p">,</span>
                 <span class="s1">'hole_depth'</span><span class="p">,</span> <span class="s1">'omega_sp'</span><span class="p">,</span> <span class="s1">'omega_motor'</span><span class="p">,</span> <span class="s1">'dp_motor'</span><span class="p">,</span> <span class="s1">'stator_angle'</span><span class="p">)</span>
 <span class="n">N_REC</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">REC_CHANNELS</span><span class="p">)</span>
+
+<span class="c1"># energy accumulators (J), integrated every step (docs/derivation sec. 11): work at the</span>
+<span class="c1"># string's ends, by the top-drive motor and the hook (split by sign: braking is &lt; 0</span>
+<span class="c1"># power), by gravity on the moving string, and dissipated by wall friction and damping</span>
+<span class="n">EN_TD_POS</span> <span class="o">=</span> <span class="mi">0</span>      <span class="c1"># top-drive motor work while driving, int max(tau_m w_td, 0) dt</span>
+<span class="n">EN_TD_NEG</span> <span class="o">=</span> <span class="mi">1</span>      <span class="c1"># top-drive motor braking, int max(-tau_m w_td, 0) dt</span>
+<span class="n">EN_TOP</span> <span class="o">=</span> <span class="mi">2</span>         <span class="c1"># into the string at surface, int tau_0 w_td dt</span>
+<span class="n">EN_BIT_T</span> <span class="o">=</span> <span class="mi">3</span>       <span class="c1"># out of the string at the bit, int TOB w_s dt (w_s: string-bottom speed)</span>
+<span class="n">EN_MOTOR</span> <span class="o">=</span> <span class="mi">4</span>       <span class="c1"># mud motor to the bit, int TOB w_r dt</span>
+<span class="n">EN_BIT_A</span> <span class="o">=</span> <span class="mi">5</span>       <span class="c1"># out of the string at the bit, int WOB v_bit dt</span>
+<span class="n">EN_HOOK_POS</span> <span class="o">=</span> <span class="mi">6</span>    <span class="c1"># drawworks hoisting, int max(-HL v_top, 0) dt</span>
+<span class="n">EN_HOOK_NEG</span> <span class="o">=</span> <span class="mi">7</span>    <span class="c1"># drawworks braking, int max(HL v_top, 0) dt</span>
+<span class="n">EN_GRAV</span> <span class="o">=</span> <span class="mi">8</span>        <span class="c1"># gravity on the string, int W v_top dt (W: static hanging weight)</span>
+<span class="n">EN_FRIC_T</span> <span class="o">=</span> <span class="mi">9</span>      <span class="c1"># wall friction, torsional part</span>
+<span class="n">EN_FRIC_A</span> <span class="o">=</span> <span class="mi">10</span>     <span class="c1"># wall friction, axial part</span>
+<span class="n">EN_DAMP_T</span> <span class="o">=</span> <span class="mi">11</span>     <span class="c1"># fluid and material damping, torsional</span>
+<span class="n">EN_DAMP_A</span> <span class="o">=</span> <span class="mi">12</span>     <span class="c1"># fluid and material damping, axial</span>
+<span class="n">N_EN</span> <span class="o">=</span> <span class="mi">13</span>
+<span class="n">EN_NAMES</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'td_pos'</span><span class="p">,</span> <span class="s1">'td_neg'</span><span class="p">,</span> <span class="s1">'top'</span><span class="p">,</span> <span class="s1">'bit_torsion'</span><span class="p">,</span> <span class="s1">'motor'</span><span class="p">,</span> <span class="s1">'bit_axial'</span><span class="p">,</span> <span class="s1">'hook_pos'</span><span class="p">,</span> <span class="s1">'hook_neg'</span><span class="p">,</span>
+            <span class="s1">'gravity'</span><span class="p">,</span> <span class="s1">'friction_torsion'</span><span class="p">,</span> <span class="s1">'friction_axial'</span><span class="p">,</span> <span class="s1">'damping_torsion'</span><span class="p">,</span> <span class="s1">'damping_axial'</span><span class="p">)</span>
 
 
 <span class="nd">@njit</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fastmath</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -470,7 +490,9 @@
             <span class="c1"># regenerative bit: hole-bottom profile over angular bins</span>
             <span class="n">surf</span><span class="p">,</span>
             <span class="c1"># damping (per cell / per face), see docs/derivation sec. 5.6</span>
-            <span class="n">k0t</span><span class="p">,</span> <span class="n">k0a</span><span class="p">,</span> <span class="n">k1t</span><span class="p">,</span> <span class="n">k1a</span><span class="p">,</span> <span class="n">wbar</span><span class="p">,</span> <span class="n">vbar</span><span class="p">,</span> <span class="n">kvt</span><span class="p">,</span> <span class="n">kva</span><span class="p">,</span> <span class="n">fy</span><span class="p">):</span>
+            <span class="n">k0t</span><span class="p">,</span> <span class="n">k0a</span><span class="p">,</span> <span class="n">k1t</span><span class="p">,</span> <span class="n">k1a</span><span class="p">,</span> <span class="n">wbar</span><span class="p">,</span> <span class="n">vbar</span><span class="p">,</span> <span class="n">kvt</span><span class="p">,</span> <span class="n">kva</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span>
+            <span class="c1"># energy accumulators (N_EN), see EN_*</span>
+            <span class="n">en</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Advance the model ``nsteps`` time steps.  State arrays are updated in</span>
 <span class="sd">    place.</span>
@@ -585,6 +607,19 @@
         <span class="n">vf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_top</span>
         <span class="n">qf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">q0</span>
         <span class="n">sc</span><span class="p">[</span><span class="n">S_HKLD</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">q0</span> <span class="o">+</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_QS_TOP</span><span class="p">])</span>
+        <span class="c1"># surface work this step: top-drive motor, into the string, hook and gravity</span>
+        <span class="n">p_m</span> <span class="o">=</span> <span class="n">sc</span><span class="p">[</span><span class="n">S_TAUM</span><span class="p">]</span> <span class="o">*</span> <span class="n">w_new_td</span>
+        <span class="k">if</span> <span class="n">p_m</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">en</span><span class="p">[</span><span class="n">EN_TD_POS</span><span class="p">]</span> <span class="o">+=</span> <span class="n">p_m</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">en</span><span class="p">[</span><span class="n">EN_TD_NEG</span><span class="p">]</span> <span class="o">-=</span> <span class="n">p_m</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_TOP</span><span class="p">]</span> <span class="o">+=</span> <span class="n">tau0</span> <span class="o">*</span> <span class="n">w_new_td</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">p_h</span> <span class="o">=</span> <span class="o">-</span><span class="n">sc</span><span class="p">[</span><span class="n">S_HKLD</span><span class="p">]</span> <span class="o">*</span> <span class="n">v_top</span>
+        <span class="k">if</span> <span class="n">p_h</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">en</span><span class="p">[</span><span class="n">EN_HOOK_POS</span><span class="p">]</span> <span class="o">+=</span> <span class="n">p_h</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">en</span><span class="p">[</span><span class="n">EN_HOOK_NEG</span><span class="p">]</span> <span class="o">-=</span> <span class="n">p_h</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_GRAV</span><span class="p">]</span> <span class="o">-=</span> <span class="n">pf</span><span class="p">[</span><span class="n">P_QS_TOP</span><span class="p">]</span> <span class="o">*</span> <span class="n">v_top</span> <span class="o">*</span> <span class="n">dt</span>
 
         <span class="c1"># --------------------------------------------------- interior faces</span>
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
@@ -641,11 +676,13 @@
             <span class="n">w_str</span> <span class="o">=</span> <span class="n">alpha_t</span> <span class="o">-</span> <span class="n">tob</span> <span class="o">/</span> <span class="n">Zb</span>          <span class="c1"># string bottom (stator) speed</span>
             <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">w_str</span>
             <span class="n">sc</span><span class="p">[</span><span class="n">S_WMOT</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span> <span class="o">-</span> <span class="n">w_str</span>
+            <span class="n">en</span><span class="p">[</span><span class="n">EN_MOTOR</span><span class="p">]</span> <span class="o">+=</span> <span class="n">tob</span> <span class="o">*</span> <span class="p">(</span><span class="n">wb_</span> <span class="o">-</span> <span class="n">w_str</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span>
             <span class="n">sc</span><span class="p">[</span><span class="n">S_DPM</span><span class="p">]</span> <span class="o">=</span> <span class="n">dpm</span>
             <span class="n">sc</span><span class="p">[</span><span class="n">S_STALL</span><span class="p">]</span> <span class="o">=</span> <span class="n">stall</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span>
         <span class="n">tf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">tob</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_BIT_T</span><span class="p">]</span> <span class="o">+=</span> <span class="n">tf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">wf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="n">vf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">vb_</span>
         <span class="n">qf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wob</span>
         <span class="n">sc</span><span class="p">[</span><span class="n">S_WBIT</span><span class="p">]</span> <span class="o">=</span> <span class="n">wb_</span>
@@ -655,6 +692,15 @@
         <span class="n">sc</span><span class="p">[</span><span class="n">S_BITSTUCK</span><span class="p">]</span> <span class="o">=</span> <span class="n">stuck</span>
 
         <span class="c1"># -------------------------------------------- cell update + sources</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_BIT_A</span><span class="p">]</span> <span class="o">+=</span> <span class="n">qf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">vf</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="c1"># kinetic energy before damping, after damping, after friction: each split</span>
+        <span class="c1"># step's loss is the energy it removes</span>
+        <span class="n">ke_t0</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ke_a0</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ke_t1</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ke_a1</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ke_t2</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ke_a2</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
             <span class="n">w_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
             <span class="n">v_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
@@ -665,6 +711,8 @@
             <span class="n">vs</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">/</span> <span class="p">(</span><span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">qf</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">qf</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
             <span class="c1"># implicit linear fluid damping: Couette (+ calibration) on the full</span>
             <span class="c1"># velocity, Stokes layer on the part above the high-pass corner</span>
+            <span class="n">ke_t0</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">ws</span> <span class="o">*</span> <span class="n">ws</span>
+            <span class="n">ke_a0</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">vs</span> <span class="o">*</span> <span class="n">vs</span>
             <span class="n">wst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">ws</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k1t</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">wbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">k0t</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">k1t</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
             <span class="n">vst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vs</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k1a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">vbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">k0a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">k1a</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
 
@@ -678,6 +726,8 @@
             <span class="n">v_old</span> <span class="o">=</span> <span class="n">v_old_a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
             <span class="n">ws</span> <span class="o">=</span> <span class="n">wst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
             <span class="n">vs</span> <span class="o">=</span> <span class="n">vst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">ke_t1</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">ws</span> <span class="o">*</span> <span class="n">ws</span>
+            <span class="n">ke_a1</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">vs</span> <span class="o">*</span> <span class="n">vs</span>
             <span class="n">fyj</span> <span class="o">=</span> <span class="n">fy</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
             <span class="n">r</span> <span class="o">=</span> <span class="n">rc</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">coupled</span><span class="p">:</span>
@@ -750,8 +800,15 @@
 
         <span class="c1"># mean (low-passed) velocities seen by the Stokes-layer damping</span>
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">ke_t2</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">mt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">ke_a2</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">ma</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
             <span class="n">wbar</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a_hp_t</span> <span class="o">*</span> <span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">wbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
             <span class="n">vbar</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a_hp_a</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">vbar</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_DAMP_T</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ke_t0</span> <span class="o">-</span> <span class="n">ke_t1</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_DAMP_A</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ke_a0</span> <span class="o">-</span> <span class="n">ke_a1</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_FRIC_T</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ke_t1</span> <span class="o">-</span> <span class="n">ke_t2</span>
+        <span class="n">en</span><span class="p">[</span><span class="n">EN_FRIC_A</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ke_a1</span> <span class="o">-</span> <span class="n">ke_a2</span>
 
         <span class="c1"># -------------------------------------------------- bookkeeping</span>
         <span class="n">sc</span><span class="p">[</span><span class="n">S_T</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span>
