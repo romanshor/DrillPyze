@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Derivation of the DrillPyze coupled axial–torsional model &mdash; DrillPyze 1.0.0</title>
+  <title>Derivation of the DrillPyze coupled axial–torsional model &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -100,7 +100,15 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#steady-state-limits-and-analytic-results">9. Steady-state limits and analytic results</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#verification-summary-tests">10. Verification summary (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#notation">11. Notation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#energy-accounting">11. Energy accounting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mechanical-power-balances">11.1 Mechanical power balances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#discrete-accounting">11.2 Discrete accounting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hydraulic-power-and-the-mud-motor">11.3 Hydraulic power and the mud motor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#regenerative-braking">11.4 Regenerative braking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#well-a-while-drilling">11.5 Well A while drilling</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#notation">12. Notation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
 </ul>
 </li>
@@ -160,7 +168,7 @@ follows the live tension (§5);</p></li>
 <li><p>A decoupled variant (<code class="docutils literal notranslate"><span class="pre">along_string_coupling=False</span></code>), in which the only
 coupling is at the bit, is kept for comparison (§5.4).</p></li>
 </ul>
-<p>All quantities are SI. Notation is collected in §11.</p>
+<p>All quantities are SI. Energy accounting is in §11 and notation is collected in §12.</p>
 <hr class="docutils" />
 <section id="assumptions">
 <span id="1-assumptions"></span><h2>1. Assumptions<a class="headerlink" href="#assumptions" title="Link to this heading"></a></h2>
@@ -1247,12 +1255,181 @@ stable.</p></li>
 <tr class="row-even"><td><p>sliding: reactive torque turns the toolface left as WOB rises</p></td>
 <td><p>yes</p></td>
 </tr>
+<tr class="row-odd"><td><p>energy balances (rotation, axial) close to the scheme’s numerical dissipation; top drive</p></td>
+<td><p>within 2% / <span class="math notranslate nohighlight">\(10^{-4}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>no wall friction: no friction energy; tripping in brakes, tripping out lifts; stopping rotation brakes the top drive</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>hydraulic split sums to SPP·Q; motor power to the bit below its hydraulic power</p></td>
+<td><p>to <span class="math notranslate nohighlight">\(10^{-9}\)</span> / yes</p></td>
+</tr>
+<tr class="row-even"><td><p>energy accumulators: pause–resume, Python vs browser engine</p></td>
+<td><p>exact / round-off</p></td>
+</tr>
 </tbody>
 </table>
 </section>
 <hr class="docutils" />
+<section id="energy-accounting">
+<span id="11-energy-accounting"></span><h2>11. Energy accounting<a class="headerlink" href="#energy-accounting" title="Link to this heading"></a></h2>
+<p>The model tracks where the power put into the drilling system goes: the mud
+pumps, the top drive, the drawworks and the weight of the string on one side;
+rock destruction at the bit, wall friction, viscous damping, frictional losses
+in the mud, the mud motor and energy a hybrid rig could recover by
+regenerative braking on the other. The accumulators change no state, so the
+dynamics are identical with or without them (<code class="docutils literal notranslate"><span class="pre">Simulation.energy()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">DrillPyze.energy.flows</span></code>; spec 5.9 and 8.4).</p>
+<section id="mechanical-power-balances">
+<span id="111-mechanical-power-balances"></span><h3>11.1 Mechanical power balances<a class="headerlink" href="#mechanical-power-balances" title="Link to this heading"></a></h3>
+<p>Multiplying the torsional momentum balance (§3) by <span class="math notranslate nohighlight">\(\omega\)</span> and the
+constitutive relation by <span class="math notranslate nohighlight">\(\tau/K_t\)</span>, and integrating over the string, gives</p>
+<div class="math notranslate nohighlight">
+\[\frac{d}{dt}\underbrace{\int_0^L\Big(\tfrac12 m_t\omega^2 + \frac{\tau^2}{2K_t}\Big)dz}_{E_t}
+= \tau_0\,\omega_{td} - \text{TOB}\,\omega_s - P_{f,t} - P_{d,t},\]</div>
+<p>where <span class="math notranslate nohighlight">\(\omega_s\)</span> is the speed of the string at the bit face (the stator speed
+with a mud motor, the bit speed without), <span class="math notranslate nohighlight">\(P_{f,t}\)</span> the power lost to wall
+friction and <span class="math notranslate nohighlight">\(P_{d,t}\)</span> the power lost to fluid and material damping. The top
+drive’s inertia closes the surface end:
+<span class="math notranslate nohighlight">\(\tau_m\omega_{td} = \tfrac{d}{dt}\big(\tfrac12 I\omega_{td}^2\big) + \tau_0\omega_{td}\)</span>.
+When <span class="math notranslate nohighlight">\(\tau_m\omega_{td} &lt; 0\)</span> the string drives the motor: the top drive brakes,
+as when rotation is stopped or the string unwinds in stick-slip.</p>
+<p>The axial balance has the same form with the dynamic force <span class="math notranslate nohighlight">\(q^d = q - q^s\)</span>. The
+static load <span class="math notranslate nohighlight">\(q^s\)</span> balances the buoyed weight, <span class="math notranslate nohighlight">\(\partial_z q^s = -w_b t_z\)</span>, and vanishes at
+the bit, so the work of gravity on the moving string is a boundary term:</p>
+<div class="math notranslate nohighlight">
+\[\frac{d}{dt}\underbrace{\int_0^L\Big(\tfrac12 m_a v^2 + \frac{(q^d)^2}{2K_a}\Big)dz}_{E_a}
+= \underbrace{\int_0^L w_b t_z v\,dz}_{=\,-q^s_{top}v_{top}} \; - \; H v_{top} - \text{WOB}\,v_b - P_{f,a} - P_{d,a}.\]</div>
+<p>The hook power <span class="math notranslate nohighlight">\(-Hv_{top}\)</span> is negative while lowering (<span class="math notranslate nohighlight">\(v\)</span> positive down): gravity
+does the work and the drawworks brakes most of it. Hoisting reverses both signs.
+In a rotating string almost all wall friction is torsional, because the 2-D
+Coulomb force (§5) acts along the combined sliding direction.</p>
+<p>With a mud motor the rotor turns the bit at <span class="math notranslate nohighlight">\(\omega_b = \omega_s + \omega_r\)</span>, so the
+power into the rock is</p>
+<div class="math notranslate nohighlight">
+\[P_{rock} = \text{TOB}\,\omega_s + \text{TOB}\,\omega_r + \text{WOB}\,v_b,\]</div>
+<p>the first term from the string and the second from the motor.</p>
+</section>
+<section id="discrete-accounting">
+<span id="112-discrete-accounting"></span><h3>11.2 Discrete accounting<a class="headerlink" href="#discrete-accounting" title="Link to this heading"></a></h3>
+<p>The scheme (§8) splits each step into the characteristic update, the implicit
+damping (and Kelvin–Voigt) solve and the implicit friction projection. The last
+two change only velocities, so the energy each removes is the drop in kinetic
+energy across it, <span class="math notranslate nohighlight">\(\sum_j\tfrac12 m h_j(x_{before}^2 - x_{after}^2)\)</span>, evaluated exactly
+every step for both directions. Boundary work uses the face values of the
+step: <span class="math notranslate nohighlight">\(\tau_m\omega_{td}^+\)</span> (split into its positive and negative parts),
+<span class="math notranslate nohighlight">\(\tau_0\omega_{td}^+\)</span>, <span class="math notranslate nohighlight">\(-Hv_{top}\)</span> (split likewise), <span class="math notranslate nohighlight">\(-q^s_{top}v_{top}\)</span>,
+<span class="math notranslate nohighlight">\(\tau^f_n\omega^f_n\)</span>, <span class="math notranslate nohighlight">\(q^f_nv^f_n\)</span> and, with a motor, <span class="math notranslate nohighlight">\(\text{TOB}\,\omega_r\)</span>.</p>
+<p>Each balance then closes up to the numerical dissipation of the Godunov update,
+reported by <code class="docutils literal notranslate"><span class="pre">flows</span></code> as <code class="docutils literal notranslate"><span class="pre">numerical_torsion</span></code>, <code class="docutils literal notranslate"><span class="pre">numerical_axial</span></code> and
+<code class="docutils literal notranslate"><span class="pre">numerical_top_drive</span></code>. For Well A rotating at 80 rpm it is about 0.6 % of the
+power entering the string (0.3 kW of 46 kW); the top drive’s backward-Euler
+inertia loses less than <span class="math notranslate nohighlight">\(10^{-4}\)</span> of its power.</p>
+</section>
+<section id="hydraulic-power-and-the-mud-motor">
+<span id="113-hydraulic-power-and-the-mud-motor"></span><h3>11.3 Hydraulic power and the mud motor<a class="headerlink" href="#hydraulic-power-and-the-mud-motor" title="Link to this heading"></a></h3>
+<p>The pumps deliver <span class="math notranslate nohighlight">\(SPP\cdot Q\)</span> to the mud. The standpipe pressure splits as</p>
+<div class="math notranslate nohighlight">
+\[SPP = \Delta p_{surf} + \Delta p_{string} + \Delta p_m + \Delta p_{bit} + \Delta p_{ann} + \Delta p_{other},\]</div>
+<p>the surface lines, friction inside the string, the motor, the nozzles, friction in
+the annulus and the remainder (the hydrostatic difference between the bore and
+the annulus, and compression), taken from the transient model’s pressures and
+densities. Each times <span class="math notranslate nohighlight">\(Q\)</span> is a power, accumulated over every hydraulics tick.
+The motor differential <span class="math notranslate nohighlight">\(\Delta p_m = \Delta p_0 + \text{TOB}/K_T\)</span> (§6.4) rises with bit
+torque, so the standpipe pressure rises on bottom; the motor turns <span class="math notranslate nohighlight">\(\Delta p_m Q\)</span>
+into <span class="math notranslate nohighlight">\(\text{TOB}\,\omega_r\)</span> and the rest, including the off-bottom differential
+<span class="math notranslate nohighlight">\(\Delta p_0\)</span>, is lost as heat. The power drawn by the pumps is</p>
+<div class="math notranslate nohighlight">
+\[P_{pump} = \frac{SPP\cdot Q}{\eta_{pump}},\qquad \eta_{pump} = 0.9 \text{ by default},\]</div>
+<p>with <span class="math notranslate nohighlight">\(\eta_{pump}\)</span> the pumps’ mechanical and volumetric efficiency (case section
+<code class="docutils literal notranslate"><span class="pre">parameters.energy</span></code>).</p>
+<p>Mechanical specific energy follows from the whole bit power, string and motor:
+<span class="math notranslate nohighlight">\(MSE = P_{rock}/(A_{bit}\,ROP)\)</span>.</p>
+</section>
+<section id="regenerative-braking">
+<span id="114-regenerative-braking"></span><h3>11.4 Regenerative braking<a class="headerlink" href="#regenerative-braking" title="Link to this heading"></a></h3>
+<p>A hybrid rig with a regenerative drive could store the braking of the top drive
+and the drawworks:</p>
+<div class="math notranslate nohighlight">
+\[E_{rec} = \eta_{regen}\int\Big(\max(0, -\tau_m\omega_{td}) + \max(0, Hv_{top})\Big)dt,\qquad \eta_{regen} = 0.9 \text{ by default}.\]</div>
+<p>Well A, tripping one 90 ft stand at 0.5 m/s with the pumps off and no rotation
+(<code class="docutils literal notranslate"><span class="pre">examples/tripping_energy.py</span></code>):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>bit depth (m)</p></th>
+<th class="head"><p>in: braked (kWh)</p></th>
+<th class="head"><p>out: lifted (kWh)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>300</p></td>
+<td><p>1.53</p></td>
+<td><p>1.58</p></td>
+</tr>
+<tr class="row-odd"><td><p>1100</p></td>
+<td><p>2.88</p></td>
+<td><p>2.93</p></td>
+</tr>
+<tr class="row-even"><td><p>1900</p></td>
+<td><p>3.87</p></td>
+<td><p>4.31</p></td>
+</tr>
+<tr class="row-odd"><td><p>2500</p></td>
+<td><p>3.71</p></td>
+<td><p>4.97</p></td>
+</tr>
+</tbody>
+</table>
+<p>Below the kick-off (1500 m) the string lies on the low side and wall friction
+grows: going in it takes energy from the descent, coming out it adds to the lift.
+Integrated over depth, a trip in to 2500 m (91 stands) brakes 255 kWh, of which
+230 kWh is recoverable at 90 %; the trip out lifts 280 kWh, so the round trip
+costs 25 kWh, mostly in wall friction. Stopping 80 rpm rotation returns only
+about 0.02 kWh through the top drive. While drilling the drawworks brakes the
+string continuously at the rate of penetration (3.6 kW in the case below), and a
+string in stick-slip returns power to the top drive on every unwinding.</p>
+</section>
+<section id="well-a-while-drilling">
+<span id="115-well-a-while-drilling"></span><h3>11.5 Well A while drilling<a class="headerlink" href="#well-a-while-drilling" title="Link to this heading"></a></h3>
+<p>60 s means, Well A, 2000 L/min, autodriller at 80 kN:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>rotary, 80 rpm</p></th>
+<th class="head"><p>mud motor, 40 rpm</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>mud pumps, hydraulic (drive at 90 %)</p></td>
+<td><p>476 kW (529 kW)</p></td>
+<td><p>SPP 2622 psi</p></td>
+</tr>
+<tr class="row-odd"><td><p>top drive</p></td>
+<td><p>84 kW</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>mud motor: in from the mud / to the bit</p></td>
+<td><p>–</p></td>
+<td><p>129 kW / 79 kW</p></td>
+</tr>
+<tr class="row-odd"><td><p>rock destruction</p></td>
+<td><p>45.7 kW</p></td>
+<td><p>102 kW (ROP 60 m/h)</p></td>
+</tr>
+<tr class="row-even"><td><p>wall friction</p></td>
+<td><p>38 kW</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<p>Hydraulically, in the rotary case the string takes 228 kW, the nozzles 194 kW and
+the annulus 51 kW. All the dissipated power ends up as heat in the mud and the
+rock.</p>
+</section>
+</section>
+<hr class="docutils" />
 <section id="notation">
-<span id="11-notation"></span><h2>11. Notation<a class="headerlink" href="#notation" title="Link to this heading"></a></h2>
+<span id="12-notation"></span><h2>12. Notation<a class="headerlink" href="#notation" title="Link to this heading"></a></h2>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>symbol</p></th>

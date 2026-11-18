@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrillPyze — coupled drillstring dynamics &mdash; DrillPyze 1.0.0</title>
+  <title>DrillPyze — coupled drillstring dynamics &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -110,7 +110,7 @@
 <a class="reference external" href="https://romanshor.github.io/DrillPyze/"><img alt="Documentation" src="https://github.com/romanshor/DrillPyze/actions/workflows/main.yml/badge.svg" /></a>
 <a class="reference internal" href="#LICENSE"><span class="xref myst"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></span></a>
 <a class="reference external" href="https://doi.org/10.5281/zenodo.24289879"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.24289879.svg" /></a></p>
-<p><strong>Version 1.0.0 (released 2026-11-16).</strong>
+<p><strong>Version 1.1.0 (released 2026-11-18).</strong>
 <a class="reference external" href="https://romanshor.github.io/DrillPyze/">Documentation</a> ·
 <a class="reference external" href="https://romanshor.github.io/DrillPyze/lite/">Try it in your browser (DrillPyze Lite)</a> ·
 <a class="reference external" href="https://romanshor.github.io/DrillPyze/lite/#demo">Demo mode</a> ·
@@ -250,6 +250,25 @@ toolface turns left with WOB while sliding.</p></li>
 <li><p><strong>Hydraulics:</strong> the motor differential adds to SPP.</p></li>
 <li><p><strong>Well A:</strong> has no motor by default. A generic 6¾” 7/8-lobe motor (0.28
 rev/gal) is ready to switch on.</p></li>
+</ul>
+</li>
+<li><p><strong>Energy accounting</strong> (derivation §11): where the power goes, in real time.</p>
+<ul>
+<li><p><strong>In:</strong> the mud pumps (SPP·Q over a pump efficiency, 90 % by default), the
+top drive, the drawworks hoisting and gravity lowering the string.</p></li>
+<li><p><strong>Out:</strong> rock destruction at the bit (string and mud motor), wall friction,
+damping, frictional losses inside the string and in the annulus, the bit
+nozzles, the mud motor’s losses, and the energy stored in the string.</p></li>
+<li><p><strong>Regenerative braking:</strong> the braking of the top drive (negative torque)
+and the drawworks (tripping in, and drilling at ROP) that a hybrid rig
+could store, at a regeneration efficiency (90 % by default). Tripping
+Well A to 2500 m brakes 255 kWh; see <code class="docutils literal notranslate"><span class="pre">examples/tripping_energy.py</span></code>.</p></li>
+<li><p><strong>Exact bookkeeping:</strong> accumulated every time step, closing to the scheme’s
+numerical dissipation (about 0.6 %). <code class="docutils literal notranslate"><span class="pre">Simulation.energy()</span></code> returns the
+totals; <code class="docutils literal notranslate"><span class="pre">DrillPyze.energy.flows</span></code> turns two snapshots into mean powers.</p></li>
+<li><p><strong>Simulator:</strong> an energy panel under the drilling log, with a Sankey
+diagram, power over time and 1, 10 or 60 s means; the fourth page in demo
+mode.</p></li>
 </ul>
 </li>
 <li><p><strong>Wellbore temperature:</strong> the drift-flux model of Wang et al. (2023),
@@ -433,8 +452,8 @@ Web Worker behind the unchanged front end.</p></li>
 <li><p><strong>Speed:</strong> about 20–30× real time for Well A.</p></li>
 <li><p><strong>Phones and demos:</strong> the layout adapts to a phone. <strong>Demo</strong> (or a link
 ending in <code class="docutils literal notranslate"><span class="pre">#demo</span></code>) goes full screen: the dials fill the screen, and the
-along-string views and the log are pages below and to the right (swipe,
-scroll or use the arrow keys; Esc exits).</p></li>
+along-string views, the log and the energy flow are pages below and to the
+right (swipe, scroll or use the arrow keys; Esc exits).</p></li>
 <li><p><strong>Visit counts:</strong> the hosted site counts anonymous visits with
 <a class="reference external" href="https://www.goatcounter.com/">GoatCounter</a> (no cookies), plus a few events:
 first Play, run-ahead, demo mode, a new case, a results download.
@@ -602,6 +621,19 @@ BHP;</p></li>
 <li><p>pause and resume stay exact with hydraulics running;</p></li>
 </ul>
 </li>
+<li><p>Energy accounting:</p>
+<ul>
+<li><p>the rotation and axial balances close to the scheme’s numerical
+dissipation (within 2%), and the top drive within <span class="math notranslate nohighlight">\(10^{-4}\)</span>;</p></li>
+<li><p>with no wall friction there is no friction energy;</p></li>
+<li><p>the hydraulic split sums to SPP·Q; with a motor, the power it delivers to
+the bit is below its hydraulic power and counts as rock destruction;</p></li>
+<li><p>tripping in brakes, tripping out lifts, and stopping the rotation brakes
+the top drive;</p></li>
+<li><p>the efficiencies are validated, and pause and resume are exact;</p></li>
+<li><p>the browser engine reproduces every accumulator to round-off;</p></li>
+</ul>
+</li>
 <li><p>General:</p>
 <ul>
 <li><p>pause and resume are exact;</p></li>
@@ -634,7 +666,7 @@ documentation.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">main</span></code></p></td>
-<td><p>releases (currently 1.0.0)</p></td>
+<td><p>releases (currently 1.1.0)</p></td>
 <td><p>documentation at the site root, DrillPyze Lite at <code class="docutils literal notranslate"><span class="pre">/lite/</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">coupled-model</span></code></p></td>

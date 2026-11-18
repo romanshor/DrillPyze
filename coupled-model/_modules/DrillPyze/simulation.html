@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrillPyze.simulation &mdash; DrillPyze 1.0.0</title>
+  <title>DrillPyze.simulation &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -110,6 +110,9 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">kernel</span> <span class="k">as</span> <span class="n">K</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">controllers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">buoyed_weight</span>
+
+<span class="c1"># hydraulic energy terms (docs/derivation sec. 11), from WellboreHydraulics.loss_split</span>
+<span class="n">HYD_ENERGY</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'pump'</span><span class="p">,</span> <span class="s1">'surface'</span><span class="p">,</span> <span class="s1">'string'</span><span class="p">,</span> <span class="s1">'motor'</span><span class="p">,</span> <span class="s1">'nozzles'</span><span class="p">,</span> <span class="s1">'annulus'</span><span class="p">,</span> <span class="s1">'other'</span><span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelParameters</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.wellbore</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fluid</span>
 
@@ -192,6 +195,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sc</span><span class="p">[</span><span class="n">K</span><span class="o">.</span><span class="n">S_HOLED</span><span class="p">]</span> <span class="o">=</span> <span class="n">bit_depth</span> <span class="k">if</span> <span class="n">hole_depth</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="n">hole_depth</span><span class="p">,</span> <span class="n">bit_depth</span><span class="p">)</span>
         <span class="c1"># hole-bottom profile for the regenerative bit model (flat at the hole depth)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">surf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">720</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sc</span><span class="p">[</span><span class="n">K</span><span class="o">.</span><span class="n">S_HOLED</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">en</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">K</span><span class="o">.</span><span class="n">N_EN</span><span class="p">)</span>                 <span class="c1"># energy accumulators (J), see kernel EN_*</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">en_hyd</span> <span class="o">=</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">HYD_ENERGY</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>   <span class="c1"># hydraulic energy (J) by where it goes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_bit_depth0</span> <span class="o">=</span> <span class="n">bit_depth</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_geom_bitd</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_qs_c</span> <span class="o">=</span> <span class="kc">None</span>
@@ -549,6 +554,10 @@
                                      <span class="n">dp_motor</span><span class="o">=</span><span class="n">dp_motor</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hyd_last</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q1</span><span class="p">,</span> <span class="n">dpint</span><span class="o">=</span><span class="n">dpint</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hyd_records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="o">**</span><span class="n">hs</span><span class="p">))</span>
+        <span class="c1"># hydraulic energy over the interval: each pressure drop times the pump rate</span>
+        <span class="n">ls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hydraulics</span><span class="o">.</span><span class="n">loss_split</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">HYD_ENERGY</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">en_hyd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">ls</span><span class="p">[</span><span class="s1">'spp'</span><span class="p">]</span> <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">'pump'</span> <span class="k">else</span> <span class="n">ls</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">*</span> <span class="n">ls</span><span class="p">[</span><span class="s1">'q'</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_slow_tick</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Called every ~1 s of simulated time at fixed step counts (pause/resume exact)."""</span>
@@ -753,7 +762,7 @@
             <span class="n">rec</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rec_every</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rec_phase</span><span class="p">,</span>
             <span class="n">wf</span><span class="p">,</span> <span class="n">tf</span><span class="p">,</span> <span class="n">vf</span><span class="p">,</span> <span class="n">qf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">surf</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">k0t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">k0a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">k1t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">k1a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wbar</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vbar</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">kvt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kva</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_yield_drag_now</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">kvt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kva</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_yield_drag_now</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">en</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idx</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rec</span><span class="p">[:</span><span class="n">idx</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_steps_total</span> <span class="o">+=</span> <span class="n">nsteps</span>
@@ -777,6 +786,36 @@
                     <span class="o">**</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hydraulics</span><span class="o">.</span><span class="n">state</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'spp'</span><span class="p">,</span> <span class="s1">'p_bh'</span><span class="p">,</span> <span class="s1">'ecd'</span><span class="p">,</span> <span class="s1">'q_out'</span><span class="p">)}</span>
                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hydraulics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}),</span>
                     <span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motor_state</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">motor</span><span class="o">.</span><span class="n">enabled</span> <span class="k">else</span> <span class="p">{}))</span></div>
+
+
+<div class="viewcode-block" id="Simulation.energy">
+<a class="viewcode-back" href="../../api.html#DrillPyze.simulation.Simulation.energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">energy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Energy accounting (J, docs/derivation sec. 11), cumulative since the start:</span>
+
+<span class="sd">        * work by the top-drive motor (``td_pos``) and its braking (``td_neg``), into the</span>
+<span class="sd">          string at surface (``top``), by the hook hoisting (``hook_pos``) and braking</span>
+<span class="sd">          (``hook_neg``), and by gravity on the moving string (``gravity``);</span>
+<span class="sd">        * out of the string at the bit (``bit_torsion``, ``bit_axial``), from the mud</span>
+<span class="sd">          motor to the bit (``motor``), lost to wall friction and damping</span>
+<span class="sd">          (``friction_*``, ``damping_*``);</span>
+<span class="sd">        * hydraulic: pump work SPP Q (``h_pump``) and where it goes (``h_surface``,</span>
+<span class="sd">          ``h_string``, ``h_motor``, ``h_nozzles``, ``h_annulus``, ``h_other``);</span>
+<span class="sd">        * stored now: kinetic and strain energy of the string's dynamic state (``store_torsion``,</span>
+<span class="sd">          ``store_axial``) and of the top drive (``store_top_drive``).</span>
+
+<span class="sd">        Mean power over an interval is the difference of two calls over the elapsed time</span>
+<span class="sd">        (``DrillPyze.energy.flows``).</span>
+<span class="sd">        """</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">dx</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sc</span><span class="p">[</span><span class="n">K</span><span class="o">.</span><span class="n">S_T</span><span class="p">]),</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">K</span><span class="o">.</span><span class="n">EN_NAMES</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">en</span><span class="p">)})</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s1">'h_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">'</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">en_hyd</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+        <span class="n">out</span><span class="p">[</span><span class="s1">'store_torsion'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">h</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Kt</span><span class="p">)))</span>
+        <span class="n">out</span><span class="p">[</span><span class="s1">'store_axial'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">h</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ma</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">qd</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ka</span><span class="p">)))</span>
+        <span class="n">out</span><span class="p">[</span><span class="s1">'store_top_drive'</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">top_drive</span><span class="o">.</span><span class="n">inertia</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sc</span><span class="p">[</span><span class="n">K</span><span class="o">.</span><span class="n">S_WTD</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
 
 
 <div class="viewcode-block" id="Simulation.motor_state">

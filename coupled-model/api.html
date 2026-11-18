@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API reference &mdash; DrillPyze 1.0.0</title>
+  <title>API reference &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=8d563738"></script>
+      <script src="_static/documentation_options.js?v=fc837d61"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -84,11 +84,16 @@
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.simulation.Simulation"><code class="docutils literal notranslate"><span class="pre">Simulation</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#module-DrillPyze.energy">Energy accounting (<code class="docutils literal notranslate"><span class="pre">energy</span></code>)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#DrillPyze.energy.flows"><code class="docutils literal notranslate"><span class="pre">flows()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#module-DrillPyze.parameters">Parameters (<code class="docutils literal notranslate"><span class="pre">parameters</span></code>)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.FrictionParameters"><code class="docutils literal notranslate"><span class="pre">FrictionParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.DampingParameters"><code class="docutils literal notranslate"><span class="pre">DampingParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.BitParameters"><code class="docutils literal notranslate"><span class="pre">BitParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.MotorParameters"><code class="docutils literal notranslate"><span class="pre">MotorParameters</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.EnergyParameters"><code class="docutils literal notranslate"><span class="pre">EnergyParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.TopDriveParameters"><code class="docutils literal notranslate"><span class="pre">TopDriveParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.RampParameters"><code class="docutils literal notranslate"><span class="pre">RampParameters</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#DrillPyze.parameters.HydraulicsParameters"><code class="docutils literal notranslate"><span class="pre">HydraulicsParameters</span></code></a></li>
@@ -219,19 +224,20 @@ physics kernels. All quantities are SI unless a name says otherwise.</p>
 <li><p><a class="reference internal" href="#module-DrillPyze" id="id1">DrillPyze</a></p></li>
 <li><p><a class="reference internal" href="#module-DrillPyze.config" id="id2">Case files and builder (<code class="docutils literal notranslate"><span class="pre">config</span></code>)</a></p></li>
 <li><p><a class="reference internal" href="#module-DrillPyze.simulation" id="id3">Simulation (<code class="docutils literal notranslate"><span class="pre">simulation</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.parameters" id="id4">Parameters (<code class="docutils literal notranslate"><span class="pre">parameters</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.controllers" id="id5">Top-drive controllers (<code class="docutils literal notranslate"><span class="pre">controllers</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.kernel" id="id6">Time-step kernel (<code class="docutils literal notranslate"><span class="pre">kernel</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.survey" id="id7">Well path (<code class="docutils literal notranslate"><span class="pre">survey</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.wellbore" id="id8">Wellbore and fluid (<code class="docutils literal notranslate"><span class="pre">wellbore</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.drillstring" id="id9">Drillstring (<code class="docutils literal notranslate"><span class="pre">drillstring</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.geometry" id="id10">Cell geometry (<code class="docutils literal notranslate"><span class="pre">geometry</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.statics" id="id11">Steady torque and drag (<code class="docutils literal notranslate"><span class="pre">statics</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.hydraulics" id="id12">Hydraulics (<code class="docutils literal notranslate"><span class="pre">hydraulics</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.thermal" id="id13">Wellbore temperature (<code class="docutils literal notranslate"><span class="pre">thermal</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.formation" id="id14">Formation and rock strength (<code class="docutils literal notranslate"><span class="pre">formation</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.units" id="id15">Units (<code class="docutils literal notranslate"><span class="pre">units</span></code>)</a></p></li>
-<li><p><a class="reference internal" href="#module-DrillPyze.ui.server" id="id16">Simulator UI server (<code class="docutils literal notranslate"><span class="pre">ui.server</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.energy" id="id4">Energy accounting (<code class="docutils literal notranslate"><span class="pre">energy</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.parameters" id="id5">Parameters (<code class="docutils literal notranslate"><span class="pre">parameters</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.controllers" id="id6">Top-drive controllers (<code class="docutils literal notranslate"><span class="pre">controllers</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.kernel" id="id7">Time-step kernel (<code class="docutils literal notranslate"><span class="pre">kernel</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.survey" id="id8">Well path (<code class="docutils literal notranslate"><span class="pre">survey</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.wellbore" id="id9">Wellbore and fluid (<code class="docutils literal notranslate"><span class="pre">wellbore</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.drillstring" id="id10">Drillstring (<code class="docutils literal notranslate"><span class="pre">drillstring</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.geometry" id="id11">Cell geometry (<code class="docutils literal notranslate"><span class="pre">geometry</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.statics" id="id12">Steady torque and drag (<code class="docutils literal notranslate"><span class="pre">statics</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.hydraulics" id="id13">Hydraulics (<code class="docutils literal notranslate"><span class="pre">hydraulics</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.thermal" id="id14">Wellbore temperature (<code class="docutils literal notranslate"><span class="pre">thermal</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.formation" id="id15">Formation and rock strength (<code class="docutils literal notranslate"><span class="pre">formation</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.units" id="id16">Units (<code class="docutils literal notranslate"><span class="pre">units</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#module-DrillPyze.ui.server" id="id17">Simulator UI server (<code class="docutils literal notranslate"><span class="pre">ui.server</span></code>)</a></p></li>
 </ul>
 </nav>
 <section id="module-DrillPyze">
@@ -481,6 +487,26 @@ not ramped by default: the controller shapes the response.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="DrillPyze.simulation.Simulation.energy">
+<span class="sig-name descname"><span class="pre">energy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/simulation.html#Simulation.energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.simulation.Simulation.energy" title="Link to this definition"></a></dt>
+<dd><p>Energy accounting (J, docs/derivation sec. 11), cumulative since the start:</p>
+<ul class="simple">
+<li><p>work by the top-drive motor (<code class="docutils literal notranslate"><span class="pre">td_pos</span></code>) and its braking (<code class="docutils literal notranslate"><span class="pre">td_neg</span></code>), into the
+string at surface (<code class="docutils literal notranslate"><span class="pre">top</span></code>), by the hook hoisting (<code class="docutils literal notranslate"><span class="pre">hook_pos</span></code>) and braking
+(<code class="docutils literal notranslate"><span class="pre">hook_neg</span></code>), and by gravity on the moving string (<code class="docutils literal notranslate"><span class="pre">gravity</span></code>);</p></li>
+<li><p>out of the string at the bit (<code class="docutils literal notranslate"><span class="pre">bit_torsion</span></code>, <code class="docutils literal notranslate"><span class="pre">bit_axial</span></code>), from the mud
+motor to the bit (<code class="docutils literal notranslate"><span class="pre">motor</span></code>), lost to wall friction and damping
+(<code class="docutils literal notranslate"><span class="pre">friction_*</span></code>, <code class="docutils literal notranslate"><span class="pre">damping_*</span></code>);</p></li>
+<li><p>hydraulic: pump work SPP Q (<code class="docutils literal notranslate"><span class="pre">h_pump</span></code>) and where it goes (<code class="docutils literal notranslate"><span class="pre">h_surface</span></code>,
+<code class="docutils literal notranslate"><span class="pre">h_string</span></code>, <code class="docutils literal notranslate"><span class="pre">h_motor</span></code>, <code class="docutils literal notranslate"><span class="pre">h_nozzles</span></code>, <code class="docutils literal notranslate"><span class="pre">h_annulus</span></code>, <code class="docutils literal notranslate"><span class="pre">h_other</span></code>);</p></li>
+<li><p>stored now: kinetic and strain energy of the string’s dynamic state (<code class="docutils literal notranslate"><span class="pre">store_torsion</span></code>,
+<code class="docutils literal notranslate"><span class="pre">store_axial</span></code>) and of the top drive (<code class="docutils literal notranslate"><span class="pre">store_top_drive</span></code>).</p></li>
+</ul>
+<p>Mean power over an interval is the difference of two calls over the elapsed time
+(<code class="docutils literal notranslate"><span class="pre">DrillPyze.energy.flows</span></code>).</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="DrillPyze.simulation.Simulation.motor_state">
 <span class="sig-name descname"><span class="pre">motor_state</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/simulation.html#Simulation.motor_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.simulation.Simulation.motor_state" title="Link to this definition"></a></dt>
 <dd><p>Mud motor channels (SI): rotor speed relative to the stator <code class="docutils literal notranslate"><span class="pre">omega_motor</span></code>,
@@ -555,8 +581,43 @@ pipe impedance, controller name and torsional CFL number.</p>
 </dd></dl>
 
 </section>
+<section id="module-DrillPyze.energy">
+<span id="energy-accounting-energy"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">Energy accounting (<code class="docutils literal notranslate"><span class="pre">energy</span></code>)</a><a class="headerlink" href="#module-DrillPyze.energy" title="Link to this heading"></a></h2>
+<p>Energy accounting: mean power flows between two <code class="docutils literal notranslate"><span class="pre">Simulation.energy()</span></code> snapshots
+(docs/derivation/README.md sec. 11).</p>
+<p>Every term is a mean power (W) over the interval.  The three balances close up to the
+numerical dissipation of the scheme, which is reported as <code class="docutils literal notranslate"><span class="pre">numerical_*</span></code>:</p>
+<ul class="simple">
+<li><p>rotation:  top = bit_torsion + friction_torsion + damping_torsion + d(store_torsion)/dt</p></li>
+<li><dl class="simple">
+<dt>axial:     gravity + hook_pos - hook_neg = bit_axial + friction_axial + damping_axial</dt><dd><ul>
+<li><p>d(store_axial)/dt</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>top drive: td_pos - td_neg = top + d(store_top_drive)/dt</p></li>
+<li><dl class="simple">
+<dt>mud:       h_pump = h_surface + h_string + h_motor + h_nozzles + h_annulus + h_other,</dt><dd><p>and h_motor = motor (to the bit) + motor_loss</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">pump_drive</span></code> (h_pump / pump efficiency) and <code class="docutils literal notranslate"><span class="pre">recoverable</span></code> ((td_neg + hook_neg) x
+regeneration efficiency) use the case’s EnergyParameters.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="DrillPyze.energy.flows">
+<span class="sig-prename descclassname"><span class="pre">DrillPyze.energy.</span></span><span class="sig-name descname"><span class="pre">flows</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/energy.html#flows"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.energy.flows" title="Link to this definition"></a></dt>
+<dd><p>Mean power flows (W) between two energy snapshots <code class="docutils literal notranslate"><span class="pre">e0</span></code> and <code class="docutils literal notranslate"><span class="pre">e1</span></code> (dicts from
+<code class="docutils literal notranslate"><span class="pre">Simulation.energy()</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span></code> later).  Returns a dict with every cumulative term,
+the storage rates <code class="docutils literal notranslate"><span class="pre">d_store_*</span></code>, derived terms (<code class="docutils literal notranslate"><span class="pre">rock</span></code> at the bit, <code class="docutils literal notranslate"><span class="pre">motor_loss</span></code>,
+<code class="docutils literal notranslate"><span class="pre">pump_drive</span></code>, <code class="docutils literal notranslate"><span class="pre">pump_loss</span></code>, <code class="docutils literal notranslate"><span class="pre">braking</span></code>, <code class="docutils literal notranslate"><span class="pre">recoverable</span></code>) and the closure residuals
+<code class="docutils literal notranslate"><span class="pre">numerical_torsion</span></code>, <code class="docutils literal notranslate"><span class="pre">numerical_axial</span></code> and <code class="docutils literal notranslate"><span class="pre">numerical_top_drive</span></code>.</p>
+</dd></dl>
+
+</section>
 <section id="module-DrillPyze.parameters">
-<span id="parameters-parameters"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">Parameters (<code class="docutils literal notranslate"><span class="pre">parameters</span></code>)</a><a class="headerlink" href="#module-DrillPyze.parameters" title="Link to this heading"></a></h2>
+<span id="parameters-parameters"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">Parameters (<code class="docutils literal notranslate"><span class="pre">parameters</span></code>)</a><a class="headerlink" href="#module-DrillPyze.parameters" title="Link to this heading"></a></h2>
 <p>Model parameters (SI).  Defaults are order-of-magnitude placeholders; friction
 and damping are meant to be calibrated against field data.</p>
 <dl class="py class">
@@ -904,6 +965,34 @@ Stall:  T &lt;= K_T (dp_stall - dp_0); beyond it the rotor stops and dp = dp_sta
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="DrillPyze.parameters.EnergyParameters">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">EnergyParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pump_efficiency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regen_efficiency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#EnergyParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.EnergyParameters" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Efficiencies for the energy accounting (docs/derivation sec. 11); they do not
+change the physics.  The pumps’ drive power is SPP Q / pump_efficiency; braking
+by the top drive and the drawworks could be recovered at regen_efficiency by a
+hybrid rig’s regenerative drives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pump_efficiency</strong> (<em>float</em>)</p></li>
+<li><p><strong>regen_efficiency</strong> (<em>float</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.EnergyParameters.pump_efficiency">
+<span class="sig-name descname"><span class="pre">pump_efficiency</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.9</span></span><a class="headerlink" href="#DrillPyze.parameters.EnergyParameters.pump_efficiency" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.EnergyParameters.regen_efficiency">
+<span class="sig-name descname"><span class="pre">regen_efficiency</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.9</span></span><a class="headerlink" href="#DrillPyze.parameters.EnergyParameters.regen_efficiency" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="DrillPyze.parameters.TopDriveParameters">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">TopDriveParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inertia</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_torque</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#TopDriveParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.TopDriveParameters" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1171,10 +1260,10 @@ factories in <a class="reference internal" href="#module-DrillPyze.controllers" 
 
 <dl class="py class">
 <dt class="sig sig-object py" id="DrillPyze.parameters.ModelParameters">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">ModelParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">friction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">damping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">motor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_drive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autodriller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drawworks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ramps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydraulics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal_update_period</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#ModelParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.ModelParameters" title="Link to this definition"></a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">DrillPyze.parameters.</span></span><span class="sig-name descname"><span class="pre">ModelParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">friction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">damping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">motor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_drive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autodriller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drawworks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ramps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydraulics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal_update_period</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/parameters.html#ModelParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.parameters.ModelParameters" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>All model parameters: friction, damping, bit, mud motor, top drive, controller,
-autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
+autodriller, drawworks, ramps, hydraulics, thermal, energy accounting and the CFL number.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1189,6 +1278,7 @@ autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
 <li><p><strong>ramps</strong> (<a class="reference internal" href="#DrillPyze.parameters.RampParameters" title="DrillPyze.parameters.RampParameters"><em>RampParameters</em></a>)</p></li>
 <li><p><strong>hydraulics</strong> (<a class="reference internal" href="#DrillPyze.parameters.HydraulicsParameters" title="DrillPyze.parameters.HydraulicsParameters"><em>HydraulicsParameters</em></a>)</p></li>
 <li><p><strong>thermal</strong> (<a class="reference internal" href="#DrillPyze.thermal.ThermalParameters" title="DrillPyze.thermal.ThermalParameters"><em>ThermalParameters</em></a>)</p></li>
+<li><p><strong>energy</strong> (<a class="reference internal" href="#DrillPyze.parameters.EnergyParameters" title="DrillPyze.parameters.EnergyParameters"><em>EnergyParameters</em></a>)</p></li>
 <li><p><strong>thermal_update_period</strong> (<em>float</em>)</p></li>
 <li><p><strong>cfl</strong> (<em>float</em>)</p></li>
 </ul>
@@ -1250,6 +1340,11 @@ autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
 <dd></dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="DrillPyze.parameters.ModelParameters.energy">
+<span class="sig-name descname"><span class="pre">energy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#DrillPyze.parameters.EnergyParameters" title="DrillPyze.parameters.EnergyParameters"><span class="pre">EnergyParameters</span></a></span><a class="headerlink" href="#DrillPyze.parameters.ModelParameters.energy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="DrillPyze.parameters.ModelParameters.thermal_update_period">
 <span class="sig-name descname"><span class="pre">thermal_update_period</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.0</span></span><a class="headerlink" href="#DrillPyze.parameters.ModelParameters.thermal_update_period" title="Link to this definition"></a></dt>
 <dd></dd></dl>
@@ -1275,7 +1370,7 @@ autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</p>
 
 </section>
 <section id="module-DrillPyze.controllers">
-<span id="top-drive-controllers-controllers"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">Top-drive controllers (<code class="docutils literal notranslate"><span class="pre">controllers</span></code>)</a><a class="headerlink" href="#module-DrillPyze.controllers" title="Link to this heading"></a></h2>
+<span id="top-drive-controllers-controllers"></span><h2><a class="toc-backref" href="#id6" role="doc-backlink">Top-drive controllers (<code class="docutils literal notranslate"><span class="pre">controllers</span></code>)</a><a class="headerlink" href="#module-DrillPyze.controllers" title="Link to this heading"></a></h2>
 <p>Top-drive controller factories (Aarsnes, di Meglio &amp; Shor 2018, Sec. 3).</p>
 <p>All three industrial controllers share one block diagram: a PI speed loop,
 optionally with impedance feedback of band-pass filtered pipe torque.  The
@@ -1335,14 +1430,14 @@ at frequencies <code class="docutils literal notranslate"><span class="pre">freq
 
 </section>
 <section id="module-DrillPyze.kernel">
-<span id="time-step-kernel-kernel"></span><h2><a class="toc-backref" href="#id6" role="doc-backlink">Time-step kernel (<code class="docutils literal notranslate"><span class="pre">kernel</span></code>)</a><a class="headerlink" href="#module-DrillPyze.kernel" title="Link to this heading"></a></h2>
+<span id="time-step-kernel-kernel"></span><h2><a class="toc-backref" href="#id7" role="doc-backlink">Time-step kernel (<code class="docutils literal notranslate"><span class="pre">kernel</span></code>)</a><a class="headerlink" href="#module-DrillPyze.kernel" title="Link to this heading"></a></h2>
 <p>Numba time-stepping kernel for the coupled axial-torsional drillstring model.</p>
 <p>See <code class="docutils literal notranslate"><span class="pre">docs/derivation/README.md</span></code> for the equations.  The kernel is written over plain
 arrays so it compiles to tight machine code; <code class="xref py py-class docutils literal notranslate"><span class="pre">DrillPyze.Simulation</span></code>
 owns the arrays and provides the user-facing API.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="DrillPyze.kernel.advance">
-<span class="sig-prename descclassname"><span class="pre">DrillPyze.kernel.</span></span><span class="sig-name descname"><span class="pre">advance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nsteps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Kt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ka</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ma</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Za</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wb_len</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mus</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">muk</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qs_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ramps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec_every</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec_phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k0t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k0a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wbar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vbar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kvt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kva</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/kernel.html#advance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.kernel.advance" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">DrillPyze.kernel.</span></span><span class="sig-name descname"><span class="pre">advance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nsteps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Kt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ka</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ma</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Za</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wb_len</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mus</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">muk</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qs_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ramps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec_every</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rec_phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k0t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k0a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wbar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vbar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kvt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kva</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">en</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/kernel.html#advance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.kernel.advance" title="Link to this definition"></a></dt>
 <dd><p>Advance the model <code class="docutils literal notranslate"><span class="pre">nsteps</span></code> time steps.  State arrays are updated in
 place.</p>
 <p>Damping: k0* (1/s) act on the full velocity (Couette + calibration),
@@ -1354,7 +1449,7 @@ conductances (n+1, zero at the ends), fy (N/m) the yield-stress drag.  Every <co
 
 </section>
 <section id="module-DrillPyze.survey">
-<span id="well-path-survey"></span><h2><a class="toc-backref" href="#id7" role="doc-backlink">Well path (<code class="docutils literal notranslate"><span class="pre">survey</span></code>)</a><a class="headerlink" href="#module-DrillPyze.survey" title="Link to this heading"></a></h2>
+<span id="well-path-survey"></span><h2><a class="toc-backref" href="#id8" role="doc-backlink">Well path (<code class="docutils literal notranslate"><span class="pre">survey</span></code>)</a><a class="headerlink" href="#module-DrillPyze.survey" title="Link to this heading"></a></h2>
 <p>Wellbore survey with minimum-curvature geometry.</p>
 <p>All quantities are SI: measured depth in m, angles in radians internally.
 Inclination and azimuth may be supplied in degrees with <code class="docutils literal notranslate"><span class="pre">degrees=True</span></code>
@@ -1424,7 +1519,7 @@ interpolated tangent along the minimum-curvature path.</p>
 
 </section>
 <section id="module-DrillPyze.wellbore">
-<span id="wellbore-and-fluid-wellbore"></span><h2><a class="toc-backref" href="#id8" role="doc-backlink">Wellbore and fluid (<code class="docutils literal notranslate"><span class="pre">wellbore</span></code>)</a><a class="headerlink" href="#module-DrillPyze.wellbore" title="Link to this heading"></a></h2>
+<span id="wellbore-and-fluid-wellbore"></span><h2><a class="toc-backref" href="#id9" role="doc-backlink">Wellbore and fluid (<code class="docutils literal notranslate"><span class="pre">wellbore</span></code>)</a><a class="headerlink" href="#module-DrillPyze.wellbore" title="Link to this heading"></a></h2>
 <p>Wellbore (survey + casing/open-hole geometry) and drilling fluid.  SI units.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="DrillPyze.wellbore.Fluid">
@@ -1538,7 +1633,7 @@ uses the cased-hole friction factors.</p></li>
 
 </section>
 <section id="module-DrillPyze.drillstring">
-<span id="drillstring-drillstring"></span><h2><a class="toc-backref" href="#id9" role="doc-backlink">Drillstring (<code class="docutils literal notranslate"><span class="pre">drillstring</span></code>)</a><a class="headerlink" href="#module-DrillPyze.drillstring" title="Link to this heading"></a></h2>
+<span id="drillstring-drillstring"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">Drillstring (<code class="docutils literal notranslate"><span class="pre">drillstring</span></code>)</a><a class="headerlink" href="#module-DrillPyze.drillstring" title="Link to this heading"></a></h2>
 <p>Drillstring description and spatial discretisation.</p>
 <p>Components are listed from the bit upward (the usual BHA-report order).  The
 top component (normally drill pipe) is stretched or shortened so that the
@@ -1789,7 +1884,7 @@ align with component boundaries.</p>
 
 </section>
 <section id="module-DrillPyze.geometry">
-<span id="cell-geometry-geometry"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">Cell geometry (<code class="docutils literal notranslate"><span class="pre">geometry</span></code>)</a><a class="headerlink" href="#module-DrillPyze.geometry" title="Link to this heading"></a></h2>
+<span id="cell-geometry-geometry"></span><h2><a class="toc-backref" href="#id11" role="doc-backlink">Cell geometry (<code class="docutils literal notranslate"><span class="pre">geometry</span></code>)</a><a class="headerlink" href="#module-DrillPyze.geometry" title="Link to this heading"></a></h2>
 <p>Per-cell wellbore geometry used by both the torque &amp; drag model and the
 dynamic simulator, so the two compute identical normal forces.</p>
 <p>The soft-string normal force per unit length on a cell is</p>
@@ -1870,7 +1965,7 @@ Johancsik et al. (1984) expression and is valid for any change in azimuth
 
 </section>
 <section id="module-DrillPyze.statics">
-<span id="steady-torque-and-drag-statics"></span><h2><a class="toc-backref" href="#id11" role="doc-backlink">Steady torque and drag (<code class="docutils literal notranslate"><span class="pre">statics</span></code>)</a><a class="headerlink" href="#module-DrillPyze.statics" title="Link to this heading"></a></h2>
+<span id="steady-torque-and-drag-statics"></span><h2><a class="toc-backref" href="#id12" role="doc-backlink">Steady torque and drag (<code class="docutils literal notranslate"><span class="pre">statics</span></code>)</a><a class="headerlink" href="#module-DrillPyze.statics" title="Link to this heading"></a></h2>
 <p>Steady-state soft-string torque and drag (SI units).</p>
 <p>Friction on each element opposes the sliding velocity of the pipe surface,
 which has an axial component <code class="docutils literal notranslate"><span class="pre">v</span></code> (positive downhole) and a tangential
@@ -1983,7 +2078,7 @@ Returns an array with one value per friction factor.</p>
 
 </section>
 <section id="module-DrillPyze.hydraulics">
-<span id="hydraulics-hydraulics"></span><h2><a class="toc-backref" href="#id12" role="doc-backlink">Hydraulics (<code class="docutils literal notranslate"><span class="pre">hydraulics</span></code>)</a><a class="headerlink" href="#module-DrillPyze.hydraulics" title="Link to this heading"></a></h2>
+<span id="hydraulics-hydraulics"></span><h2><a class="toc-backref" href="#id13" role="doc-backlink">Hydraulics (<code class="docutils literal notranslate"><span class="pre">hydraulics</span></code>)</a><a class="headerlink" href="#module-DrillPyze.hydraulics" title="Link to this heading"></a></h2>
 <p>Borehole hydraulics (SI units).</p>
 <dl>
 <dt>Steady state</dt><dd><p>Newtonian and Bingham-plastic pressure losses in pipe and annular flow,
@@ -2153,6 +2248,15 @@ the bit nozzles.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="DrillPyze.hydraulics.WellboreHydraulics.loss_split">
+<span class="sig-name descname"><span class="pre">loss_split</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/hydraulics.html#WellboreHydraulics.loss_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.hydraulics.WellboreHydraulics.loss_split" title="Link to this definition"></a></dt>
+<dd><p>Where the standpipe pressure goes (Pa, docs/derivation sec. 11): surface lines,
+friction inside the string, the mud motor, the bit nozzles, friction in the
+annulus, and the rest (hydrostatic imbalance between the two paths and
+compression).  Times the pump rate these are the hydraulic power flows.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="DrillPyze.hydraulics.WellboreHydraulics.profiles">
 <span class="sig-name descname"><span class="pre">profiles</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/DrillPyze/hydraulics.html#WellboreHydraulics.profiles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#DrillPyze.hydraulics.WellboreHydraulics.profiles" title="Link to this definition"></a></dt>
 <dd><p>Pressure and density per cell of both paths (DataFrame with a <cite>path</cite> column).</p>
@@ -2168,7 +2272,7 @@ the bit nozzles.</p>
 
 </section>
 <section id="module-DrillPyze.thermal">
-<span id="wellbore-temperature-thermal"></span><h2><a class="toc-backref" href="#id13" role="doc-backlink">Wellbore temperature (<code class="docutils literal notranslate"><span class="pre">thermal</span></code>)</a><a class="headerlink" href="#module-DrillPyze.thermal" title="Link to this heading"></a></h2>
+<span id="wellbore-temperature-thermal"></span><h2><a class="toc-backref" href="#id14" role="doc-backlink">Wellbore temperature (<code class="docutils literal notranslate"><span class="pre">thermal</span></code>)</a><a class="headerlink" href="#module-DrillPyze.thermal" title="Link to this heading"></a></h2>
 <p>Transient wellbore temperature while drilling, after the modified drift-flux
 model of Wang, Khaled, Luu, Ashok &amp; van Oort (2023), “Downhole Temperature
 Estimation of a Growing High-Temperature Wellbore Using a Modified Drift
@@ -2320,7 +2424,7 @@ ECD and pump rate.</p>
 
 </section>
 <section id="module-DrillPyze.formation">
-<span id="formation-and-rock-strength-formation"></span><h2><a class="toc-backref" href="#id14" role="doc-backlink">Formation and rock strength (<code class="docutils literal notranslate"><span class="pre">formation</span></code>)</a><a class="headerlink" href="#module-DrillPyze.formation" title="Link to this heading"></a></h2>
+<span id="formation-and-rock-strength-formation"></span><h2><a class="toc-backref" href="#id15" role="doc-backlink">Formation and rock strength (<code class="docutils literal notranslate"><span class="pre">formation</span></code>)</a><a class="headerlink" href="#module-DrillPyze.formation" title="Link to this heading"></a></h2>
 <p>Formation description and rock strength at the bit.</p>
 <p>Rock strength enters the bit models through the drilling strength
 S = zeta * epsilon, with the intrinsic specific energy taken as the confined
@@ -2590,7 +2694,7 @@ conductivity 2.31 W/m K (Wang et al. 2023, SPE-214836-MS, Table 2).</p>
 
 </section>
 <section id="module-DrillPyze.units">
-<span id="units-units"></span><h2><a class="toc-backref" href="#id15" role="doc-backlink">Units (<code class="docutils literal notranslate"><span class="pre">units</span></code>)</a><a class="headerlink" href="#module-DrillPyze.units" title="Link to this heading"></a></h2>
+<span id="units-units"></span><h2><a class="toc-backref" href="#id16" role="doc-backlink">Units (<code class="docutils literal notranslate"><span class="pre">units</span></code>)</a><a class="headerlink" href="#module-DrillPyze.units" title="Link to this heading"></a></h2>
 <p>Unit conversions.</p>
 <p>DrillPyze works in SI units internally (m, s, kg, N, rad, Pa).  Field data are
 often in oilfield units; these helpers convert at the input/output boundary.</p>
@@ -2608,7 +2712,7 @@ often in oilfield units; these helpers convert at the input/output boundary.</p>
 
 </section>
 <section id="module-DrillPyze.ui.server">
-<span id="simulator-ui-server-ui-server"></span><h2><a class="toc-backref" href="#id16" role="doc-backlink">Simulator UI server (<code class="docutils literal notranslate"><span class="pre">ui.server</span></code>)</a><a class="headerlink" href="#module-DrillPyze.ui.server" title="Link to this heading"></a></h2>
+<span id="simulator-ui-server-ui-server"></span><h2><a class="toc-backref" href="#id17" role="doc-backlink">Simulator UI server (<code class="docutils literal notranslate"><span class="pre">ui.server</span></code>)</a><a class="headerlink" href="#module-DrillPyze.ui.server" title="Link to this heading"></a></h2>
 <p>DrillPyze interactive UI server.</p>
 <p>A small standard-library HTTP server that owns <code class="xref py py-class docutils literal notranslate"><span class="pre">Simulation</span></code> objects and
 steps them on request; the browser front end (<code class="docutils literal notranslate"><span class="pre">static/</span></code>) edits the case,
@@ -2667,7 +2771,7 @@ slow and hydraulics records, temperature and along-string profiles.</p>
 /api/results.csv).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="DrillPyze.ui.server.Handler.server_version">
-<span class="sig-name descname"><span class="pre">server_version</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'DrillPyzeUI/1.0.0'</span></span><a class="headerlink" href="#DrillPyze.ui.server.Handler.server_version" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">server_version</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'DrillPyzeUI/1.1.0'</span></span><a class="headerlink" href="#DrillPyze.ui.server.Handler.server_version" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">

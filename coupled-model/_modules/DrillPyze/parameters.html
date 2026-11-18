@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrillPyze.parameters &mdash; DrillPyze 1.0.0</title>
+  <title>DrillPyze.parameters &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -251,6 +251,21 @@
 
 
 
+<div class="viewcode-block" id="EnergyParameters">
+<a class="viewcode-back" href="../../api.html#DrillPyze.parameters.EnergyParameters">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EnergyParameters</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Efficiencies for the energy accounting (docs/derivation sec. 11); they do not</span>
+<span class="sd">    change the physics.  The pumps' drive power is SPP Q / pump_efficiency; braking</span>
+<span class="sd">    by the top drive and the drawworks could be recovered at regen_efficiency by a</span>
+<span class="sd">    hybrid rig's regenerative drives.</span>
+<span class="sd">    """</span>
+    <span class="n">pump_efficiency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
+    <span class="n">regen_efficiency</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span></div>
+
+
+
 <div class="viewcode-block" id="TopDriveParameters">
 <a class="viewcode-back" href="../../api.html#DrillPyze.parameters.TopDriveParameters">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -359,7 +374,7 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ModelParameters</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    All model parameters: friction, damping, bit, mud motor, top drive, controller,</span>
-<span class="sd">    autodriller, drawworks, ramps, hydraulics, thermal and the CFL number.</span>
+<span class="sd">    autodriller, drawworks, ramps, hydraulics, thermal, energy accounting and the CFL number.</span>
 <span class="sd">    """</span>
     <span class="n">friction</span><span class="p">:</span> <span class="n">FrictionParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">FrictionParameters</span><span class="p">)</span>
     <span class="n">damping</span><span class="p">:</span> <span class="n">DampingParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DampingParameters</span><span class="p">)</span>
@@ -372,6 +387,7 @@
     <span class="n">ramps</span><span class="p">:</span> <span class="n">RampParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">RampParameters</span><span class="p">)</span>
     <span class="n">hydraulics</span><span class="p">:</span> <span class="n">HydraulicsParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">HydraulicsParameters</span><span class="p">)</span>
     <span class="n">thermal</span><span class="p">:</span> <span class="n">ThermalParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ThermalParameters</span><span class="p">)</span>
+    <span class="n">energy</span><span class="p">:</span> <span class="n">EnergyParameters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">EnergyParameters</span><span class="p">)</span>
     <span class="n">thermal_update_period</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>   <span class="c1"># s between thermal / rock-strength updates</span>
     <span class="n">cfl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span>           <span class="c1"># Courant number on the axial wave speed</span>
 

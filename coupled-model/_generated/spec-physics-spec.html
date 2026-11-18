@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrillPyze physics specification &mdash; DrillPyze 1.0.0</title>
+  <title>DrillPyze physics specification &mdash; DrillPyze 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/documentation_options.js?v=fc837d61"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -113,7 +113,7 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="drillpyze-physics-specification">
 <h1>DrillPyze physics specification<a class="headerlink" href="#drillpyze-physics-specification" title="Link to this heading"></a></h1>
-<p><strong>Spec revision: 3</strong> (matches the Python model, DrillPyze 1.0.0, November 2026)</p>
+<p><strong>Spec revision: 4</strong> (matches the Python model, DrillPyze 1.1.0, November 2026)</p>
 <p>This document specifies, at implementation level, every piece of physics and
 numerics in the Python model (<code class="docutils literal notranslate"><span class="pre">src/DrillPyze</span></code>). It is precise enough to build
 an independent implementation; the browser version in <code class="docutils literal notranslate"><span class="pre">lite/</span></code> is built from
@@ -222,7 +222,7 @@ Rotary speeds are converted with 1 rpm = <span class="math notranslate nohighlig
 <td><p>components bit-first <code class="docutils literal notranslate"><span class="pre">{name,</span> <span class="pre">length,</span> <span class="pre">od,</span> <span class="pre">id,</span> <span class="pre">linear_mass,</span> <span class="pre">contact_od}</span></code>; the last row is stretched to surface</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code></p></td>
-<td><p>friction, damping, bit, motor, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, <code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
+<td><p>friction, damping, bit, motor, top_drive, controller, autodriller, drawworks, ramps, hydraulics, thermal, energy, <code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">simulation</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bit_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">hole_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">dx</span></code>, <code class="docutils literal notranslate"><span class="pre">record_rate</span></code>, <code class="docutils literal notranslate"><span class="pre">start_time</span></code>, <code class="docutils literal notranslate"><span class="pre">block_height</span></code></p></td>
@@ -390,23 +390,27 @@ Rotary speeds are converted with 1 rpm = <span class="math notranslate nohighlig
 <td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code>, flow rate, inlet temperature</p></td>
 <td><p>true, 0.0347 m³/s, 30 °C (+ section 10)</p></td>
 </tr>
-<tr class="row-even"><td><p>model</p></td>
+<tr class="row-even"><td><p>energy</p></td>
+<td><p>pump efficiency, regeneration efficiency (each in (0, 1]; output only, 5.9)</p></td>
+<td><p>0.9, 0.9</p></td>
+</tr>
+<tr class="row-odd"><td><p>model</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">cfl</span></code></p></td>
 <td><p>0.95</p></td>
 </tr>
-<tr class="row-odd"><td><p></p></td>
+<tr class="row-even"><td><p></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">thermal_update_period</span></code></p></td>
 <td><p>2 (slow ticks)</p></td>
 </tr>
-<tr class="row-even"><td><p>fluid</p></td>
+<tr class="row-odd"><td><p>fluid</p></td>
 <td><p><span class="math notranslate nohighlight">\(\rho_m\)</span>, PV, <span class="math notranslate nohighlight">\(\tau_y\)</span></p></td>
 <td><p>1000, null, null</p></td>
 </tr>
-<tr class="row-odd"><td><p></p></td>
+<tr class="row-even"><td><p></p></td>
 <td><p><span class="math notranslate nohighlight">\(\mu\)</span></p></td>
 <td><p>0.020 Pa s</p></td>
 </tr>
-<tr class="row-even"><td><p></p></td>
+<tr class="row-odd"><td><p></p></td>
 <td><p><span class="math notranslate nohighlight">\(\beta_T\)</span>, <span class="math notranslate nohighlight">\(c_m\)</span>, <span class="math notranslate nohighlight">\(T_\text{ref}\)</span></p></td>
 <td><p>1e-4 /K, 1500 m/s, 20 °C</p></td>
 </tr>
@@ -1006,6 +1010,36 @@ steps, one row is recorded with these columns:</p>
 <li><p><span class="math notranslate nohighlight">\(\omega_r\)</span>, <span class="math notranslate nohighlight">\(\Delta p_m\)</span>, <span class="math notranslate nohighlight">\(\phi_s\)</span>.</p></li>
 </ul>
 </section>
+<section id="energy-accumulators">
+<span id="59-energy-accumulators"></span><h3>5.9 Energy accumulators<a class="headerlink" href="#energy-accumulators" title="Link to this heading"></a></h3>
+<p>Thirteen accumulators (J, zero at initialisation; derivation sec. 11) are advanced
+every step. They change no state, so the physics is the same with or without them.</p>
+<p><strong>Surface</strong>, after the top drive and drawworks (5.2, 5.3):</p>
+<ul class="simple">
+<li><p>top-drive motor: with <span class="math notranslate nohighlight">\(P_m = \tau_m\omega_{td}^+\)</span>, <code class="docutils literal notranslate"><span class="pre">td_pos</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= P_m\Delta t\)</span> if <span class="math notranslate nohighlight">\(P_m \ge 0\)</span>, else <code class="docutils literal notranslate"><span class="pre">td_neg</span></code> <span class="math notranslate nohighlight">\(\mathrel{-}= P_m\Delta t\)</span>;</p></li>
+<li><p>into the string: <code class="docutils literal notranslate"><span class="pre">top</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= \tau_0\omega_{td}^+\Delta t\)</span>;</p></li>
+<li><p>hook: with <span class="math notranslate nohighlight">\(P_h = -H v_{top}\)</span>, <code class="docutils literal notranslate"><span class="pre">hook_pos</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= P_h\Delta t\)</span> if <span class="math notranslate nohighlight">\(P_h \ge 0\)</span>, else <code class="docutils literal notranslate"><span class="pre">hook_neg</span></code> <span class="math notranslate nohighlight">\(\mathrel{-}= P_h\Delta t\)</span>;</p></li>
+<li><p>gravity on the string’s static load: <code class="docutils literal notranslate"><span class="pre">gravity</span></code> <span class="math notranslate nohighlight">\(\mathrel{-}= q^s_{top}v_{top}\Delta t\)</span>.</p></li>
+</ul>
+<p><strong>Bit face</strong> (5.5):</p>
+<ul class="simple">
+<li><p>with a motor, <code class="docutils literal notranslate"><span class="pre">motor</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= \text{TOB}\,(\omega_b - \omega_s)\Delta t\)</span> (the rotor’s work on the bit relative to the stator);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bit_torsion</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= \tau^f_n\omega^f_n\Delta t\)</span> (the string side of the bit face: the stator speed with a motor);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bit_axial</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= q^f_n v^f_n\Delta t\)</span>, at the start of the cell update.</p></li>
+</ul>
+<p><strong>Losses</strong> (5.6, 5.7), from the kinetic energies <span class="math notranslate nohighlight">\(E_t = \sum_j \tfrac12 m_{t,j}h_j\omega_j^2\)</span> and
+<span class="math notranslate nohighlight">\(E_a = \sum_j \tfrac12 m_{a,j}h_j v_j^2\)</span> at three points of the step: after the cell update
+(<span class="math notranslate nohighlight">\(\omega^*, v^*\)</span>; <span class="math notranslate nohighlight">\(E^0\)</span>), after damping and Kelvin–Voigt (<span class="math notranslate nohighlight">\(\omega^s, v^s\)</span>; <span class="math notranslate nohighlight">\(E^1\)</span>, taken before
+the stick check) and after friction (<span class="math notranslate nohighlight">\(E^2\)</span>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">damping_torsion</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= E^0_t - E^1_t\)</span>, <code class="docutils literal notranslate"><span class="pre">damping_axial</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= E^0_a - E^1_a\)</span>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">friction_torsion</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= E^1_t - E^2_t\)</span>, <code class="docutils literal notranslate"><span class="pre">friction_axial</span></code> <span class="math notranslate nohighlight">\(\mathrel{+}= E^1_a - E^2_a\)</span>.</p></li>
+</ul>
+<p><strong>Stored energy</strong> (evaluated on request):
+<code class="docutils literal notranslate"><span class="pre">store_torsion</span></code> <span class="math notranslate nohighlight">\(= \sum_j h_j(\tfrac12 m_{t,j}\omega_j^2 + \tau_j^2/2K_{t,j})\)</span>,
+<code class="docutils literal notranslate"><span class="pre">store_axial</span></code> <span class="math notranslate nohighlight">\(= \sum_j h_j(\tfrac12 m_{a,j}v_j^2 + (q^d_j)^2/2K_{a,j})\)</span> and
+<code class="docutils literal notranslate"><span class="pre">store_top_drive</span></code> <span class="math notranslate nohighlight">\(= \tfrac12 I\omega_{td}^2\)</span>.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="inputs-ramps-and-modes">
@@ -1274,6 +1308,19 @@ This is the exact discrete steady state with the pipe at rest:</p>
 <li><p><strong>Motor differential:</strong> <span class="math notranslate nohighlight">\(\Delta p_m\)</span> used over the last interval.</p></li>
 <li><p><strong>Pit gain:</strong> <span class="math notranslate nohighlight">\(-(\text{pumped} - \text{returned})/\rho_m\)</span>.</p></li>
 </ul>
+</section>
+<section id="energy-split">
+<span id="84-energy-split"></span><h3>8.4 Energy split<a class="headerlink" href="#energy-split" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">loss_split</span></code> divides the standpipe pressure (Pa) by where it goes, from the current state:</p>
+<ul class="simple">
+<li><p>surface lines <span class="math notranslate nohighlight">\(SPP - p_{top}\)</span>;</p></li>
+<li><p>inside the string <span class="math notranslate nohighlight">\(p_{top} + \sum_j \rho_{d,j}g(z_{d,j} - z_{d,j-1}) - p_{d,last}\)</span> (<span class="math notranslate nohighlight">\(z_{d,-1} = 0\)</span>);</p></li>
+<li><p>the mud motor <span class="math notranslate nohighlight">\(\Delta p_m\)</span> and the nozzles <span class="math notranslate nohighlight">\(\Delta p_{bit}\)</span>;</p></li>
+<li><p>the annulus <span class="math notranslate nohighlight">\(p_{a,k_{ab}} - \sum_{j \le k_{ab}} \rho_{a,j}g(z_{a,j} - z_{a,j-1}) - p_{back}\)</span>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">other</span></code>, the remainder (the hydrostatic difference between the two paths, and compression).</p></li>
+</ul>
+<p>At every hydraulics tick (section 7), after <code class="docutils literal notranslate"><span class="pre">advance</span></code>, each term times <span class="math notranslate nohighlight">\(q_{in}\)</span> times the
+interval is added to an accumulator <code class="docutils literal notranslate"><span class="pre">h_&lt;term&gt;</span></code> (J); <code class="docutils literal notranslate"><span class="pre">h_pump</span></code> accumulates <span class="math notranslate nohighlight">\(SPP\,q_{in}\)</span>.</p>
 </section>
 </section>
 <hr class="docutils" />
@@ -1602,6 +1649,12 @@ the toolface <span class="math notranslate nohighlight">\((\text{TF}_0 + \phi_s)
 </ul>
 </li>
 <li><p><strong>Surface WOB:</strong> <span class="math notranslate nohighlight">\(H_{ref} - H\)</span>.</p></li>
+<li><p><strong>Energy</strong> (<code class="docutils literal notranslate"><span class="pre">energy()</span></code>): time, the thirteen accumulators of 5.9, the hydraulic accumulators of 8.4
+and the three stores. A mean power over an interval is the difference of two snapshots over
+the elapsed time; the pump drive is <code class="docutils literal notranslate"><span class="pre">h_pump</span></code> divided by the pump efficiency, and the recoverable
+braking is (<code class="docutils literal notranslate"><span class="pre">td_neg</span></code> + <code class="docutils literal notranslate"><span class="pre">hook_neg</span></code>) times the regeneration efficiency (case section <code class="docutils literal notranslate"><span class="pre">energy</span></code>).
+In the UI frame the hydraulic accumulators are carried forward from the last tick to the frame
+time at the current split, so that short averaging windows stay smooth.</p></li>
 </ul>
 <p>The UI frame format (<code class="docutils literal notranslate"><span class="pre">src/DrillPyze/ui/server.py</span></code>, <code class="docutils literal notranslate"><span class="pre">Session.frame</span></code>) is part of
 the browser contract: the lite engine reproduces it field for field.</p>
@@ -1636,6 +1689,9 @@ mud motor (a low stall differential, so the script stalls it, then a slide). It 
 </tr>
 <tr class="row-even"><td><p>3</p></td>
 <td><p>Mud motor (5.5.1; derivation sec. 6.4): speed from flow with slip and bypass, differential pressure from torque, stall, reactive torque and toolface; pump-rate ramp row in the kernel; motor differential in series with the nozzles (8.3); new scalar state, recorded channels and outputs. Off by default, so cases without a motor are unchanged.</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>Energy accounting (5.9, 8.4; derivation sec. 11): accumulators for the work at the string’s ends, the motor, friction and damping, the hydraulic split and the stored energy; <code class="docutils literal notranslate"><span class="pre">energy</span></code> case section with the pump and regeneration efficiencies. No change to the computed state.</p></td>
 </tr>
 </tbody>
 </table>

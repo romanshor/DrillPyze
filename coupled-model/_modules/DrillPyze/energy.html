@@ -1,0 +1,173 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrillPyze.energy &mdash; DrillPyze 1.1.0</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DrillPyze
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/readme.html">DrillPyze — coupled drillstring dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/changelog.html">Changelog</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Model derivation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-bit-models.html">Bit–rock interaction: from the Bit Model Library to three reduced models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-hydraulics.html">Hydraulics: steady losses and drift-flux transients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-readme.html">Derivation of the DrillPyze coupled axial–torsional model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/derivation-rock-strength-and-temperature.html">Rock strength, pore pressure and temperature at the bit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Physics specification</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../_generated/specification.html">Physics specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DrillPyze</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">DrillPyze.energy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for DrillPyze.energy</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Energy accounting: mean power flows between two ``Simulation.energy()`` snapshots</span>
+<span class="sd">(docs/derivation/README.md sec. 11).</span>
+
+<span class="sd">Every term is a mean power (W) over the interval.  The three balances close up to the</span>
+<span class="sd">numerical dissipation of the scheme, which is reported as ``numerical_*``:</span>
+
+<span class="sd">* rotation:  top = bit_torsion + friction_torsion + damping_torsion + d(store_torsion)/dt</span>
+<span class="sd">* axial:     gravity + hook_pos - hook_neg = bit_axial + friction_axial + damping_axial</span>
+<span class="sd">             + d(store_axial)/dt</span>
+<span class="sd">* top drive: td_pos - td_neg = top + d(store_top_drive)/dt</span>
+<span class="sd">* mud:       h_pump = h_surface + h_string + h_motor + h_nozzles + h_annulus + h_other,</span>
+<span class="sd">             and h_motor = motor (to the bit) + motor_loss</span>
+
+<span class="sd">``pump_drive`` (h_pump / pump efficiency) and ``recoverable`` ((td_neg + hook_neg) x</span>
+<span class="sd">regeneration efficiency) use the case's EnergyParameters.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.kernel</span><span class="w"> </span><span class="kn">import</span> <span class="n">EN_NAMES</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">HYD_ENERGY</span>
+
+<span class="n">CUMULATIVE</span> <span class="o">=</span> <span class="n">EN_NAMES</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="sa">f</span><span class="s1">'h_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">'</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">HYD_ENERGY</span><span class="p">)</span>
+<span class="n">STORES</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'store_torsion'</span><span class="p">,</span> <span class="s1">'store_axial'</span><span class="p">,</span> <span class="s1">'store_top_drive'</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="flows">
+<a class="viewcode-back" href="../../api.html#DrillPyze.energy.flows">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">flows</span><span class="p">(</span><span class="n">e0</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">energy_params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Mean power flows (W) between two energy snapshots ``e0`` and ``e1`` (dicts from</span>
+<span class="sd">    ``Simulation.energy()``, ``e1`` later).  Returns a dict with every cumulative term,</span>
+<span class="sd">    the storage rates ``d_store_*``, derived terms (``rock`` at the bit, ``motor_loss``,</span>
+<span class="sd">    ``pump_drive``, ``pump_loss``, ``braking``, ``recoverable``) and the closure residuals</span>
+<span class="sd">    ``numerical_torsion``, ``numerical_axial`` and ``numerical_top_drive``.</span>
+<span class="sd">    """</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">e1</span><span class="p">[</span><span class="s1">'time'</span><span class="p">]</span> <span class="o">-</span> <span class="n">e0</span><span class="p">[</span><span class="s1">'time'</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">dt</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'the second snapshot must be later than the first'</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">e1</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">-</span> <span class="n">e0</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">/</span> <span class="n">dt</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">CUMULATIVE</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">STORES</span><span class="p">:</span>
+        <span class="n">p</span><span class="p">[</span><span class="s1">'d_'</span> <span class="o">+</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">e1</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">-</span> <span class="n">e0</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">/</span> <span class="n">dt</span>
+    <span class="n">eta_p</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">energy_params</span><span class="p">,</span> <span class="s1">'pump_efficiency'</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span> <span class="k">if</span> <span class="n">energy_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.9</span>
+    <span class="n">eta_r</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">energy_params</span><span class="p">,</span> <span class="s1">'regen_efficiency'</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span> <span class="k">if</span> <span class="n">energy_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.9</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'rock'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'bit_torsion'</span><span class="p">]</span> <span class="o">+</span> <span class="n">p</span><span class="p">[</span><span class="s1">'bit_axial'</span><span class="p">]</span> <span class="o">+</span> <span class="n">p</span><span class="p">[</span><span class="s1">'motor'</span><span class="p">]</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'motor_loss'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'h_motor'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'motor'</span><span class="p">]</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'pump_drive'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'h_pump'</span><span class="p">]</span> <span class="o">/</span> <span class="n">eta_p</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'pump_loss'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'pump_drive'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'h_pump'</span><span class="p">]</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'braking'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'td_neg'</span><span class="p">]</span> <span class="o">+</span> <span class="n">p</span><span class="p">[</span><span class="s1">'hook_neg'</span><span class="p">]</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'recoverable'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'braking'</span><span class="p">]</span> <span class="o">*</span> <span class="n">eta_r</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'numerical_torsion'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'top'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'bit_torsion'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'friction_torsion'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'damping_torsion'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'d_store_torsion'</span><span class="p">]</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'numerical_axial'</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s1">'gravity'</span><span class="p">]</span> <span class="o">+</span> <span class="n">p</span><span class="p">[</span><span class="s1">'hook_pos'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'hook_neg'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'bit_axial'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'friction_axial'</span><span class="p">]</span>
+                            <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'damping_axial'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'d_store_axial'</span><span class="p">])</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'numerical_top_drive'</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">'td_pos'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'td_neg'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'top'</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="s1">'d_store_top_drive'</span><span class="p">]</span>
+    <span class="n">p</span><span class="p">[</span><span class="s1">'interval'</span><span class="p">]</span> <span class="o">=</span> <span class="n">dt</span>
+    <span class="k">return</span> <span class="n">p</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, Roman J. Shor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
